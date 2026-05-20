@@ -521,14 +521,14 @@ function bindEvents() {
       }
       const displayName = normalizeDisplayName(refs.registerNameInput.value);
       const loginId = normalizeLoginId(displayName);
-      const birthday = normalizeLoginPassword(refs.registerBirthdayInput.value);
+      const registerPassword = normalizeLoginPassword(refs.registerBirthdayInput.value);
 
       if (!displayName) {
         setNotice("名前（ID）を入力してください。");
         return;
       }
-      if (!birthday || birthday.length !== 8) {
-        setNotice("誕生日は8桁（YYYYMMDD）で入力してください。");
+      if (!/^\d{8}$/.test(registerPassword)) {
+        setNotice("パスワードは任意の8桁の数字で入力してください。");
         return;
       }
       if (!firebaseAuth) {
@@ -544,9 +544,9 @@ function bindEvents() {
         if (isPersonalPage) {
           state.currentUser = displayName;
           state.currentUserId = loginId;
-          await firebaseAuth.createUserWithEmailAndPassword(buildAuthEmail(loginId), birthday);
+          await firebaseAuth.createUserWithEmailAndPassword(buildAuthEmail(loginId), registerPassword);
         } else {
-          await createUserWithoutSwitchingSession(buildAuthEmail(loginId), birthday);
+          await createUserWithoutSwitchingSession(buildAuthEmail(loginId), registerPassword);
         }
 
         state.staffAccounts.push(toStaffAccount({ id: loginId, name: displayName }));
@@ -2966,7 +2966,7 @@ function convertFirebaseAuthError(error) {
     case "auth/email-already-in-use":
       return "この名前(ID)はすでに登録されています。";
     case "auth/weak-password":
-      return "パスワードは8桁の誕生日で入力してください。";
+      return "パスワードは任意の8桁の数字で入力してください。";
     case "auth/network-request-failed":
       return "通信に失敗しました。ネットワークを確認してください。";
     default:

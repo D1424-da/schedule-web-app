@@ -1,7 +1,7 @@
 # Firebase Authentication 設定メモ
 
 このアプリは Firebase Authentication のメール/パスワード認証を使います。
-画面上はこれまで通り「名前(ID)」と「誕生日(YYYYMMDD)」で扱いますが、内部では Firebase 用の疑似メールアドレスへ変換して認証します。
+画面上は「名前(ID)」と「任意の8桁数字パスワード」で扱い、内部では Firebase 用の疑似メールアドレスへ変換して認証します。
 
 ## Firebase Console で必要な設定
 
@@ -13,7 +13,7 @@
 ## 補足
 
 - 画面のログインID: 名前(ID)
-- パスワード: 誕生日8桁
+- パスワード: 任意の8桁数字
 - Firebase 側では `xxx@schedule.local` 形式の内部メールへ変換して管理します
 - 既存の GitHub Pages でも動作しますが、Firebase 設定が未完了だと認証画面から先へ進めません
 
