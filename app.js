@@ -1808,6 +1808,12 @@ async function handleConfirmationRequestAction(requestId, action) {
   }
 
   if (action === "cancel") {
+    if (await isConfirmationRequestAlreadyHandled(requestId)) {
+      setNotice("この確認依頼は相手側で処理済みです。最新状態に更新しました。");
+      await render();
+      return;
+    }
+
     if (normalizeLoginId(request.requesterId) !== currentId) {
       setNotice("この依頼は取消できません。");
       return;
@@ -1821,6 +1827,40 @@ async function handleConfirmationRequestAction(requestId, action) {
     }
     setNotice("確認依頼を取り消しました。");
     await render();
+  }
+}
+
+async function isConfirmationRequestAlreadyHandled(requestId) {
+  if (!cloudSyncEnabled || !currentFirebaseUser || !firestoreDb) {
+    return false;
+  }
+
+  try {
+    const snapshot = await firestoreDb.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOCUMENT).get();
+    if (!snapshot.exists) {
+      return false;
+    }
+
+    const cloudData = snapshot.data();
+    const cloudRequests = Array.isArray(cloudData?.confirmationRequests)
+      ? cloudData.confirmationRequests
+      : [];
+    const cloudRequest = cloudRequests.find((item) => item && item.id === requestId);
+    const alreadyHandled = !cloudRequest || cloudRequest.status !== "pending";
+
+    if (alreadyHandled) {
+      const mergedCloudData = mergeCloudDataWithPersonalDraft(cloudData);
+      applyLoadedData(mergedCloudData, false);
+      const remoteUpdatedAt = normalizeTimestamp(cloudData.updatedAt);
+      if (remoteUpdatedAt) {
+        lastKnownRemoteUpdatedAt = remoteUpdatedAt;
+      }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(buildLocalPayload()));
+    }
+
+    return alreadyHandled;
+  } catch (error) {
+    return false;
   }
 }
 
