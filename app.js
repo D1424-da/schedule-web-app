@@ -50,6 +50,8 @@ let tableScrollbarSyncing = false;
 let tableScrollbarResizeBound = false;
 let desktopRequestPanelEl = null;
 let desktopRequestListEl = null;
+let scheduleFinalizeRequired = false;
+let finalizeInFlight = false;
 
 const LOGIN_BLOCK_MS_AFTER_TOO_MANY_REQUESTS = 60 * 1000;
 
@@ -266,7 +268,20 @@ function bindEvents() {
         setNotice("ログイン後に確定通知できます。");
         return;
       }
+      if (!scheduleFinalizeRequired) {
+        setNotice("未確定の入力はありません。変更後に確定通知してください。");
+        return;
+      }
+      if (finalizeInFlight) {
+        return;
+      }
+
+      finalizeInFlight = true;
+      syncFinalizeButtonUi();
       saveState({ announce: true });
+      scheduleFinalizeRequired = false;
+      finalizeInFlight = false;
+      syncFinalizeButtonUi();
       setNotice("入力内容を確定し、他の利用者へ通知しました。");
     });
   }
@@ -656,7 +671,7 @@ function bindEvents() {
       }
 
       const savedCount = saveManualEntriesWithRepeat(state.editTarget.name, state.editTarget.date, entryData, repeatDays);
-      saveState();
+      saveState({ localOnly: isPersonalPage });
       closeDialog(refs.editDialog);
       setNotice(`予定を保存しました。${savedCount}件反映`);
       await render();
@@ -675,7 +690,8 @@ function bindEvents() {
 
       const key = entryKey(state.editTarget.name, state.editTarget.date);
       delete state.manualEntries[key];
-      saveState();
+      markScheduleNeedsFinalize();
+      saveState({ localOnly: isPersonalPage });
       closeDialog(refs.editDialog);
       setNotice("手動入力を解除しました。");
       await render();
@@ -771,6 +787,7 @@ async function render() {
   renderUserOrderList();
   renderRequestInbox();
   renderDesktopRequestPanel();
+  syncFinalizeButtonUi();
 }
 
 function startCloudListener() {
@@ -1282,7 +1299,7 @@ async function handleConfirmationRequestAction(requestId, action) {
     request.resolvedAt = new Date().toISOString();
     request.resolvedById = currentId;
     trimResolvedRequests();
-    saveState();
+    saveState({ localOnly: isPersonalPage });
     setNotice(`${request.requesterName} さんの依頼を承認し、${savedCount}件を反映しました。`);
     await render();
     return;
@@ -1333,6 +1350,32 @@ function createRequestId() {
     return window.crypto.randomUUID();
   }
   return `req-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function markScheduleNeedsFinalize() {
+  scheduleFinalizeRequired = true;
+  syncFinalizeButtonUi();
+}
+
+function syncFinalizeButtonUi() {
+  if (!refs.finalizeScheduleBtn) {
+    return;
+  }
+
+  if (finalizeInFlight) {
+    refs.finalizeScheduleBtn.disabled = true;
+    refs.finalizeScheduleBtn.textContent = "確定通知中...";
+    return;
+  }
+
+  if (scheduleFinalizeRequired) {
+    refs.finalizeScheduleBtn.disabled = false;
+    refs.finalizeScheduleBtn.textContent = "入力を確定して通知";
+    return;
+  }
+
+  refs.finalizeScheduleBtn.disabled = true;
+  refs.finalizeScheduleBtn.textContent = "確定済み（変更後に有効）";
 }
 
 function bindDragAndDrop(list) {
@@ -1560,6 +1603,8 @@ function saveManualEntriesWithRepeat(name, startDateStr, entryData, repeatDays) 
       updatedAt: new Date().toISOString(),
     };
   }
+
+  markScheduleNeedsFinalize();
 
   return count;
 }
@@ -1790,10 +1835,16 @@ async function loadState() {
 
 function saveState(options = {}) {
   const announce = options?.announce === true;
+  const localOnly = options?.localOnly === true;
   const localPayload = buildLocalPayload();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(localPayload));
+
+  if (localOnly) {
+    return;
+  }
+
   const cloudPayload = buildCloudPayload(announce);
   lastLocalSaveUpdatedAt = normalizeTimestamp(cloudPayload.updatedAt);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(localPayload));
   queueCloudSave(cloudPayload);
 }
 
