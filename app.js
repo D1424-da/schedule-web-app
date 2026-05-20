@@ -1,4 +1,5 @@
 const STORAGE_KEY = "weekly-schedule-v1";
+const NOTIFICATION_PREFERENCE_KEY = "weekly-notification-enabled-v1";
 
 const STATUS_OPTIONS = ["現場", "内業", "打合せ", "移動", "休み", "午前休", "午後休", "有給", "午前有休", "午後有休"];
 const DEFAULT_STAFF_ACCOUNTS = [
@@ -42,6 +43,7 @@ let pendingLoginDisplayName = "";
 let authProfileMap = {};
 let loginInFlight = false;
 let loginBlockedUntil = 0;
+let notificationEnabled = true;
 
 const LOGIN_BLOCK_MS_AFTER_TOO_MANY_REQUESTS = 60 * 1000;
 
@@ -150,6 +152,7 @@ init();
 async function init() {
   initCloudStore();
   loadAuthProfileMap();
+  loadNotificationPreference();
   await waitForInitialAuthState();
   await loadState();
   let currentUserAddedToStaff = false;
@@ -1416,7 +1419,7 @@ function notifyRemoteUpdate(cloudData) {
   showSyncAlert(message);
   setNotice(message);
 
-  if (window.Notification && Notification.permission === "granted") {
+  if (window.Notification && Notification.permission === "granted" && notificationEnabled) {
     const body = cloudData.updatedByPage === "overall"
       ? "全体ページの内容が更新されました。"
       : "個人入力ページの内容が更新されました。";
@@ -1428,6 +1431,33 @@ function notifyRemoteUpdate(cloudData) {
       // ブラウザ通知不可時は画面内通知のみ継続
     }
   }
+}
+
+function loadNotificationPreference() {
+  try {
+    const raw = localStorage.getItem(NOTIFICATION_PREFERENCE_KEY);
+    if (raw === null) {
+      notificationEnabled = true;
+      return;
+    }
+    notificationEnabled = raw !== "0";
+  } catch (error) {
+    notificationEnabled = true;
+  }
+}
+
+function saveNotificationPreference() {
+  try {
+    localStorage.setItem(NOTIFICATION_PREFERENCE_KEY, notificationEnabled ? "1" : "0");
+  } catch (error) {
+    // localStorage が使えない環境ではメモリ上の設定のみ使う
+  }
+}
+
+function setNotificationEnabled(enabled) {
+  notificationEnabled = !!enabled;
+  saveNotificationPreference();
+  syncNotificationUi();
 }
 
 function showSyncAlert(text) {
@@ -1454,23 +1484,27 @@ function syncNotificationUi() {
 
   if (!("Notification" in window)) {
     refs.notificationStatus.textContent = "端末通知: このブラウザは未対応";
+    refs.enableNotificationsBtn.textContent = "通知未対応";
     refs.enableNotificationsBtn.disabled = true;
     return;
   }
 
   if (Notification.permission === "granted") {
-    refs.notificationStatus.textContent = "端末通知: 有効";
-    refs.enableNotificationsBtn.disabled = true;
+    refs.notificationStatus.textContent = notificationEnabled ? "端末通知: 有効" : "端末通知: 無効（アプリ設定）";
+    refs.enableNotificationsBtn.textContent = notificationEnabled ? "通知を無効にする" : "通知を有効にする";
+    refs.enableNotificationsBtn.disabled = false;
     return;
   }
 
   if (Notification.permission === "denied") {
     refs.notificationStatus.textContent = "端末通知: ブロックされています";
+    refs.enableNotificationsBtn.textContent = "通知設定を確認";
     refs.enableNotificationsBtn.disabled = true;
     return;
   }
 
   refs.notificationStatus.textContent = "端末通知: 未設定";
+  refs.enableNotificationsBtn.textContent = "通知を有効にする";
   refs.enableNotificationsBtn.disabled = false;
 }
 
@@ -1481,10 +1515,21 @@ async function requestBrowserNotificationPermission() {
     return;
   }
 
+  if (Notification.permission === "granted") {
+    setNotificationEnabled(!notificationEnabled);
+    if (notificationEnabled) {
+      setNotice("端末通知を有効にしました。他の利用者の更新時に通知します。");
+    } else {
+      setNotice("端末通知を無効にしました。画面内通知は引き続き表示されます。");
+    }
+    return;
+  }
+
   const permission = await Notification.requestPermission();
   syncNotificationUi();
 
   if (permission === "granted") {
+    setNotificationEnabled(true);
     setNotice("端末通知を有効にしました。他の利用者の更新時に通知します。");
     return;
   }
@@ -1539,7 +1584,7 @@ async function handleAuthStateChanged(user) {
   syncAuthProfileDisplayName(user, state.currentUserId);
 
   state.isAdmin = await detectAdminUser(user);
-  ensureCurrentUserInStaffAccounts();
+  const currentUserAddedToStaff = ensureCurrentUserInStaffAccounts();
   setAuthProfile(user, state.currentUserId, state.currentUser);
   pendingLoginId = "";
   pendingLoginDisplayName = "";
@@ -1562,7 +1607,10 @@ async function handleAuthStateChanged(user) {
     closeDialog(refs.loginDialog);
   }
   startCloudListener();
-  saveState();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(buildLocalPayload()));
+  if (currentUserAddedToStaff) {
+    saveState();
+  }
   const signedInLabel = state.currentUser || state.currentUserId || "利用者";
   setNotice(`${signedInLabel}${state.isAdmin ? "（管理者）" : ""}でログインしました。`);
   await render();
