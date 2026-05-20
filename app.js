@@ -2106,3 +2106,30 @@ function escapeHtml(text) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
 }
+
+// Function to log in using only a username
+async function loginWithUsernameOnly(username, password) {
+    const db = firebase.firestore();
+    try {
+        // Search for the user by username
+        const userSnapshot = await db.collection('users').where('username', '==', username).get();
+        if (userSnapshot.empty) {
+            throw new Error('ユーザー名が見つかりません');
+        }
+
+        // Retrieve the user data
+        const userData = userSnapshot.docs[0].data();
+        const storedPassword = userData.password; // Password stored in Firestore
+
+        // Check if the password matches
+        if (storedPassword !== password) {
+            throw new Error('パスワードが正しくありません');
+        }
+
+        console.log('ログイン成功');
+        alert('ログイン成功しました');
+    } catch (error) {
+        console.error('ログインエラー:', error.message);
+        alert('ログインに失敗しました: ' + error.message);
+    }
+}
