@@ -1678,31 +1678,36 @@ function checkAndPromptIncomingRequests(incoming) {
       continue;
     }
 
-    const requestedStatus = String(request.entryData?.status || "").trim();
-    const isHalfDayRequest = Boolean(getHalfDayWorkingSlot(requestedStatus));
-    if (!isHalfDayRequest) {
+    if (!hasHalfDayOnApproverSide(request)) {
       continue;
     }
 
-    // 承認側（現在のユーザー）のこの日付での状態を確認
-    const approverRowName = state.currentUser;
-    if (!approverRowName) {
-      continue;
-    }
+    const allowOverwrite = window.confirm(
+      "半日休が含まれています。休みの変更は可能ですか？\nOK: 休みを含めて全日上書き\nキャンセル: 休みではないほうの予定のみ上書き",
+    );
+    request.halfdayApprovalDecision = allowOverwrite;
+    request.halfdayApprovalDecisionPrompted = true;
+  }
+}
 
-    const currentEntryKey = entryKey(approverRowName, request.startDate);
-    const currentEntry = state.manualEntries[currentEntryKey];
-    const currentStatus = String(currentEntry?.status || "").trim();
-    const approverIsHalfDay = Boolean(getHalfDayWorkingSlot(currentStatus));
+function hasHalfDayOnApproverSide(request) {
+  const approverRowName = normalizeDisplayName(state.currentUser || "");
+  if (!approverRowName || !request?.startDate) {
+    return false;
+  }
 
-    if (approverIsHalfDay) {
-      // 承認側が半日休みなので、確認ダイアログを表示
-      const message = `受信側（${escapeHtml(approverRowName)}）が${currentStatus}で、\n半日休み設定が重複しています。\n\nOK: 半日休みを含めて全部上書き\nキャンセル: 休みではない側のみ上書き`;
-      const allowOverwrite = window.confirm(message);
-      request.halfdayApprovalDecision = allowOverwrite;
-      request.halfdayApprovalDecisionPrompted = true;
+  const repeatDays = clamp(Number(request.repeatDays || 1), 1, 12);
+  const startDate = fromISODate(request.startDate);
+  for (let i = 0; i < repeatDays; i += 1) {
+    const targetDate = addDays(startDate, i);
+    const key = entryKey(approverRowName, toISODate(targetDate));
+    const status = normalizeDisplayName(state.manualEntries[key]?.status || "");
+    if (getHalfDayWorkingSlot(status)) {
+      return true;
     }
   }
+
+  return false;
 }
 
 function ensureDesktopRequestPanel() {
@@ -1812,16 +1817,14 @@ async function handleConfirmationRequestAction(requestId, action) {
       return;
     }
     const repeatDays = Number(request.repeatDays || 1);
-    const requestedStatus = normalizeDisplayName(request.entryData?.status || "");
-    const isHalfDayRequest = Boolean(getHalfDayWorkingSlot(requestedStatus));
     let allowHalfDayOverwrite = true;
-    if (isHalfDayRequest) {
+    if (hasHalfDayOnApproverSide(request)) {
       // 受信時に既に確認済みならそれを使う、そうでなければダイアログを出す
       if (request.halfdayApprovalDecisionPrompted) {
         allowHalfDayOverwrite = request.halfdayApprovalDecision;
       } else {
         allowHalfDayOverwrite = window.confirm(
-          "半日休み設定も含めて上書きしますか？\nOK: 半日休みを含めて全部上書き\nキャンセル: 休みではない側のみ上書き",
+          "半日休が含まれています。休みの変更は可能ですか？\nOK: 休みを含めて全日上書き\nキャンセル: 休みではないほうの予定のみ上書き",
         );
       }
     }
@@ -1849,7 +1852,21 @@ async function handleConfirmationRequestAction(requestId, action) {
       );
     }
 
-    const savedCount = savedCountOwner + savedCountTarget;
+    // 送信側（requesterName）のスケジュールも更新（オーナーと異なり、かつ承認者とも異なる場合）
+    const requesterRowName = normalizeDisplayName(request.requesterName || "");
+    let savedCountRequester = 0;
+    if (requesterRowName && requesterRowName !== request.ownerName && requesterRowName !== targetRowName) {
+      savedCountRequester = applyApprovedEntryWithRepeat(
+        requesterRowName,
+        request.startDate,
+        request.entryData,
+        repeatDays,
+        allowHalfDayOverwrite,
+      );
+    }
+
+    const savedCount = savedCountOwner + savedCountTarget + savedCountRequester;
+
     scheduleFinalizeRequired = false;
     removeConfirmationRequest(requestId);
     try {
@@ -2242,16 +2259,16 @@ function applyApprovedEntryWithRepeat(name, startDateStr, entryData, repeatDays,
 }
 
 function buildApprovedEntryData(currentEntry, requestedEntry, allowHalfDayOverwrite) {
-  const requestedStatus = normalizeDisplayName(requestedEntry?.status || "");
-  const requestedSlot = getHalfDayWorkingSlot(requestedStatus);
-
-  if (!requestedSlot || allowHalfDayOverwrite) {
+  if (allowHalfDayOverwrite) {
     return {
       ...requestedEntry,
       source: "manual",
       updatedAt: new Date().toISOString(),
     };
   }
+
+  const requestedStatus = normalizeDisplayName(requestedEntry?.status || "");
+  const requestedSlot = getHalfDayWorkingSlot(requestedStatus);
 
   const currentStatus = normalizeDisplayName(currentEntry?.status || "");
   const currentSlot = getHalfDayWorkingSlot(currentStatus);
@@ -2267,9 +2284,14 @@ function buildApprovedEntryData(currentEntry, requestedEntry, allowHalfDayOverwr
   const requestedSecondaryStatus = normalizeDisplayName(requestedEntry?.secondaryStatus || "");
 
   // 休み側は現状維持し、変更不可時は非休み側のみ上書きする
-  const nextSecondaryStatus = requestedSlot === currentSlot
-    ? (requestedSecondaryStatus || currentSecondaryStatus)
-    : currentSecondaryStatus;
+  let nextSecondaryStatus = currentSecondaryStatus;
+  if (requestedSlot) {
+    nextSecondaryStatus = requestedSlot === currentSlot
+      ? (requestedSecondaryStatus || currentSecondaryStatus)
+      : currentSecondaryStatus;
+  } else {
+    nextSecondaryStatus = requestedStatus || currentSecondaryStatus;
+  }
 
   return {
     ...requestedEntry,
