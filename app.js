@@ -238,6 +238,11 @@ function bindEvents() {
         return;
       }
 
+      if (isAdminLoginId(loginId) && !isAdminCredential(loginId, loginPassword)) {
+        setNotice("管理者IDのパスワードが正しくありません。");
+        return;
+      }
+
       if (loginInFlight) {
         return;
       }
@@ -1677,8 +1682,6 @@ function buildAdminAuthEmailCandidates() {
   return [
     `${ADMIN_AUTH_LOCAL_PART}@${AUTH_EMAIL_DOMAIN}`,
     buildAuthEmail(ADMIN_LOGIN_ID),
-    `${encodeURIComponent(normalizeLoginId(ADMIN_LOGIN_ID))}@${AUTH_EMAIL_DOMAIN}`,
-    `${normalizeLoginId(ADMIN_LOGIN_ID)}@${AUTH_EMAIL_DOMAIN}`,
   ];
 }
 
@@ -1700,7 +1703,11 @@ function buildAuthEmailCandidates(loginId) {
     `${normalized}@${AUTH_EMAIL_DOMAIN}`,
   ];
 
-  return [...new Set(candidates)];
+  return [...new Set(candidates)].filter((email) => isValidAuthEmail(email));
+}
+
+function isValidAuthEmail(email) {
+  return /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(String(email || ""));
 }
 
 async function signInWithLoginId(loginId, loginPassword) {
