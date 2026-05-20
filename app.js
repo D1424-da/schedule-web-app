@@ -375,7 +375,7 @@ function bindEvents() {
         return;
       }
       if (!canEditRow(state.editTarget.name)) {
-        setNotice("自分の行のみ編集できます。");
+        setNotice("本人の行、または管理者として編集できます。");
         return;
       }
 
@@ -403,7 +403,7 @@ function bindEvents() {
         return;
       }
       if (!canEditRow(state.editTarget.name)) {
-        setNotice("自分の行のみ編集できます。");
+        setNotice("本人の行、または管理者として編集できます。");
         return;
       }
 
@@ -581,7 +581,7 @@ function renderTable(weekDates) {
       const entry = resolveEntry(name, dateStr);
       const td = document.createElement("td");
       const btn = document.createElement("button");
-      const isEditable = isPersonalPage && canEditRow(name);
+      const isEditable = canEditRow(name);
       const statusClass = getStatusClass(entry);
 
       btn.type = "button";
@@ -592,7 +592,9 @@ function renderTable(weekDates) {
         btn.addEventListener("click", () => openEditDialog(name, dateStr, entry));
       } else {
         btn.disabled = true;
-        btn.title = "個人入力ページで本人ログイン時のみ編集できます";
+        btn.title = state.isAdmin
+          ? "管理者または本人のみ編集できます"
+          : "個人入力ページで本人ログイン時のみ編集できます";
       }
 
       td.appendChild(btn);
@@ -779,8 +781,8 @@ function resolveEntry(name, dateStr) {
 }
 
 function openEditDialog(name, dateStr, currentEntry) {
-  if (!isPersonalPage || !canEditRow(name) || !refs.editDialog) {
-    setNotice("自分の行のみ編集できます。");
+  if (!canEditRow(name) || !refs.editDialog) {
+    setNotice("本人の行、または管理者として編集できます。");
     return;
   }
 
@@ -967,6 +969,14 @@ function canManageAdminSettings() {
 }
 
 function canEditRow(name) {
+  if (!currentFirebaseUser) {
+    return false;
+  }
+
+  if (isOverallPage && state.isAdmin) {
+    return true;
+  }
+
   return isPersonalPage && Boolean(state.currentUser) && state.currentUser === name;
 }
 
@@ -1242,6 +1252,15 @@ async function handleAuthStateChanged(user) {
 async function detectAdminUser(user) {
   if (!user || !firebaseAuth) {
     return false;
+  }
+
+  const authLoginId = normalizeLoginId(getLoginIdFromAuthUser(user));
+  if (authLoginId && authLoginId === normalizeLoginId(ADMIN_LOGIN_ID)) {
+    return true;
+  }
+
+  if (normalizeLoginId(state.currentUserId) === normalizeLoginId(ADMIN_LOGIN_ID)) {
+    return true;
   }
 
   if (user.email === buildAuthEmail(ADMIN_LOGIN_ID)) {

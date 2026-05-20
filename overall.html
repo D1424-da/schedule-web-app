@@ -116,6 +116,61 @@
       <p id="notice" class="notice" aria-live="polite"></p>
     </main>
 
+    <dialog id="editDialog" class="edit-dialog">
+      <form id="editForm" method="dialog">
+        <h2>予定編集</h2>
+        <p id="editMeta" class="edit-meta"></p>
+
+        <label for="statusInput">状態</label>
+        <select id="statusInput" required>
+          <option value="現場">現場</option>
+          <option value="内業">内業</option>
+          <option value="打合せ">打合せ</option>
+          <option value="移動">移動</option>
+          <option value="休み">休み</option>
+          <option value="午前休">午前休</option>
+          <option value="午後休">午後休</option>
+          <option value="有給">有給</option>
+          <option value="午前有">午前有</option>
+          <option value="午後有">午後有</option>
+        </select>
+
+        <label for="workInput">業務内容</label>
+        <input id="workInput" type="text" placeholder="例: 官場線 作業準備" />
+
+        <label for="placeInput">場所</label>
+        <input id="placeInput" type="text" placeholder="例: 鹿児島市" />
+
+        <div class="repeat-row">
+          <label>
+            <input id="repeatEnabled" type="checkbox" />
+            日にちを繰り返し入力する
+          </label>
+          <label for="repeatCount">回数</label>
+          <select id="repeatCount" aria-label="繰り返し回数">
+            <option value="1">1日分</option>
+            <option value="2">2日分</option>
+            <option value="3">3日分</option>
+            <option value="4">4日分</option>
+            <option value="5">5日分</option>
+            <option value="6">6日分</option>
+            <option value="7">7日分</option>
+            <option value="8">8日分</option>
+            <option value="9">9日分</option>
+            <option value="10">10日分</option>
+            <option value="11">11日分</option>
+            <option value="12">12日分</option>
+          </select>
+        </div>
+
+        <div class="dialog-buttons">
+          <button id="saveEntryBtn" value="save" class="btn">保存する</button>
+          <button id="clearEntryBtn" value="clear" class="btn btn-secondary" type="button">手動入力を解除</button>
+          <button id="cancelEntryBtn" value="cancel" class="btn btn-ghost" type="button">保存しない</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="loginDialog" class="edit-dialog">
       <form id="loginForm" method="dialog">
         <h2>ログイン</h2>
