@@ -1776,10 +1776,7 @@ async function handleConfirmationRequestAction(requestId, action) {
       },
       Number(request.repeatDays || 1),
     );
-    request.status = "approved";
-    request.resolvedAt = new Date().toISOString();
-    request.resolvedById = currentId;
-    trimResolvedRequests();
+    removeConfirmationRequest(requestId);
     saveState({ forceCloud: true });
     setNotice(`${request.requesterName} さんの依頼を承認し、${savedCount}件を反映しました。`);
     await render();
@@ -1791,11 +1788,8 @@ async function handleConfirmationRequestAction(requestId, action) {
       setNotice("この依頼は却下できません。");
       return;
     }
-    request.status = "rejected";
-    request.resolvedAt = new Date().toISOString();
-    request.resolvedById = currentId;
-    trimResolvedRequests();
-    saveState();
+    removeConfirmationRequest(requestId);
+    saveState({ forceCloud: true });
     setNotice(`${request.requesterName} さんの依頼を却下しました。`);
     await render();
     return;
@@ -1806,14 +1800,15 @@ async function handleConfirmationRequestAction(requestId, action) {
       setNotice("この依頼は取消できません。");
       return;
     }
-    request.status = "canceled";
-    request.resolvedAt = new Date().toISOString();
-    request.resolvedById = currentId;
-    trimResolvedRequests();
-    saveState();
+    removeConfirmationRequest(requestId);
+    saveState({ forceCloud: true });
     setNotice("確認依頼を取り消しました。");
     await render();
   }
+}
+
+function removeConfirmationRequest(requestId) {
+  state.confirmationRequests = state.confirmationRequests.filter((item) => item && item.id !== requestId);
 }
 
 function trimResolvedRequests() {
