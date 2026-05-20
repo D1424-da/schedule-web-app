@@ -1,0 +1,50 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn() && request.auth.token.admin == true;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    // ユーザープロファイル
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid) || isAdmin();
+      allow update: if isOwner(uid) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // 個人スケジュール: 本人のみ更新可
+    match /schedules/{uid}/entries/{entryId} {
+      allow read: if signedIn();
+      allow create: if isOwner(uid) || isAdmin();
+      allow update: if isOwner(uid) || isAdmin();
+      allow delete: if isOwner(uid) || isAdmin();
+    }
+
+    // 全体設定（休日ルールなど）は管理者のみ
+    match /settings/{docId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    // 互換用: 既存の単一ドキュメント構成
+    // 本番では /schedules, /users, /settings に移行してください。
+    match /appData/{docId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    // 明示的に未定義パスは拒否
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
