@@ -2213,10 +2213,18 @@ function buildApprovedEntryData(currentEntry, requestedEntry, allowHalfDayOverwr
     };
   }
 
+  const currentSecondaryStatus = normalizeDisplayName(currentEntry?.secondaryStatus || "");
+  const requestedSecondaryStatus = normalizeDisplayName(requestedEntry?.secondaryStatus || "");
+
+  // 休み側は現状維持し、変更不可時は非休み側のみ上書きする
+  const nextSecondaryStatus = requestedSlot === currentSlot
+    ? (requestedSecondaryStatus || currentSecondaryStatus)
+    : currentSecondaryStatus;
+
   return {
     ...requestedEntry,
     status: currentStatus,
-    secondaryStatus: normalizeDisplayName(requestedEntry?.secondaryStatus || currentEntry?.secondaryStatus || ""),
+    secondaryStatus: nextSecondaryStatus,
     source: "manual",
     updatedAt: new Date().toISOString(),
   };
