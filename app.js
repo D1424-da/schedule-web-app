@@ -57,6 +57,7 @@ const LOGIN_BLOCK_MS_AFTER_TOO_MANY_REQUESTS = 60 * 1000;
 
 const state = {
   currentWeekStart: getMonday(new Date()),
+  currentMonthStart: getMonthStart(new Date()),
   staff: DEFAULT_STAFF_ACCOUNTS.map((item) => item.name),
   staffAccounts: DEFAULT_STAFF_ACCOUNTS.map((item) => toStaffAccount(item)),
   currentUser: "",
@@ -79,10 +80,15 @@ const state = {
 const refs = {
   prevWeekBtn: document.getElementById("prevWeekBtn"),
   nextWeekBtn: document.getElementById("nextWeekBtn"),
+  prevMonthBtn: document.getElementById("prevMonthBtn"),
+  nextMonthBtn: document.getElementById("nextMonthBtn"),
+  currentMonthBtn: document.getElementById("currentMonthBtn"),
   finalizeScheduleBtn: document.getElementById("finalizeScheduleBtn"),
   todayBtn: document.getElementById("todayBtn"),
   weekLabel: document.getElementById("weekLabel"),
+  monthLabel: document.getElementById("monthLabel"),
   scheduleTable: document.getElementById("scheduleTable"),
+  monthlyScheduleTable: document.getElementById("monthlyScheduleTable"),
   scheduleScrollbar: document.getElementById("scheduleScrollbar"),
   scheduleScrollbarInner: document.getElementById("scheduleScrollbarInner"),
   notice: document.getElementById("notice"),
@@ -258,6 +264,27 @@ function bindEvents() {
   if (refs.todayBtn) {
     refs.todayBtn.addEventListener("click", async () => {
       state.currentWeekStart = getMonday(new Date());
+      await render();
+    });
+  }
+
+  if (refs.prevMonthBtn) {
+    refs.prevMonthBtn.addEventListener("click", async () => {
+      state.currentMonthStart = addMonths(state.currentMonthStart, -1);
+      await render();
+    });
+  }
+
+  if (refs.nextMonthBtn) {
+    refs.nextMonthBtn.addEventListener("click", async () => {
+      state.currentMonthStart = addMonths(state.currentMonthStart, 1);
+      await render();
+    });
+  }
+
+  if (refs.currentMonthBtn) {
+    refs.currentMonthBtn.addEventListener("click", async () => {
+      state.currentMonthStart = getMonthStart(new Date());
       await render();
     });
   }
@@ -784,6 +811,7 @@ async function render() {
 
   renderWeekLabel(weekDates);
   renderTable(weekDates);
+  renderMonthlyCalendar();
   renderUserOrderList();
   renderRequestInbox();
   renderDesktopRequestPanel();
@@ -802,6 +830,7 @@ function startCloudListener() {
       }
 
       const cloudData = snapshot.data();
+      const mergedCloudData = mergeCloudDataWithPersonalDraft(cloudData);
       const remoteUpdatedAt = normalizeTimestamp(cloudData.updatedAt);
       if (!remoteUpdatedAt) {
         return;
@@ -809,7 +838,7 @@ function startCloudListener() {
 
       if (!lastKnownRemoteUpdatedAt) {
         lastKnownRemoteUpdatedAt = remoteUpdatedAt;
-        applyLoadedData(cloudData, false);
+        applyLoadedData(mergedCloudData, false);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(buildLocalPayload()));
         await render();
 
@@ -825,7 +854,7 @@ function startCloudListener() {
       }
 
       lastKnownRemoteUpdatedAt = remoteUpdatedAt;
-      applyLoadedData(cloudData, false);
+      applyLoadedData(mergedCloudData, false);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(buildLocalPayload()));
       await render();
 
@@ -941,6 +970,93 @@ function renderTable(weekDates) {
   refs.scheduleTable.appendChild(thead);
   refs.scheduleTable.appendChild(tbody);
   syncTableScrollbar();
+}
+
+function renderMonthlyCalendar() {
+  if (!refs.monthlyScheduleTable || !refs.monthLabel) {
+    return;
+  }
+  if (!isPersonalPage && !isOverallPage) {
+    return;
+  }
+
+  const monthStart = getMonthStart(state.currentMonthStart || new Date());
+  state.currentMonthStart = monthStart;
+  refs.monthLabel.textContent = `${monthStart.getFullYear()}年${monthStart.getMonth() + 1}月`;
+
+  const targetName = getLoggedInScheduleTargetName();
+  if (!targetName) {
+    refs.monthlyScheduleTable.innerHTML = "<tbody><tr><td class=\"monthly-empty\">ログイン中ユーザーの予定表示対象が見つかりません。</td></tr></tbody>";
+    return;
+  }
+
+  const weekDays = ["日", "月", "火", "水", "木", "金", "土"];
+  const thead = document.createElement("thead");
+  const trHead = document.createElement("tr");
+  for (const wd of weekDays) {
+    const th = document.createElement("th");
+    th.textContent = wd;
+    trHead.appendChild(th);
+  }
+  thead.appendChild(trHead);
+
+  const tbody = document.createElement("tbody");
+  const firstVisible = addDays(monthStart, -monthStart.getDay());
+  for (let row = 0; row < 6; row += 1) {
+    const tr = document.createElement("tr");
+    for (let col = 0; col < 7; col += 1) {
+      const date = addDays(firstVisible, row * 7 + col);
+      const dateStr = toISODate(date);
+      const td = document.createElement("td");
+      const inCurrentMonth = date.getMonth() === monthStart.getMonth();
+      if (!inCurrentMonth) {
+        td.classList.add("monthly-muted");
+      }
+      if (date.getDay() === 0) {
+        td.classList.add("monthly-sunday");
+      }
+
+      const dayNo = document.createElement("div");
+      dayNo.className = "monthly-day-no";
+      dayNo.textContent = String(date.getDate());
+
+      const entryEl = document.createElement("div");
+      entryEl.className = "monthly-entry";
+      const entry = resolveEntry(targetName, dateStr);
+      if (!entry) {
+        entryEl.textContent = "-";
+      } else {
+        const parts = [entry.status || ""];
+        if (entry.work) {
+          parts.push(entry.work);
+        }
+        entryEl.textContent = parts.filter((v) => Boolean(v)).join(" / ");
+      }
+
+      td.appendChild(dayNo);
+      td.appendChild(entryEl);
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+
+  refs.monthlyScheduleTable.innerHTML = "";
+  refs.monthlyScheduleTable.appendChild(thead);
+  refs.monthlyScheduleTable.appendChild(tbody);
+}
+
+function getLoggedInScheduleTargetName() {
+  const loginId = normalizeLoginId(state.currentUserId);
+  if (loginId) {
+    const account = findAccountByLoginId(loginId);
+    if (account?.name) {
+      return account.name;
+    }
+  }
+  if (isPersonalPage) {
+    return getPersonalRowName();
+  }
+  return "";
 }
 
 function bindTableScrollbarSync() {
@@ -2824,6 +2940,20 @@ function addDays(date, days) {
   const d = new Date(date);
   d.setDate(d.getDate() + days);
   return d;
+}
+
+function getMonthStart(baseDate) {
+  const d = new Date(baseDate);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(1);
+  return d;
+}
+
+function addMonths(date, months) {
+  const d = new Date(date);
+  d.setDate(1);
+  d.setMonth(d.getMonth() + months);
+  return getMonthStart(d);
 }
 
 function clamp(value, min, max) {

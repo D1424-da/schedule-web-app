@@ -51,6 +51,16 @@
         <p class="scroll-hint">左右にスクロールして全日程を表示できます。</p>
       </section>
 
+      <section class="card monthly-card" aria-label="月間予定表">
+        <div class="month-nav">
+          <button id="prevMonthBtn" class="btn btn-secondary" type="button">前月</button>
+          <button id="currentMonthBtn" class="btn btn-ghost" type="button">当月</button>
+          <button id="nextMonthBtn" class="btn btn-secondary" type="button">次月</button>
+        </div>
+        <div id="monthLabel" class="month-label"></div>
+        <table id="monthlyScheduleTable" class="monthly-table"></table>
+      </section>
+
       <p id="syncAlert" class="sync-alert hidden" aria-live="polite"></p>
 
       <section id="adminSettingsSection" class="card" aria-label="管理設定">
