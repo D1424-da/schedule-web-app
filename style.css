@@ -75,7 +75,7 @@ body.auth-locked main {
 
 .user-order-item {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: auto 1fr auto;
   gap: 8px;
   align-items: center;
   padding: 10px;
@@ -116,6 +116,28 @@ body.auth-locked main {
 
 .order-btn-danger:hover {
   background: #e8c3c3;
+}
+
+.drag-handle {
+  font-size: 20px;
+  color: #9aacb5;
+  cursor: grab;
+  padding: 0 6px;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.user-order-item.dragging {
+  opacity: 0.4;
+}
+
+.user-order-item.drag-over {
+  outline: 2px dashed var(--primary);
+  background: #e8f4fc;
 }
 
 .page-links {

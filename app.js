@@ -656,6 +656,14 @@ function renderUserOrderList() {
   state.staffAccounts.forEach((account, index) => {
     const li = document.createElement("li");
     li.className = "user-order-item";
+    li.draggable = true;
+    li.dataset.index = String(index);
+
+    const handle = document.createElement("span");
+    handle.className = "drag-handle";
+    handle.textContent = "⠿";
+    handle.title = "ドラッグして並び替え";
+    handle.setAttribute("aria-hidden", "true");
 
     const meta = document.createElement("div");
     meta.className = "user-order-meta";
@@ -694,9 +702,69 @@ function renderUserOrderList() {
     buttons.appendChild(upBtn);
     buttons.appendChild(downBtn);
     buttons.appendChild(deleteBtn);
+    li.appendChild(handle);
     li.appendChild(meta);
     li.appendChild(buttons);
     refs.userOrderList.appendChild(li);
+  });
+
+  bindDragAndDrop(refs.userOrderList);
+}
+
+function bindDragAndDrop(list) {
+  let dragSrcIndex = null;
+  let dragOverItem = null;
+
+  list.addEventListener("dragstart", (event) => {
+    const li = event.target.closest("li[data-index]");
+    if (!li) {
+      return;
+    }
+    dragSrcIndex = Number(li.dataset.index);
+    li.classList.add("dragging");
+    event.dataTransfer.effectAllowed = "move";
+  });
+
+  list.addEventListener("dragend", () => {
+    list.querySelectorAll(".dragging, .drag-over").forEach((el) => {
+      el.classList.remove("dragging", "drag-over");
+    });
+    dragSrcIndex = null;
+    dragOverItem = null;
+  });
+
+  list.addEventListener("dragover", (event) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    const li = event.target.closest("li[data-index]");
+    if (!li || li === dragOverItem) {
+      return;
+    }
+    list.querySelectorAll(".drag-over").forEach((el) => el.classList.remove("drag-over"));
+    dragOverItem = li;
+    li.classList.add("drag-over");
+  });
+
+  list.addEventListener("drop", async (event) => {
+    event.preventDefault();
+    const li = event.target.closest("li[data-index]");
+    if (!li || dragSrcIndex === null) {
+      return;
+    }
+
+    const dropIndex = Number(li.dataset.index);
+    if (dragSrcIndex === dropIndex) {
+      return;
+    }
+
+    const items = state.staffAccounts;
+    const [moved] = items.splice(dragSrcIndex, 1);
+    items.splice(dropIndex, 0, moved);
+
+    refreshStaffFromAccounts();
+    saveState();
+    setNotice("表示順を更新しました。");
+    await render();
   });
 }
 
