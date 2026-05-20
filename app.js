@@ -48,6 +48,7 @@ let loginInFlight = false;
 let loginBlockedUntil = 0;
 let scheduleNotificationEnabled = true;
 let requestNotificationEnabled = true;
+let lastIncomingRequestSignature = "";
 let tableScrollbarSyncing = false;
 let tableScrollbarResizeBound = false;
 let desktopRequestPanelEl = null;
@@ -2749,8 +2750,20 @@ function queueCloudSave(payload) {
 }
 
 function notifyRemoteUpdate(cloudData) {
-  const incomingCount = getPendingIncomingRequests(cloudData.confirmationRequests).length;
+  const incomingRequests = getPendingIncomingRequests(cloudData.confirmationRequests);
+  const incomingCount = incomingRequests.length;
   if (incomingCount > 0) {
+    const incomingSignature = incomingRequests
+      .map((item) => String(item?.id || ""))
+      .filter(Boolean)
+      .sort()
+      .join("|");
+
+    if (incomingSignature && incomingSignature === lastIncomingRequestSignature) {
+      return;
+    }
+    lastIncomingRequestSignature = incomingSignature;
+
     const msg = `確認依頼が${incomingCount}件あります。確認依頼セクションを確認してください。`;
     showSyncAlert(msg);
     setNotice(msg);
@@ -2765,6 +2778,9 @@ function notifyRemoteUpdate(cloudData) {
     }
     return;
   }
+
+  // 承認待ちがなくなったら、次の新着通知を出せるようにリセット
+  lastIncomingRequestSignature = "";
 
   if (!scheduleNotificationEnabled) {
     return;
