@@ -11,6 +11,8 @@ const DEFAULT_STAFF_ACCOUNTS = [
 ];
 const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
 const AUTH_EMAIL_DOMAIN = "schedule.local";
+const ADMIN_LOGIN_ID = "イオリ技建";
+const ADMIN_PASSWORD = "123456";
 
 const pageMode = document.body?.dataset?.page || "home";
 const isPersonalPage = pageMode === "personal";
@@ -190,6 +192,7 @@ function bindEvents() {
       state.currentUserId = loginId;
 
       try {
+        await ensureAdminAccount(loginId, loginPassword);
         await firebaseAuth.signInWithEmailAndPassword(buildAuthEmail(loginId), loginPassword);
       } catch (error) {
         const migrated = await migrateLegacyAccountOnLogin(loginId, loginPassword, error);
@@ -1233,12 +1236,40 @@ async function detectAdminUser(user) {
     return false;
   }
 
+  if (user.email === buildAuthEmail(ADMIN_LOGIN_ID)) {
+    return true;
+  }
+
   try {
     const tokenResult = await user.getIdTokenResult();
     return tokenResult?.claims?.admin === true;
   } catch (error) {
     return false;
   }
+}
+
+async function ensureAdminAccount(loginId, loginPassword) {
+  if (!firebaseAuth || !isAdminCredential(loginId, loginPassword)) {
+    return;
+  }
+
+  try {
+    await firebaseAuth.signInWithEmailAndPassword(buildAuthEmail(loginId), loginPassword);
+    await firebaseAuth.signOut();
+    return;
+  } catch (error) {
+    if (!isAuthUserMissingError(error)) {
+      return;
+    }
+  }
+
+  await firebaseAuth.createUserWithEmailAndPassword(buildAuthEmail(ADMIN_LOGIN_ID), ADMIN_PASSWORD);
+  await firebaseAuth.signOut();
+}
+
+function isAdminCredential(loginId, loginPassword) {
+  return normalizeLoginId(loginId) === normalizeLoginId(ADMIN_LOGIN_ID)
+    && normalizeLoginPassword(loginPassword) === normalizeLoginPassword(ADMIN_PASSWORD);
 }
 
 async function createUserWithoutSwitchingSession(email, password) {
