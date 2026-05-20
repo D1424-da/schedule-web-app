@@ -371,6 +371,45 @@ function bindEvents() {
         return;
       }
 
+      if (action === "edit-name") {
+        const targetAccount = state.staffAccounts[index];
+        if (!targetAccount) {
+          return;
+        }
+
+        const nextNameRaw = prompt("新しい表示名を入力してください", targetAccount.name);
+        if (nextNameRaw === null) {
+          return;
+        }
+
+        const nextName = normalizeDisplayName(nextNameRaw);
+        if (!nextName) {
+          setNotice("名前を入力してください。");
+          return;
+        }
+        if (nextName === targetAccount.name) {
+          return;
+        }
+        if (state.staffAccounts.some((account, i) => i !== index && account.name === nextName)) {
+          setNotice("同じ表示名はすでに存在します。");
+          return;
+        }
+
+        const prevName = targetAccount.name;
+        targetAccount.name = nextName;
+        renameManualEntriesByUserName(prevName, nextName);
+
+        if (state.currentUser === prevName) {
+          state.currentUser = nextName;
+        }
+
+        refreshStaffFromAccounts();
+        saveState();
+        setNotice(`表示名を ${prevName} から ${nextName} に変更しました。`);
+        await render();
+        return;
+      }
+
       if (action === "delete") {
         const targetAccount = state.staffAccounts[index];
         if (!targetAccount) {
@@ -732,6 +771,14 @@ function renderUserOrderList() {
     deleteBtn.dataset.action = "delete";
     deleteBtn.dataset.index = String(index);
 
+    const editNameBtn = document.createElement("button");
+    editNameBtn.type = "button";
+    editNameBtn.className = "btn btn-secondary order-btn";
+    editNameBtn.textContent = "名前変更";
+    editNameBtn.dataset.action = "edit-name";
+    editNameBtn.dataset.index = String(index);
+
+    buttons.appendChild(editNameBtn);
     buttons.appendChild(upBtn);
     buttons.appendChild(downBtn);
     buttons.appendChild(deleteBtn);
@@ -818,6 +865,24 @@ function deleteManualEntriesByUserName(userName) {
     if (key.startsWith(prefix)) {
       delete state.manualEntries[key];
     }
+  }
+}
+
+function renameManualEntriesByUserName(previousName, nextName) {
+  if (!previousName || !nextName || previousName === nextName) {
+    return;
+  }
+
+  const prevPrefix = `${previousName}::`;
+  for (const key of Object.keys(state.manualEntries)) {
+    if (!key.startsWith(prevPrefix)) {
+      continue;
+    }
+
+    const dateStr = key.slice(prevPrefix.length);
+    const nextKey = `${nextName}::${dateStr}`;
+    state.manualEntries[nextKey] = state.manualEntries[key];
+    delete state.manualEntries[key];
   }
 }
 
