@@ -119,6 +119,7 @@ async function init() {
   loadAuthProfileMap();
   await waitForInitialAuthState();
   await loadState();
+  let currentUserAddedToStaff = false;
 
   // 初期ロード時は waitForInitialAuthState が handleAuthStateChanged を呼ばないため
   // ここで管理者判定とページアクセス制御を実行する
@@ -148,6 +149,8 @@ async function init() {
       window.location.href = "overall.html";
       return;
     }
+
+    currentUserAddedToStaff = ensureCurrentUserInStaffAccounts();
   } else if (isAdminPage) {
     // 未ログインで管理者ページに来た場合はログインダイアログを表示するためそのまま続行
   }
@@ -165,6 +168,9 @@ async function init() {
 
   if (currentFirebaseUser) {
     startCloudListener();
+    if (currentUserAddedToStaff) {
+      saveState();
+    }
   }
 
   appReady = true;
@@ -684,7 +690,12 @@ function renderTable(weekDates) {
     const tr = document.createElement("tr");
 
     const tdName = document.createElement("th");
-    tdName.textContent = name;
+    const rowLoginId = findLoginIdByUserName(name);
+    const personalLoginId = isPersonalPage && name === personalRowName
+      ? normalizeLoginId(state.currentUserId)
+      : "";
+    const displayLoginId = rowLoginId || personalLoginId;
+    tdName.textContent = displayLoginId ? `${name}（ID:${displayLoginId}）` : name;
     tr.appendChild(tdName);
 
     for (const date of weekDates) {
@@ -1478,6 +1489,7 @@ async function handleAuthStateChanged(user) {
   syncAuthProfileDisplayName(user, state.currentUserId);
 
   state.isAdmin = await detectAdminUser(user);
+  ensureCurrentUserInStaffAccounts();
   setAuthProfile(user, state.currentUserId, state.currentUser);
   pendingLoginId = "";
   pendingLoginDisplayName = "";
@@ -2011,6 +2023,23 @@ function syncCurrentUserFromLoginId() {
 function refreshStaffFromAccounts() {
   const names = state.staffAccounts.map((item) => item.name).filter((name) => Boolean(name));
   state.staff = [...new Set(names)];
+}
+
+function ensureCurrentUserInStaffAccounts() {
+  const loginId = normalizeLoginId(state.currentUserId);
+  if (!loginId || isAdminLoginId(loginId)) {
+    return false;
+  }
+
+  if (findAccountByLoginId(loginId)) {
+    return false;
+  }
+
+  const displayName = normalizeDisplayName(state.currentUser || loginId) || loginId;
+  state.staffAccounts.push(toStaffAccount({ id: loginId, name: displayName }));
+  refreshStaffFromAccounts();
+  state.currentUser = displayName;
+  return true;
 }
 
 function setNotice(text) {
