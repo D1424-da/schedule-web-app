@@ -1784,7 +1784,10 @@ async function handleConfirmationRequestAction(requestId, action) {
       allowHalfDayOverwrite,
     );
 
-    const targetRowName = normalizeDisplayName(request.targetName || "");
+    const approverAccount = findAccountByLoginId(currentId);
+    const targetRowName = normalizeDisplayName(
+      approverAccount?.name || request.targetName || state.currentUser || currentId,
+    );
     let savedCountTarget = 0;
     if (targetRowName && targetRowName !== request.ownerName) {
       savedCountTarget = applyApprovedEntryWithRepeat(
@@ -1797,6 +1800,7 @@ async function handleConfirmationRequestAction(requestId, action) {
     }
 
     const savedCount = savedCountOwner + savedCountTarget;
+    scheduleFinalizeRequired = false;
     removeConfirmationRequest(requestId);
     try {
       await saveStateImmediately();
