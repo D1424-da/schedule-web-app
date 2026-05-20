@@ -65,6 +65,7 @@ const state = {
   },
   holidaysByYear: {},
   editTarget: null,
+  confirmationRequests: [],
 };
 
 const refs = {
@@ -94,6 +95,9 @@ const refs = {
   placeInput: document.getElementById("placeInput"),
   repeatEnabled: document.getElementById("repeatEnabled"),
   repeatCount: document.getElementById("repeatCount"),
+  requestConfirmEnabled: document.getElementById("requestConfirmEnabled"),
+  requestTargetInput: document.getElementById("requestTargetInput"),
+  requestMessageInput: document.getElementById("requestMessageInput"),
   clearEntryBtn: document.getElementById("clearEntryBtn"),
   cancelEntryBtn: document.getElementById("cancelEntryBtn"),
   loginDialog: document.getElementById("loginDialog"),
@@ -113,6 +117,8 @@ const refs = {
   enableNotificationsBtn: document.getElementById("enableNotificationsBtn"),
   notificationStatus: document.getElementById("notificationStatus"),
   syncAlert: document.getElementById("syncAlert"),
+  requestInboxSection: document.getElementById("requestInboxSection"),
+  requestInboxList: document.getElementById("requestInboxList"),
 };
 
 function openDialog(dialog) {
@@ -555,8 +561,51 @@ function bindEvents() {
       };
 
       const repeatDays = refs.repeatEnabled?.checked ? Number(refs.repeatCount?.value || 1) : 1;
-      const savedCount = saveManualEntriesWithRepeat(state.editTarget.name, state.editTarget.date, entryData, repeatDays);
+      const requiresConfirmation = Boolean(refs.requestConfirmEnabled?.checked);
 
+      if (requiresConfirmation) {
+        const requesterId = normalizeLoginId(state.currentUserId);
+        const requesterName = normalizeDisplayName(state.currentUser || requesterId);
+        const targetId = normalizeLoginId(refs.requestTargetInput?.value || "");
+        const targetAccount = findAccountByLoginId(targetId);
+
+        if (!requesterId) {
+          setNotice("確認依頼を送るにはログインが必要です。");
+          return;
+        }
+        if (!targetId || !targetAccount) {
+          setNotice("確認相手を選択してください。");
+          return;
+        }
+        if (requesterId === targetId) {
+          setNotice("自分自身には確認依頼できません。");
+          return;
+        }
+
+        state.confirmationRequests.push({
+          id: createRequestId(),
+          status: "pending",
+          createdAt: new Date().toISOString(),
+          requesterId,
+          requesterName,
+          targetId,
+          targetName: targetAccount.name,
+          ownerName: state.editTarget.name,
+          startDate: state.editTarget.date,
+          repeatDays: clamp(repeatDays, 1, 12),
+          entryData,
+          message: normalizeDisplayName(refs.requestMessageInput?.value || ""),
+        });
+
+        trimResolvedRequests();
+        saveState();
+        closeDialog(refs.editDialog);
+        setNotice(`${targetAccount.name} に確認依頼を送りました。承認後に予定へ反映されます。`);
+        await render();
+        return;
+      }
+
+      const savedCount = saveManualEntriesWithRepeat(state.editTarget.name, state.editTarget.date, entryData, repeatDays);
       saveState();
       closeDialog(refs.editDialog);
       setNotice(`予定を保存しました。${savedCount}件反映`);
@@ -586,6 +635,34 @@ function bindEvents() {
   if (refs.cancelEntryBtn) {
     refs.cancelEntryBtn.addEventListener("click", () => {
       closeDialog(refs.editDialog);
+    });
+  }
+
+  if (refs.requestConfirmEnabled) {
+    refs.requestConfirmEnabled.addEventListener("change", () => {
+      syncRequestFormUi();
+    });
+  }
+
+  if (refs.requestInboxList) {
+    refs.requestInboxList.addEventListener("click", async (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+
+      const button = target.closest("button[data-request-action]");
+      if (!button) {
+        return;
+      }
+
+      const action = button.dataset.requestAction;
+      const requestId = String(button.dataset.requestId || "");
+      if (!requestId || !action) {
+        return;
+      }
+
+      await handleConfirmationRequestAction(requestId, action);
     });
   }
 }
@@ -642,6 +719,7 @@ async function render() {
   renderWeekLabel(weekDates);
   renderTable(weekDates);
   renderUserOrderList();
+  renderRequestInbox();
 }
 
 function startCloudListener() {
@@ -882,6 +960,181 @@ function renderUserOrderList() {
   bindDragAndDrop(refs.userOrderList);
 }
 
+function syncRequestFormUi() {
+  const enabled = Boolean(refs.requestConfirmEnabled?.checked);
+  if (refs.requestTargetInput) {
+    refs.requestTargetInput.disabled = !enabled;
+  }
+  if (refs.requestMessageInput) {
+    refs.requestMessageInput.disabled = !enabled;
+  }
+}
+
+function populateRequestTargetOptions(ownerName) {
+  if (!refs.requestTargetInput) {
+    return;
+  }
+
+  const requesterId = normalizeLoginId(state.currentUserId);
+  refs.requestTargetInput.innerHTML = '<option value="">選択してください</option>';
+
+  state.staffAccounts
+    .filter((account) => normalizeLoginId(account.id) !== requesterId && account.name !== ownerName)
+    .forEach((account) => {
+      const option = document.createElement("option");
+      option.value = account.id;
+      option.textContent = account.name;
+      refs.requestTargetInput.appendChild(option);
+    });
+}
+
+function renderRequestInbox() {
+  if (!refs.requestInboxSection || !refs.requestInboxList) {
+    return;
+  }
+
+  const incoming = getPendingIncomingRequests(state.confirmationRequests);
+  const outgoing = getPendingOutgoingRequests(state.confirmationRequests);
+
+  if (incoming.length === 0 && outgoing.length === 0) {
+    refs.requestInboxSection.classList.add("hidden");
+    refs.requestInboxList.innerHTML = "";
+    return;
+  }
+
+  refs.requestInboxSection.classList.remove("hidden");
+  const lines = [];
+
+  for (const request of incoming) {
+    lines.push(`
+      <li class="request-item">
+        <div class="request-item-title">受信: ${escapeHtml(request.requesterName)} さんから確認依頼</div>
+        <div class="request-item-meta">対象: ${escapeHtml(request.ownerName)} / ${escapeHtml(request.startDate)} / ${request.repeatDays}日分</div>
+        <div class="request-item-meta">内容: ${escapeHtml(request.entryData?.status || "")}${request.entryData?.work ? ` / ${escapeHtml(request.entryData.work)}` : ""}${request.entryData?.place ? ` / ${escapeHtml(request.entryData.place)}` : ""}</div>
+        ${request.message ? `<div class="request-item-meta">メモ: ${escapeHtml(request.message)}</div>` : ""}
+        <div class="request-item-buttons">
+          <button class="btn" type="button" data-request-action="approve" data-request-id="${escapeHtml(request.id)}">承認して反映</button>
+          <button class="btn btn-secondary" type="button" data-request-action="reject" data-request-id="${escapeHtml(request.id)}">却下</button>
+        </div>
+      </li>
+    `);
+  }
+
+  for (const request of outgoing) {
+    lines.push(`
+      <li class="request-item">
+        <div class="request-item-title">送信: ${escapeHtml(request.targetName)} さんへ確認依頼中</div>
+        <div class="request-item-meta">対象: ${escapeHtml(request.ownerName)} / ${escapeHtml(request.startDate)} / ${request.repeatDays}日分</div>
+        ${request.message ? `<div class="request-item-meta">メモ: ${escapeHtml(request.message)}</div>` : ""}
+        <div class="request-item-buttons">
+          <button class="btn btn-ghost" type="button" data-request-action="cancel" data-request-id="${escapeHtml(request.id)}">依頼を取消</button>
+        </div>
+      </li>
+    `);
+  }
+
+  refs.requestInboxList.innerHTML = lines.join("");
+}
+
+function getPendingIncomingRequests(requests) {
+  const currentId = normalizeLoginId(state.currentUserId);
+  if (!currentId || !Array.isArray(requests)) {
+    return [];
+  }
+  return requests.filter((item) => item && item.status === "pending" && normalizeLoginId(item.targetId) === currentId);
+}
+
+function getPendingOutgoingRequests(requests) {
+  const currentId = normalizeLoginId(state.currentUserId);
+  if (!currentId || !Array.isArray(requests)) {
+    return [];
+  }
+  return requests.filter((item) => item && item.status === "pending" && normalizeLoginId(item.requesterId) === currentId);
+}
+
+async function handleConfirmationRequestAction(requestId, action) {
+  const request = state.confirmationRequests.find((item) => item && item.id === requestId);
+  if (!request || request.status !== "pending") {
+    return;
+  }
+
+  const currentId = normalizeLoginId(state.currentUserId);
+  if (!currentId) {
+    return;
+  }
+
+  if (action === "approve") {
+    if (normalizeLoginId(request.targetId) !== currentId) {
+      setNotice("この依頼は承認できません。");
+      return;
+    }
+    const savedCount = saveManualEntriesWithRepeat(
+      request.ownerName,
+      request.startDate,
+      {
+        ...request.entryData,
+        source: "manual",
+        updatedAt: new Date().toISOString(),
+      },
+      Number(request.repeatDays || 1),
+    );
+    request.status = "approved";
+    request.resolvedAt = new Date().toISOString();
+    request.resolvedById = currentId;
+    trimResolvedRequests();
+    saveState();
+    setNotice(`${request.requesterName} さんの依頼を承認し、${savedCount}件を反映しました。`);
+    await render();
+    return;
+  }
+
+  if (action === "reject") {
+    if (normalizeLoginId(request.targetId) !== currentId) {
+      setNotice("この依頼は却下できません。");
+      return;
+    }
+    request.status = "rejected";
+    request.resolvedAt = new Date().toISOString();
+    request.resolvedById = currentId;
+    trimResolvedRequests();
+    saveState();
+    setNotice(`${request.requesterName} さんの依頼を却下しました。`);
+    await render();
+    return;
+  }
+
+  if (action === "cancel") {
+    if (normalizeLoginId(request.requesterId) !== currentId) {
+      setNotice("この依頼は取消できません。");
+      return;
+    }
+    request.status = "canceled";
+    request.resolvedAt = new Date().toISOString();
+    request.resolvedById = currentId;
+    trimResolvedRequests();
+    saveState();
+    setNotice("確認依頼を取り消しました。");
+    await render();
+  }
+}
+
+function trimResolvedRequests() {
+  const pending = state.confirmationRequests.filter((item) => item && item.status === "pending");
+  const resolved = state.confirmationRequests
+    .filter((item) => item && item.status !== "pending")
+    .sort((a, b) => String(b.resolvedAt || "").localeCompare(String(a.resolvedAt || "")))
+    .slice(0, 120);
+
+  state.confirmationRequests = [...pending, ...resolved];
+}
+
+function createRequestId() {
+  if (window.crypto && typeof window.crypto.randomUUID === "function") {
+    return window.crypto.randomUUID();
+  }
+  return `req-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 function bindDragAndDrop(list) {
   if (list.dataset.dndBound === "1") {
     return;
@@ -1079,6 +1332,18 @@ function openEditDialog(name, dateStr, currentEntry) {
   if (refs.repeatCount) {
     refs.repeatCount.value = "1";
   }
+
+  populateRequestTargetOptions(name);
+  if (refs.requestConfirmEnabled) {
+    refs.requestConfirmEnabled.checked = false;
+  }
+  if (refs.requestTargetInput) {
+    refs.requestTargetInput.value = "";
+  }
+  if (refs.requestMessageInput) {
+    refs.requestMessageInput.value = "";
+  }
+  syncRequestFormUi();
 
   openDialog(refs.editDialog);
 }
@@ -1340,6 +1605,7 @@ function buildLocalPayload() {
     staffAccounts: state.staffAccounts,
     manualEntries: state.manualEntries,
     settings: state.settings,
+    confirmationRequests: state.confirmationRequests,
   };
 }
 
@@ -1350,6 +1616,7 @@ function buildCloudPayload() {
     staffAccounts: state.staffAccounts,
     manualEntries: state.manualEntries,
     settings: state.settings,
+    confirmationRequests: state.confirmationRequests,
     updatedByName: state.currentUser || (isPersonalPage ? "未ログイン利用者" : "管理画面"),
     updatedById: state.currentUserId || "",
     updatedByPage: pageMode,
@@ -1375,6 +1642,9 @@ function applyLoadedData(data, restoreSession = true) {
       ...state.settings,
       ...data.settings,
     };
+  }
+  if (Array.isArray(data.confirmationRequests)) {
+    state.confirmationRequests = data.confirmationRequests;
   }
   if (data.currentWeekStart) {
     state.currentWeekStart = fromISODate(data.currentWeekStart);
@@ -1411,6 +1681,23 @@ function queueCloudSave(payload) {
 }
 
 function notifyRemoteUpdate(cloudData) {
+  const incomingCount = getPendingIncomingRequests(cloudData.confirmationRequests).length;
+  if (incomingCount > 0) {
+    const msg = `確認依頼が${incomingCount}件あります。確認依頼セクションを確認してください。`;
+    showSyncAlert(msg);
+    setNotice(msg);
+    if (window.Notification && Notification.permission === "granted" && notificationEnabled) {
+      try {
+        new Notification("確認依頼が届きました", {
+          body: `承認待ちの依頼が${incomingCount}件あります。`,
+        });
+      } catch (error) {
+        // ブラウザ通知不可時は画面内通知のみ継続
+      }
+    }
+    return;
+  }
+
   const updaterName = String(cloudData.updatedByName || "他の利用者");
   const updatedAt = normalizeTimestamp(cloudData.updatedAt);
   const timeLabel = formatTimeLabel(updatedAt);

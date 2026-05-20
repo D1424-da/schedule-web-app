@@ -45,6 +45,12 @@
       </section>
 
       <p id="syncAlert" class="sync-alert hidden" aria-live="polite"></p>
+      <section id="requestInboxSection" class="card request-inbox hidden" aria-label="確認依頼">
+        <div class="settings-header">
+          <h2>確認依頼</h2>
+        </div>
+        <ul id="requestInboxList" class="request-list"></ul>
+      </section>
       <p id="notice" class="notice" aria-live="polite"></p>
     </main>
 
@@ -93,6 +99,19 @@
             <option value="11">11日分</option>
             <option value="12">12日分</option>
           </select>
+        </div>
+
+        <div class="request-row">
+          <label>
+            <input id="requestConfirmEnabled" type="checkbox" />
+            保存前に相手へ確認依頼を送る
+          </label>
+          <label for="requestTargetInput">確認相手</label>
+          <select id="requestTargetInput">
+            <option value="">選択してください</option>
+          </select>
+          <label for="requestMessageInput">依頼メモ</label>
+          <input id="requestMessageInput" type="text" maxlength="80" placeholder="例: 午前から同行可能ですか？" />
         </div>
 
         <div class="dialog-buttons">

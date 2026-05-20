@@ -532,6 +532,59 @@ input[type="text"] {
   width: 140px;
 }
 
+.request-row {
+  margin-top: 6px;
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid #d8e0e6;
+  border-radius: 10px;
+  background: #f8fbfd;
+}
+
+.request-inbox {
+  border-color: #c9dcf5;
+  background: #f4f9ff;
+}
+
+.request-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.request-item {
+  border: 1px solid #d4deea;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.request-item-title {
+  font-weight: 700;
+}
+
+.request-item-meta {
+  color: #495962;
+  font-size: 13px;
+}
+
+.request-item-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.request-item-buttons .btn {
+  min-height: 34px;
+  font-size: 13px;
+  padding: 6px 10px;
+}
+
 .dialog-buttons {
   margin-top: 8px;
   display: flex;
@@ -868,6 +921,26 @@ input[type="text"] {
 
   .repeat-row select {
     width: 100%;
+  }
+
+  .request-row {
+    padding: 8px;
+    gap: 4px;
+  }
+
+  .request-item {
+    padding: 8px;
+    gap: 4px;
+  }
+
+  .request-item-meta {
+    font-size: 12px;
+  }
+
+  .request-item-buttons .btn {
+    min-height: 32px;
+    font-size: 12px;
+    padding: 4px 8px;
   }
 
   .order-btn {
