@@ -1066,8 +1066,8 @@ function renderMonthlyCalendar() {
   state.currentMonthStart = monthStart;
   refs.monthLabel.textContent = `${monthStart.getFullYear()}年${monthStart.getMonth() + 1}月`;
 
-  const targetName = getLoggedInScheduleTargetName();
-  if (!targetName) {
+  const targetName = isPersonalPage ? getLoggedInScheduleTargetName() : "";
+  if (isPersonalPage && !targetName) {
     refs.monthlyScheduleTable.innerHTML = "<tbody><tr><td class=\"monthly-empty\">ログイン中ユーザーの予定表示対象が見つかりません。</td></tr></tbody>";
     return;
   }
@@ -1102,21 +1102,42 @@ function renderMonthlyCalendar() {
       dayNo.className = "monthly-day-no";
       dayNo.textContent = String(date.getDate());
 
-      const entryEl = document.createElement("div");
-      entryEl.className = "monthly-entry";
-      const entry = resolveEntry(targetName, dateStr);
-      if (!entry) {
-        entryEl.textContent = "-";
-      } else {
-        const parts = [entry.status || ""];
-        if (entry.work) {
-          parts.push(entry.work);
+      td.appendChild(dayNo);
+
+      if (isOverallPage) {
+        td.classList.add("monthly-overall-cell");
+        const listEl = document.createElement("div");
+        listEl.className = "monthly-entry-list";
+
+        let hasAnyEntry = false;
+        for (const name of state.staff) {
+          const entry = resolveEntry(name, dateStr);
+          if (!entry) {
+            continue;
+          }
+          hasAnyEntry = true;
+          const lineEl = document.createElement("div");
+          lineEl.className = "monthly-entry-line";
+          lineEl.textContent = `${name}: ${buildMonthlyEntryText(entry)}`;
+          listEl.appendChild(lineEl);
         }
-        entryEl.textContent = parts.filter((v) => Boolean(v)).join(" / ");
+
+        if (!hasAnyEntry) {
+          const emptyEl = document.createElement("div");
+          emptyEl.className = "monthly-empty";
+          emptyEl.textContent = "-";
+          listEl.appendChild(emptyEl);
+        }
+
+        td.appendChild(listEl);
+      } else {
+        const entryEl = document.createElement("div");
+        entryEl.className = "monthly-entry";
+        const entry = resolveEntry(targetName, dateStr);
+        entryEl.textContent = entry ? buildMonthlyEntryText(entry) : "-";
+        td.appendChild(entryEl);
       }
 
-      td.appendChild(dayNo);
-      td.appendChild(entryEl);
       tr.appendChild(td);
     }
     tbody.appendChild(tr);
@@ -1125,6 +1146,14 @@ function renderMonthlyCalendar() {
   refs.monthlyScheduleTable.innerHTML = "";
   refs.monthlyScheduleTable.appendChild(thead);
   refs.monthlyScheduleTable.appendChild(tbody);
+}
+
+function buildMonthlyEntryText(entry) {
+  const parts = [entry?.status || ""];
+  if (entry?.work) {
+    parts.push(entry.work);
+  }
+  return parts.filter((v) => Boolean(v)).join(" / ");
 }
 
 function getLoggedInScheduleTargetName() {

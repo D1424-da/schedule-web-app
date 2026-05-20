@@ -302,6 +302,24 @@ body.auth-locked main {
   word-break: break-word;
 }
 
+.monthly-overall-cell {
+  padding: 4px !important;
+}
+
+.monthly-entry-list {
+  display: grid;
+  gap: 2px;
+  max-height: 72px;
+  overflow: auto;
+}
+
+.monthly-entry-line {
+  font-size: 11px;
+  line-height: 1.25;
+  color: #25323a;
+  word-break: break-word;
+}
+
 .monthly-muted {
   background: #f8f9fb !important;
   color: #98a4ab;
@@ -951,6 +969,14 @@ input[type="text"] {
     font-size: 11px;
   }
 
+  .monthly-entry-list {
+    max-height: 66px;
+  }
+
+  .monthly-entry-line {
+    font-size: 10px;
+  }
+
   .business-note-input {
     min-height: 96px;
     font-size: 14px;
@@ -1136,6 +1162,14 @@ input[type="text"] {
   .monthly-entry,
   .monthly-empty {
     font-size: 10px;
+  }
+
+  .monthly-entry-list {
+    max-height: 54px;
+  }
+
+  .monthly-entry-line {
+    font-size: 9px;
   }
 
   .business-note-input {
