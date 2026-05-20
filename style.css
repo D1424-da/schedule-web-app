@@ -288,9 +288,30 @@ a.btn {
 }
 
 .table-wrap {
-  overflow-x: auto;
+  overflow-x: scroll;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+}
+
+.table-wrap::-webkit-scrollbar {
+  height: 10px;
+}
+
+.table-wrap::-webkit-scrollbar-track {
+  background: #e8edf1;
+  border-radius: 999px;
+}
+
+.table-wrap::-webkit-scrollbar-thumb {
+  background: #94a7b3;
+  border-radius: 999px;
+}
+
+.scroll-hint {
+  margin: 6px 2px 0;
+  color: #5a6a73;
+  font-size: 13px;
 }
 
 .schedule-table {
@@ -998,5 +1019,10 @@ input[type="text"] {
   .cell-place {
     font-size: 11px;
     line-height: 1.2;
+  }
+
+  .scroll-hint {
+    font-size: 12px;
+    margin-top: 4px;
   }
 }
