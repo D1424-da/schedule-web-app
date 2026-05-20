@@ -561,3 +561,323 @@ input[type="text"] {
     min-width: 108px;
   }
 }
+
+@media (max-width: 768px) {
+  .topbar {
+    padding: 16px 12px 10px;
+  }
+
+  .topbar h1 {
+    font-size: clamp(24px, 5vw, 32px);
+  }
+
+  .subtitle {
+    font-size: clamp(13px, 3vw, 16px);
+  }
+
+  .page-links {
+    margin-top: 8px;
+    gap: 6px;
+  }
+
+  .page-links a {
+    font-size: 15px;
+    padding: 10px 14px;
+    min-height: 40px;
+  }
+
+  .auth-bar {
+    width: 100%;
+    padding: 8px 10px;
+    gap: 6px;
+  }
+
+  .current-user {
+    font-size: 14px;
+    padding: 6px 10px;
+    flex: 1 1 100%;
+  }
+
+  .auth-bar .btn,
+  .notification-tools .btn {
+    min-height: 40px;
+    font-size: 14px;
+    padding: 8px 12px;
+  }
+
+  .notification-tools {
+    width: 100%;
+    padding: 6px 10px 0;
+  }
+
+  .notification-status {
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+
+  .container {
+    width: 100%;
+    margin: 0 auto 20px;
+    gap: 12px;
+  }
+
+  .card {
+    border-radius: 12px;
+    padding: 12px;
+  }
+
+  .edit-dialog {
+    width: min(95vw, 560px);
+    max-height: 95vh;
+  }
+
+  .edit-dialog form {
+    padding: 14px;
+    gap: 6px;
+  }
+
+  .dialog-buttons {
+    margin-top: 6px;
+    gap: 6px;
+  }
+
+  .dialog-buttons .btn {
+    flex: 1;
+    font-size: 14px;
+    min-height: 40px;
+  }
+
+  .field-grid {
+    grid-template-columns: 100px 1fr;
+    gap: 6px;
+  }
+
+  select,
+  input[type="text"],
+  input[type="password"] {
+    min-height: 40px;
+    font-size: 16px;
+  }
+
+  .week-nav {
+    gap: 6px;
+  }
+
+  .week-label {
+    font-size: clamp(16px, 3vw, 20px);
+  }
+
+  .settings-header h2 {
+    font-size: 18px;
+  }
+
+  h3 {
+    font-size: 16px;
+    margin: 10px 0 6px;
+  }
+}
+
+@media (max-width: 480px) {
+  .topbar {
+    padding: 12px 10px 8px;
+  }
+
+  .topbar h1 {
+    font-size: 22px;
+  }
+
+  .subtitle {
+    font-size: 12px;
+    margin-top: 4px;
+  }
+
+  .page-links a {
+    font-size: 14px;
+    padding: 8px 12px;
+    min-height: 36px;
+  }
+
+  .auth-bar {
+    padding: 6px 8px;
+    gap: 4px;
+  }
+
+  .current-user {
+    font-size: 12px;
+    padding: 4px 8px;
+    flex: 1 1 100%;
+  }
+
+  .auth-bar .btn,
+  .notification-tools .btn {
+    min-height: 36px;
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+
+  .notification-tools {
+    padding: 4px 8px 0;
+  }
+
+  .notification-status {
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+
+  .container {
+    margin: 0 auto 16px;
+    gap: 10px;
+  }
+
+  .card {
+    padding: 10px;
+    border-radius: 10px;
+  }
+
+  .edit-dialog {
+    width: 95vw;
+    max-height: 95vh;
+  }
+
+  .edit-dialog form {
+    padding: 12px;
+    gap: 4px;
+  }
+
+  .edit-dialog h2 {
+    font-size: 18px;
+  }
+
+  .edit-meta {
+    font-size: 12px;
+  }
+
+  .dialog-buttons {
+    margin-top: 4px;
+    gap: 4px;
+  }
+
+  .dialog-buttons .btn {
+    flex: 1;
+    font-size: 12px;
+    min-height: 36px;
+    padding: 6px 8px;
+  }
+
+  label {
+    font-size: 13px;
+  }
+
+  select,
+  input[type="text"],
+  input[type="password"] {
+    min-height: 36px;
+    font-size: 16px;
+    padding: 6px 8px;
+  }
+
+  .week-nav {
+    gap: 4px;
+  }
+
+  .week-nav .btn {
+    font-size: 14px;
+    min-height: 36px;
+    padding: 8px 12px;
+  }
+
+  .week-label {
+    font-size: 16px;
+  }
+
+  .settings-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .settings-header h2 {
+    font-size: 16px;
+    margin: 0;
+  }
+
+  .settings-header .btn {
+    width: 100%;
+    font-size: 13px;
+  }
+
+  h3 {
+    font-size: 14px;
+    margin: 8px 0 4px;
+  }
+
+  .field-grid {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .field-grid label {
+    font-size: 12px;
+  }
+
+  .repeat-row select {
+    width: 100%;
+  }
+
+  .order-btn {
+    min-height: 32px;
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+
+  .drag-handle {
+    font-size: 18px;
+    padding: 0 4px;
+  }
+
+  .user-order-item {
+    padding: 8px;
+    gap: 6px;
+  }
+
+  .user-order-meta {
+    font-size: 12px;
+    gap: 6px;
+  }
+
+  .schedule-table {
+    font-size: 14px;
+    min-width: 100%;
+  }
+
+  .schedule-table th {
+    padding: 6px 4px;
+    font-size: 13px;
+  }
+
+  .schedule-table th.name-col {
+    min-width: 80px;
+  }
+
+  .schedule-table td {
+    min-width: 80px;
+    height: 80px;
+    padding: 0;
+  }
+
+  .cell-btn {
+    padding: 4px;
+    font-size: 12px;
+  }
+
+  .cell-status {
+    font-size: 12px;
+    margin-bottom: 2px;
+  }
+
+  .cell-work,
+  .cell-place {
+    font-size: 11px;
+    line-height: 1.2;
+  }
+}
