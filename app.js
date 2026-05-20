@@ -182,7 +182,10 @@ function bindEvents() {
       try {
         await firebaseAuth.signInWithEmailAndPassword(buildAuthEmail(loginId), loginPassword);
       } catch (error) {
-        setNotice("IDまたはパスワード（誕生日）が正しくありません。新規登録後に再度お試しください。");
+        const migrated = await migrateLegacyAccountOnLogin(loginId, loginPassword, error);
+        if (!migrated) {
+          setNotice("IDまたはパスワード（誕生日）が正しくありません。新規登録後に再度お試しください。");
+        }
       }
     });
   }
@@ -1196,8 +1199,45 @@ function toStaffAccount(item) {
   return {
     id,
     name: normalizeDisplayName(item.name || item.id || ""),
-    password: "",
+    password: normalizeLoginPassword(item.password || ""),
   };
+}
+
+async function migrateLegacyAccountOnLogin(loginId, loginPassword, loginError) {
+  if (!isAuthUserMissingError(loginError)) {
+    return false;
+  }
+
+  const legacy = findAccountByLoginId(loginId);
+  if (!legacy) {
+    return false;
+  }
+
+  const legacyPassword = normalizeLoginPassword(legacy.password || "");
+  if (!legacyPassword || legacyPassword !== normalizeLoginPassword(loginPassword)) {
+    return false;
+  }
+
+  try {
+    await firebaseAuth.createUserWithEmailAndPassword(buildAuthEmail(loginId), loginPassword);
+    setNotice("旧アカウントをFirebase認証へ移行しました。再ログイン不要で続行します。");
+    return true;
+  } catch (migrationError) {
+    if (migrationError?.code === "auth/email-already-in-use") {
+      try {
+        await firebaseAuth.signInWithEmailAndPassword(buildAuthEmail(loginId), loginPassword);
+        return true;
+      } catch (signInError) {
+        return false;
+      }
+    }
+    return false;
+  }
+}
+
+function isAuthUserMissingError(error) {
+  const code = error?.code || "";
+  return code === "auth/user-not-found" || code === "auth/invalid-credential";
 }
 
 function buildAuthEmail(loginId) {
