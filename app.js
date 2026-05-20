@@ -13,6 +13,13 @@ const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
 
 const pageMode = document.body?.dataset?.page || "personal";
 const isPersonalPage = pageMode === "personal";
+const FIRESTORE_COLLECTION = "appData";
+const FIRESTORE_DOCUMENT = "weeklySchedule";
+
+let firestoreDb = null;
+let cloudSyncEnabled = false;
+let cloudSaveTimer = null;
+let cloudLoading = false;
 
 const state = {
   currentWeekStart: getMonday(new Date()),
@@ -78,7 +85,8 @@ const refs = {
 init();
 
 async function init() {
-  loadState();
+  initCloudStore();
+  await loadState();
   state.currentWeekStart = getMonday(new Date());
 
   buildMonthOptions();
@@ -351,6 +359,24 @@ function bindEvents() {
       refs.editDialog?.close();
     });
   }
+}
+
+function initCloudStore() {
+  const config = window.__FIREBASE_CONFIG__;
+  if (!config || !config.projectId || config.projectId === "YOUR_PROJECT_ID") {
+    return;
+  }
+
+  if (!window.firebase || !window.firebase.firestore) {
+    return;
+  }
+
+  if (!window.firebase.apps.length) {
+    window.firebase.initializeApp(config);
+  }
+
+  firestoreDb = window.firebase.firestore();
+  cloudSyncEnabled = true;
 }
 
 async function render() {
@@ -802,53 +828,43 @@ function syncSettingsToForm() {
   }
 }
 
-function loadState() {
+async function loadState() {
   const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) {
-    return;
+  if (raw) {
+    try {
+      applyLoadedData(JSON.parse(raw));
+    } catch (error) {
+      setNotice("保存データの読み込みに失敗したため初期化しました。");
+    }
   }
 
-  try {
-    const data = JSON.parse(raw);
-    if (data.staff && Array.isArray(data.staff)) {
-      state.staff = data.staff;
+  if (cloudSyncEnabled) {
+    cloudLoading = true;
+    try {
+      const snapshot = await firestoreDb.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOCUMENT).get();
+      if (snapshot.exists) {
+        const cloudData = snapshot.data();
+        applyLoadedData(cloudData);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(buildPayload()));
+      }
+    } catch (error) {
+      setNotice("Firestore読込に失敗。ローカルデータで続行します。");
+    } finally {
+      cloudLoading = false;
     }
-    if (data.staffAccounts && Array.isArray(data.staffAccounts)) {
-      state.staffAccounts = data.staffAccounts.map((item) => ({
-        id: normalizeLoginId(item.id || item.name || ""),
-        name: normalizeLoginId(item.name || item.id || ""),
-        password: normalizeLoginPassword(item.password || ""),
-      }));
-    }
-    if (data.manualEntries && typeof data.manualEntries === "object") {
-      state.manualEntries = data.manualEntries;
-    }
-    if (data.settings && typeof data.settings === "object") {
-      state.settings = {
-        ...state.settings,
-        ...data.settings,
-      };
-    }
-    if (data.currentWeekStart) {
-      state.currentWeekStart = fromISODate(data.currentWeekStart);
-    }
-    if (data.currentUser && typeof data.currentUser === "string") {
-      state.currentUser = data.currentUser;
-    }
-    if (data.currentUserId && typeof data.currentUserId === "string") {
-      state.currentUserId = data.currentUserId;
-    } else if (state.currentUser) {
-      state.currentUserId = findLoginIdByUserName(state.currentUser) || "";
-    }
-  } catch (error) {
-    setNotice("保存データの読み込みに失敗したため初期化しました。");
   }
 
   refreshStaffFromAccounts();
 }
 
 function saveState() {
-  const payload = {
+  const payload = buildPayload();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  queueCloudSave(payload);
+}
+
+function buildPayload() {
+  return {
     currentWeekStart: toISODate(state.currentWeekStart),
     currentUser: state.currentUser,
     currentUserId: state.currentUserId,
@@ -856,8 +872,62 @@ function saveState() {
     staffAccounts: state.staffAccounts,
     manualEntries: state.manualEntries,
     settings: state.settings,
+    updatedAt: new Date().toISOString(),
   };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+}
+
+function applyLoadedData(data) {
+  if (!data || typeof data !== "object") {
+    return;
+  }
+  if (data.staff && Array.isArray(data.staff)) {
+    state.staff = data.staff;
+  }
+  if (data.staffAccounts && Array.isArray(data.staffAccounts)) {
+    state.staffAccounts = data.staffAccounts.map((item) => ({
+      id: normalizeLoginId(item.id || item.name || ""),
+      name: normalizeLoginId(item.name || item.id || ""),
+      password: normalizeLoginPassword(item.password || ""),
+    }));
+  }
+  if (data.manualEntries && typeof data.manualEntries === "object") {
+    state.manualEntries = data.manualEntries;
+  }
+  if (data.settings && typeof data.settings === "object") {
+    state.settings = {
+      ...state.settings,
+      ...data.settings,
+    };
+  }
+  if (data.currentWeekStart) {
+    state.currentWeekStart = fromISODate(data.currentWeekStart);
+  }
+  if (data.currentUser && typeof data.currentUser === "string") {
+    state.currentUser = data.currentUser;
+  }
+  if (data.currentUserId && typeof data.currentUserId === "string") {
+    state.currentUserId = data.currentUserId;
+  } else if (state.currentUser) {
+    state.currentUserId = findLoginIdByUserName(state.currentUser) || "";
+  }
+}
+
+function queueCloudSave(payload) {
+  if (!cloudSyncEnabled || cloudLoading) {
+    return;
+  }
+
+  if (cloudSaveTimer) {
+    clearTimeout(cloudSaveTimer);
+  }
+
+  cloudSaveTimer = setTimeout(async () => {
+    try {
+      await firestoreDb.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOCUMENT).set(payload, { merge: true });
+    } catch (error) {
+      setNotice("Firestore保存に失敗。再度保存してください。");
+    }
+  }, 400);
 }
 
 function normalizeLoginId(value) {
