@@ -153,7 +153,9 @@ async function init() {
 
     currentUserAddedToStaff = ensureCurrentUserInStaffAccounts();
   } else if (isAdminPage) {
-    // 未ログインで管理者ページに来た場合はログインダイアログを表示するためそのまま続行
+    // 管理者ページはログイン地点にしない。通常ページからログインして遷移させる。
+    window.location.href = "overall.html";
+    return;
   }
 
   state.currentWeekStart = getMonday(new Date());
@@ -1451,6 +1453,12 @@ async function handleAuthStateChanged(user) {
   currentFirebaseUser = user;
 
   if (!user) {
+    if (isAdminPage) {
+      // 管理者ページで未ログイン状態になった場合は通常ログイン導線へ戻す
+      window.location.href = "overall.html";
+      return;
+    }
+
     stopCloudListener();
     state.currentUser = "";
     state.currentUserId = "";
