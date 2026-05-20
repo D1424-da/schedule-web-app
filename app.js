@@ -75,6 +75,7 @@ const state = {
 const refs = {
   prevWeekBtn: document.getElementById("prevWeekBtn"),
   nextWeekBtn: document.getElementById("nextWeekBtn"),
+  finalizeScheduleBtn: document.getElementById("finalizeScheduleBtn"),
   todayBtn: document.getElementById("todayBtn"),
   weekLabel: document.getElementById("weekLabel"),
   scheduleTable: document.getElementById("scheduleTable"),
@@ -253,6 +254,17 @@ function bindEvents() {
     refs.todayBtn.addEventListener("click", async () => {
       state.currentWeekStart = getMonday(new Date());
       await render();
+    });
+  }
+
+  if (refs.finalizeScheduleBtn) {
+    refs.finalizeScheduleBtn.addEventListener("click", () => {
+      if (!currentFirebaseUser) {
+        setNotice("ログイン後に確定通知できます。");
+        return;
+      }
+      saveState({ announce: true });
+      setNotice("入力内容を確定し、他の利用者へ通知しました。");
     });
   }
 
@@ -779,6 +791,11 @@ function startCloudListener() {
         applyLoadedData(cloudData, false);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(buildLocalPayload()));
         await render();
+
+        // 初回同期でも自分宛の承認待ち依頼があれば通知する
+        if (getPendingIncomingRequests(cloudData.confirmationRequests).length > 0) {
+          notifyRemoteUpdate(cloudData);
+        }
         return;
       }
 
@@ -791,7 +808,7 @@ function startCloudListener() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(buildLocalPayload()));
       await render();
 
-      if (remoteUpdatedAt !== lastLocalSaveUpdatedAt) {
+      if (remoteUpdatedAt !== lastLocalSaveUpdatedAt && !isOwnCloudUpdate(cloudData)) {
         notifyRemoteUpdate(cloudData);
       }
     },
@@ -1693,9 +1710,10 @@ async function loadState() {
   syncCurrentUserFromLoginId();
 }
 
-function saveState() {
+function saveState(options = {}) {
+  const announce = options?.announce === true;
   const localPayload = buildLocalPayload();
-  const cloudPayload = buildCloudPayload();
+  const cloudPayload = buildCloudPayload(announce);
   lastLocalSaveUpdatedAt = normalizeTimestamp(cloudPayload.updatedAt);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(localPayload));
   queueCloudSave(cloudPayload);
@@ -1714,7 +1732,7 @@ function buildLocalPayload() {
   };
 }
 
-function buildCloudPayload() {
+function buildCloudPayload(announce = false) {
   return {
     currentWeekStart: toISODate(state.currentWeekStart),
     staff: state.staff,
@@ -1725,6 +1743,7 @@ function buildCloudPayload() {
     updatedByName: state.currentUser || (isPersonalPage ? "未ログイン利用者" : "管理画面"),
     updatedById: state.currentUserId || "",
     updatedByPage: pageMode,
+    notifyScope: announce ? "announce" : "silent",
     updatedAt: new Date().toISOString(),
   };
 }
@@ -1811,6 +1830,10 @@ function notifyRemoteUpdate(cloudData) {
     return;
   }
 
+  if (cloudData?.notifyScope === "silent") {
+    return;
+  }
+
   const updaterName = String(cloudData.updatedByName || "他の利用者");
   const updatedAt = normalizeTimestamp(cloudData.updatedAt);
   const timeLabel = formatTimeLabel(updatedAt);
@@ -1831,6 +1854,18 @@ function notifyRemoteUpdate(cloudData) {
       // ブラウザ通知不可時は画面内通知のみ継続
     }
   }
+}
+
+function isOwnCloudUpdate(cloudData) {
+  const currentId = normalizeLoginId(state.currentUserId);
+  const updaterId = normalizeLoginId(cloudData?.updatedById || "");
+  if (currentId && updaterId && currentId === updaterId) {
+    return true;
+  }
+
+  const currentName = normalizeDisplayName(state.currentUser || "");
+  const updaterName = normalizeDisplayName(cloudData?.updatedByName || "");
+  return Boolean(currentName && updaterName && currentName === updaterName && cloudData?.updatedByPage === pageMode);
 }
 
 function loadNotificationPreferences() {
