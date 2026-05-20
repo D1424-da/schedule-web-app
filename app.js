@@ -113,6 +113,38 @@ const refs = {
   syncAlert: document.getElementById("syncAlert"),
 };
 
+function openDialog(dialog) {
+  if (!dialog) {
+    return;
+  }
+
+  if (typeof dialog.showModal === "function") {
+    try {
+      if (!dialog.open) {
+        dialog.showModal();
+      }
+      return;
+    } catch (error) {
+      // showModal が例外になる環境では open 属性フォールバックを使う
+    }
+  }
+
+  dialog.setAttribute("open", "");
+}
+
+function closeDialog(dialog) {
+  if (!dialog) {
+    return;
+  }
+
+  if (typeof dialog.close === "function") {
+    dialog.close();
+    return;
+  }
+
+  dialog.removeAttribute("open");
+}
+
 init();
 
 async function init() {
@@ -180,7 +212,7 @@ async function init() {
   await render();
 
   if (requiresAuth && !currentFirebaseUser && refs.loginDialog) {
-    refs.loginDialog.showModal();
+    openDialog(refs.loginDialog);
   }
 }
 
@@ -218,7 +250,7 @@ function bindEvents() {
 
   if (refs.openLoginBtn && refs.loginDialog) {
     refs.openLoginBtn.addEventListener("click", () => {
-      refs.loginDialog.showModal();
+      openDialog(refs.loginDialog);
     });
   }
 
@@ -296,7 +328,7 @@ function bindEvents() {
 
   if (refs.loginCancelBtn && refs.loginDialog) {
     refs.loginCancelBtn.addEventListener("click", () => {
-      refs.loginDialog.close();
+      closeDialog(refs.loginDialog);
     });
   }
 
@@ -512,7 +544,7 @@ function bindEvents() {
       const savedCount = saveManualEntriesWithRepeat(state.editTarget.name, state.editTarget.date, entryData, repeatDays);
 
       saveState();
-      refs.editDialog?.close();
+      closeDialog(refs.editDialog);
       setNotice(`予定を保存しました。${savedCount}件反映`);
       await render();
     });
@@ -531,7 +563,7 @@ function bindEvents() {
       const key = entryKey(state.editTarget.name, state.editTarget.date);
       delete state.manualEntries[key];
       saveState();
-      refs.editDialog?.close();
+      closeDialog(refs.editDialog);
       setNotice("手動入力を解除しました。");
       await render();
     });
@@ -539,7 +571,7 @@ function bindEvents() {
 
   if (refs.cancelEntryBtn) {
     refs.cancelEntryBtn.addEventListener("click", () => {
-      refs.editDialog?.close();
+      closeDialog(refs.editDialog);
     });
   }
 }
@@ -1034,7 +1066,7 @@ function openEditDialog(name, dateStr, currentEntry) {
     refs.repeatCount.value = "1";
   }
 
-  refs.editDialog.showModal();
+  openDialog(refs.editDialog);
 }
 
 function saveManualEntriesWithRepeat(name, startDateStr, entryData, repeatDays) {
@@ -1472,7 +1504,7 @@ async function handleAuthStateChanged(user) {
     syncLoginForm();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(buildLocalPayload()));
     if (requiresAuth && refs.loginDialog) {
-      refs.loginDialog.showModal();
+      openDialog(refs.loginDialog);
     }
     setNotice("ログアウトしました。ログイン後に利用できます。");
     return;
@@ -1516,7 +1548,7 @@ async function handleAuthStateChanged(user) {
   syncAdminUi();
   syncLoginForm();
   if (refs.loginDialog?.open) {
-    refs.loginDialog.close();
+    closeDialog(refs.loginDialog);
   }
   startCloudListener();
   saveState();
