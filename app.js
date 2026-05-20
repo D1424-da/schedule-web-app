@@ -603,6 +603,9 @@ function startCloudListener() {
 
       if (!lastKnownRemoteUpdatedAt) {
         lastKnownRemoteUpdatedAt = remoteUpdatedAt;
+        applyLoadedData(cloudData, false);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(buildLocalPayload()));
+        await render();
         return;
       }
 
