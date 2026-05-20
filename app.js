@@ -1767,31 +1767,32 @@ async function handleConfirmationRequestAction(requestId, action) {
       return;
     }
     const repeatDays = Number(request.repeatDays || 1);
-    clearManualEntriesWithRepeat(request.ownerName, request.startDate, repeatDays);
-    const savedCountOwner = saveManualEntriesWithRepeat(
+    const requestedStatus = normalizeDisplayName(request.entryData?.status || "");
+    const isHalfDayRequest = Boolean(getHalfDayWorkingSlot(requestedStatus));
+    let allowHalfDayOverwrite = true;
+    if (isHalfDayRequest) {
+      allowHalfDayOverwrite = window.confirm(
+        "半日休み設定も含めて上書きしますか？\nOK: 半日休みを含めて全部上書き\nキャンセル: 休みではない側のみ上書き",
+      );
+    }
+
+    const savedCountOwner = applyApprovedEntryWithRepeat(
       request.ownerName,
       request.startDate,
-      {
-        ...request.entryData,
-        source: "manual",
-        updatedAt: new Date().toISOString(),
-      },
+      request.entryData,
       repeatDays,
+      allowHalfDayOverwrite,
     );
 
     const targetRowName = normalizeDisplayName(request.targetName || "");
     let savedCountTarget = 0;
     if (targetRowName && targetRowName !== request.ownerName) {
-      clearManualEntriesWithRepeat(targetRowName, request.startDate, repeatDays);
-      savedCountTarget = saveManualEntriesWithRepeat(
+      savedCountTarget = applyApprovedEntryWithRepeat(
         targetRowName,
         request.startDate,
-        {
-          ...request.entryData,
-          source: "manual",
-          updatedAt: new Date().toISOString(),
-        },
+        request.entryData,
         repeatDays,
+        allowHalfDayOverwrite,
       );
     }
 
@@ -2170,15 +2171,51 @@ function saveManualEntriesWithRepeat(name, startDateStr, entryData, repeatDays) 
   return count;
 }
 
-function clearManualEntriesWithRepeat(name, startDateStr, repeatDays) {
+function applyApprovedEntryWithRepeat(name, startDateStr, entryData, repeatDays, allowHalfDayOverwrite = true) {
   const count = clamp(repeatDays, 1, 12);
   const startDate = fromISODate(startDateStr);
 
   for (let i = 0; i < count; i += 1) {
     const targetDate = addDays(startDate, i);
     const key = entryKey(name, toISODate(targetDate));
-    delete state.manualEntries[key];
+    const currentEntry = state.manualEntries[key];
+    state.manualEntries[key] = buildApprovedEntryData(currentEntry, entryData, allowHalfDayOverwrite);
   }
+
+  markScheduleNeedsFinalize();
+
+  return count;
+}
+
+function buildApprovedEntryData(currentEntry, requestedEntry, allowHalfDayOverwrite) {
+  const requestedStatus = normalizeDisplayName(requestedEntry?.status || "");
+  const requestedSlot = getHalfDayWorkingSlot(requestedStatus);
+
+  if (!requestedSlot || allowHalfDayOverwrite) {
+    return {
+      ...requestedEntry,
+      source: "manual",
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  const currentStatus = normalizeDisplayName(currentEntry?.status || "");
+  const currentSlot = getHalfDayWorkingSlot(currentStatus);
+  if (!currentSlot) {
+    return {
+      ...requestedEntry,
+      source: "manual",
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  return {
+    ...requestedEntry,
+    status: currentStatus,
+    secondaryStatus: normalizeDisplayName(requestedEntry?.secondaryStatus || currentEntry?.secondaryStatus || ""),
+    source: "manual",
+    updatedAt: new Date().toISOString(),
+  };
 }
 
 function isCompanyHoliday(date) {
