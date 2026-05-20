@@ -238,7 +238,11 @@ function bindEvents() {
       } catch (error) {
         const migrated = await migrateLegacyAccountOnLogin(loginId, loginPassword, error);
         if (!migrated) {
-          setNotice("IDまたはパスワード（誕生日）が正しくありません。新規登録後に再度お試しください。");
+          console.warn("signInWithEmailAndPassword failed", {
+            code: error?.code || "",
+            message: error?.message || "",
+          });
+          setNotice(convertFirebaseAuthError(error));
         }
       }
     });
@@ -1781,6 +1785,19 @@ function syncAuthProfileDisplayName(user, loginId) {
 function convertFirebaseAuthError(error) {
   const code = error?.code || "";
   switch (code) {
+    case "auth/invalid-login-credentials":
+    case "auth/invalid-credential":
+    case "auth/user-not-found":
+    case "auth/wrong-password":
+      return "ログイン失敗: IDが未登録、またはパスワードが違います。新しいPCでは最初に管理者で利用者登録を確認してください。";
+    case "auth/invalid-email":
+      return "ログイン失敗: ID形式が不正です。IDに不要な空白がないか確認してください。";
+    case "auth/too-many-requests":
+      return "ログイン試行回数が多すぎます。しばらく待ってから再試行してください。";
+    case "auth/operation-not-allowed":
+      return "Firebase Authentication のメール/パスワード認証が無効です。Firebase Consoleで有効化してください。";
+    case "auth/invalid-api-key":
+      return "Firebase APIキーが無効です。firebase-config.js の設定を確認してください。";
     case "auth/email-already-in-use":
       return "この名前(ID)はすでに登録されています。";
     case "auth/weak-password":
@@ -1788,7 +1805,7 @@ function convertFirebaseAuthError(error) {
     case "auth/network-request-failed":
       return "通信に失敗しました。ネットワークを確認してください。";
     default:
-      return "Firebase Authentication の処理に失敗しました。設定内容を確認してください。";
+      return `Firebase Authentication の処理に失敗しました。(${code || "unknown"})`;
   }
 }
 
