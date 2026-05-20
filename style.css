@@ -288,10 +288,12 @@ a.btn {
 }
 
 .table-wrap {
-  overflow-x: scroll;
+  overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
   scrollbar-gutter: stable;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
 }
 
 .table-wrap::-webkit-scrollbar {
@@ -315,10 +317,9 @@ a.btn {
 }
 
 .schedule-table {
-  width: 100%;
+  width: max-content;
   border-collapse: collapse;
-  min-width: 920px;
-  table-layout: fixed;
+  min-width: 970px;
 }
 
 .schedule-table th,
