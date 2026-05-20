@@ -643,9 +643,10 @@ function renderTable(weekDates) {
   thead.appendChild(trHead);
 
   const tbody = document.createElement("tbody");
+  const personalRowName = getPersonalRowName();
   const visibleStaff = isPersonalPage
-    ? state.currentUser && state.staff.includes(state.currentUser)
-      ? [state.currentUser]
+    ? personalRowName
+      ? [personalRowName]
       : []
     : state.staff;
 
@@ -1151,7 +1152,28 @@ function canEditRow(name) {
     return true;
   }
 
-  return isPersonalPage && Boolean(state.currentUser) && state.currentUser === name;
+  const personalRowName = getPersonalRowName();
+  return isPersonalPage && Boolean(personalRowName) && personalRowName === name;
+}
+
+function getPersonalRowName() {
+  if (!isPersonalPage) {
+    return "";
+  }
+
+  const loginId = normalizeLoginId(state.currentUserId);
+  if (loginId) {
+    const account = findAccountByLoginId(loginId);
+    if (account?.name) {
+      return account.name;
+    }
+  }
+
+  if (state.currentUser) {
+    return state.currentUser;
+  }
+
+  return loginId;
 }
 
 function syncSettingsToForm() {
@@ -1205,6 +1227,7 @@ async function loadState() {
   }
 
   refreshStaffFromAccounts();
+  syncCurrentUserFromLoginId();
 }
 
 function saveState() {
@@ -1416,6 +1439,9 @@ async function handleAuthStateChanged(user) {
     state.currentUser = normalizeDisplayName(cachedProfile.displayName || cachedProfile.loginId);
   }
 
+  syncCurrentUserFromLoginId();
+  syncAuthProfileDisplayName(user, state.currentUserId);
+
   state.isAdmin = await detectAdminUser(user);
   setAuthProfile(user, state.currentUserId, state.currentUser);
   pendingLoginId = "";
@@ -1588,6 +1614,11 @@ function buildAuthEmail(loginId) {
 }
 
 function getLoginIdFromAuthUser(user) {
+  const profileLoginId = normalizeLoginId(user?.displayName || "");
+  if (profileLoginId) {
+    return profileLoginId;
+  }
+
   const email = String(user?.email || "");
   if (!email.includes("@")) {
     return "";
@@ -1736,6 +1767,17 @@ function setAuthProfile(user, loginId, displayName) {
   saveAuthProfileMap();
 }
 
+function syncAuthProfileDisplayName(user, loginId) {
+  const normalizedId = normalizeLoginId(loginId);
+  if (!user || !normalizedId || user.displayName === normalizedId) {
+    return;
+  }
+
+  user.updateProfile({ displayName: normalizedId }).catch(() => {
+    // profile更新不可でも認証処理は継続する
+  });
+}
+
 function convertFirebaseAuthError(error) {
   const code = error?.code || "";
   switch (code) {
@@ -1804,6 +1846,23 @@ function findAccountByLoginId(loginId) {
 function findLoginIdByUserName(name) {
   const account = state.staffAccounts.find((item) => item.name === name);
   return account?.id || "";
+}
+
+function syncCurrentUserFromLoginId() {
+  const loginId = normalizeLoginId(state.currentUserId);
+  if (!loginId) {
+    return;
+  }
+
+  const account = findAccountByLoginId(loginId);
+  if (account?.name) {
+    state.currentUser = account.name;
+    return;
+  }
+
+  if (!state.currentUser) {
+    state.currentUser = loginId;
+  }
 }
 
 function refreshStaffFromAccounts() {
