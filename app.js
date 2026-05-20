@@ -13,6 +13,7 @@ const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
 const AUTH_EMAIL_DOMAIN = "schedule.local";
 const ADMIN_LOGIN_ID = "イオリ技建";
 const ADMIN_PASSWORD = "123456";
+const ADMIN_AUTH_LOCAL_PART = "__admin_root_v1";
 const AUTH_PROFILE_MAP_KEY = "weekly-auth-profile-map-v1";
 
 const pageMode = document.body?.dataset?.page || "home";
@@ -1514,15 +1515,20 @@ async function ensureAdminAccount(loginId, loginPassword) {
     return;
   }
 
-  // アカウント作成を試みる。すでに存在する場合は email-already-in-use が返るので無視
-  try {
-    await firebaseAuth.createUserWithEmailAndPassword(buildAuthEmail(ADMIN_LOGIN_ID), ADMIN_PASSWORD);
-    await firebaseAuth.signOut();
-  } catch (error) {
-    const code = error?.code || "";
-    if (code !== "auth/email-already-in-use") {
+  // 管理者は専用の内部メールを優先し、ID名との衝突を避ける
+  for (const email of buildAdminAuthEmailCandidates()) {
+    try {
+      await firebaseAuth.createUserWithEmailAndPassword(email, ADMIN_PASSWORD);
+      await firebaseAuth.signOut();
+      return;
+    } catch (error) {
+      const code = error?.code || "";
+      if (code === "auth/email-already-in-use") {
+        continue;
+      }
       // 予期しないエラーはコンソールに残すだけで処理を止めない
       console.warn("ensureAdminAccount:", code);
+      return;
     }
   }
 }
@@ -1617,13 +1623,28 @@ function buildAuthEmail(loginId) {
   return `${encodeLoginIdForEmail(loginId)}@${AUTH_EMAIL_DOMAIN}`;
 }
 
+function buildAdminAuthEmailCandidates() {
+  return [
+    `${ADMIN_AUTH_LOCAL_PART}@${AUTH_EMAIL_DOMAIN}`,
+    buildAuthEmail(ADMIN_LOGIN_ID),
+    `${encodeURIComponent(normalizeLoginId(ADMIN_LOGIN_ID))}@${AUTH_EMAIL_DOMAIN}`,
+    `${normalizeLoginId(ADMIN_LOGIN_ID)}@${AUTH_EMAIL_DOMAIN}`,
+  ];
+}
+
 function buildAuthEmailCandidates(loginId) {
   const normalized = normalizeLoginId(loginId);
   if (!normalized) {
     return [];
   }
 
-  const candidates = [
+  const candidates = isAdminLoginId(normalized)
+    ? [...buildAdminAuthEmailCandidates(), ...[
+      `${encodeLoginIdForEmail(normalized)}@${AUTH_EMAIL_DOMAIN}`,
+      `${encodeURIComponent(normalized)}@${AUTH_EMAIL_DOMAIN}`,
+      `${normalized}@${AUTH_EMAIL_DOMAIN}`,
+    ]]
+    : [
     `${encodeLoginIdForEmail(normalized)}@${AUTH_EMAIL_DOMAIN}`,
     `${encodeURIComponent(normalized)}@${AUTH_EMAIL_DOMAIN}`,
     `${normalized}@${AUTH_EMAIL_DOMAIN}`,
