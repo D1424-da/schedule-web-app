@@ -1381,18 +1381,17 @@ async function ensureAdminAccount(loginId, loginPassword) {
     return;
   }
 
+  // アカウント作成を試みる。すでに存在する場合は email-already-in-use が返るので無視
   try {
-    await firebaseAuth.signInWithEmailAndPassword(buildAuthEmail(loginId), loginPassword);
+    await firebaseAuth.createUserWithEmailAndPassword(buildAuthEmail(ADMIN_LOGIN_ID), ADMIN_PASSWORD);
     await firebaseAuth.signOut();
-    return;
   } catch (error) {
-    if (!isAuthUserMissingError(error)) {
-      return;
+    const code = error?.code || "";
+    if (code !== "auth/email-already-in-use") {
+      // 予期しないエラーはコンソールに残すだけで処理を止めない
+      console.warn("ensureAdminAccount:", code);
     }
   }
-
-  await firebaseAuth.createUserWithEmailAndPassword(buildAuthEmail(ADMIN_LOGIN_ID), ADMIN_PASSWORD);
-  await firebaseAuth.signOut();
 }
 
 function isAdminCredential(loginId, loginPassword) {
@@ -1472,7 +1471,13 @@ async function migrateLegacyAccountOnLogin(loginId, loginPassword, loginError) {
 
 function isAuthUserMissingError(error) {
   const code = error?.code || "";
-  return code === "auth/user-not-found" || code === "auth/invalid-credential";
+  // Firebase v9+ では auth/invalid-login-credentials に統合された
+  return (
+    code === "auth/user-not-found" ||
+    code === "auth/invalid-credential" ||
+    code === "auth/invalid-login-credentials" ||
+    code === "auth/user-disabled"
+  );
 }
 
 function buildAuthEmail(loginId) {
