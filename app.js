@@ -42,6 +42,7 @@ let authObserverReady = false;
 let appReady = false;
 let pendingLoginId = "";
 let pendingLoginDisplayName = "";
+let pendingLoginPassword = "";
 let authProfileMap = {};
 let loginInFlight = false;
 let loginBlockedUntil = 0;
@@ -137,7 +138,6 @@ const refs = {
   registerPanel: document.getElementById("registerPanel"),
   userOrderList: document.getElementById("userOrderList"),
   changePasswordUserSelect: document.getElementById("changePasswordUserSelect"),
-  currentPasswordInput: document.getElementById("currentPasswordInput"),
   newPasswordInput: document.getElementById("newPasswordInput"),
   changePasswordBtn: document.getElementById("changePasswordBtn"),
   adminSettingsSection: document.getElementById("adminSettingsSection"),
@@ -452,6 +452,7 @@ function bindEvents() {
       state.currentUserId = loginId;
   pendingLoginId = loginId;
   pendingLoginDisplayName = state.currentUser;
+  pendingLoginPassword = loginPassword;
 
       loginInFlight = true;
       try {
@@ -464,6 +465,7 @@ function bindEvents() {
 
         const migrated = await migrateLegacyAccountOnLogin(loginId, loginPassword, error);
         if (!migrated) {
+          pendingLoginPassword = "";
           console.warn("signInWithEmailAndPassword failed", {
             code: error?.code || "",
             message: error?.message || "",
@@ -561,6 +563,10 @@ function bindEvents() {
         }
 
         state.staffAccounts.push(toStaffAccount({ id: loginId, name: displayName }));
+        const createdAccount = findAccountByLoginId(loginId);
+        if (createdAccount) {
+          createdAccount.password = registerPassword;
+        }
         refreshStaffFromAccounts();
         saveState();
 
@@ -581,7 +587,7 @@ function bindEvents() {
     });
   }
 
-  if (refs.changePasswordBtn && refs.changePasswordUserSelect && refs.currentPasswordInput && refs.newPasswordInput) {
+  if (refs.changePasswordBtn && refs.changePasswordUserSelect && refs.newPasswordInput) {
     refs.changePasswordBtn.addEventListener("click", async () => {
       if (!canManageAdminSettings() || !state.isAdmin) {
         setNotice("管理者のみ操作できます。");
@@ -589,23 +595,14 @@ function bindEvents() {
       }
 
       const targetId = normalizeLoginId(refs.changePasswordUserSelect.value);
-      const currentPassword = normalizeLoginPassword(refs.currentPasswordInput.value);
       const newPassword = normalizeLoginPassword(refs.newPasswordInput.value);
 
       if (!targetId) {
         setNotice("対象利用者を選択してください。");
         return;
       }
-      if (!currentPassword) {
-        setNotice("前のパスワードを入力してください。");
-        return;
-      }
       if (!/^\d{8}$/.test(newPassword)) {
         setNotice("新しいパスワードは任意の8桁の数字で入力してください。");
-        return;
-      }
-      if (currentPassword === newPassword) {
-        setNotice("新しいパスワードは前のパスワードと別にしてください。");
         return;
       }
       if (!firebaseAuth) {
@@ -614,11 +611,25 @@ function bindEvents() {
       }
 
       const targetAccount = findAccountByLoginId(targetId);
+      if (!targetAccount) {
+        setNotice("対象利用者が見つかりません。");
+        return;
+      }
+      const currentPassword = normalizeLoginPassword(targetAccount.password || "");
+      if (!currentPassword) {
+        setNotice("対象利用者の現行パスワード情報が未登録のため変更できません。利用者本人で一度ログイン後に再実行してください。");
+        return;
+      }
+      if (currentPassword === newPassword) {
+        setNotice("新しいパスワードは前のパスワードと別にしてください。");
+        return;
+      }
       const targetName = targetAccount?.name || targetId;
 
       try {
         await changeUserPasswordWithoutSwitchingSession(targetId, currentPassword, newPassword);
-        refs.currentPasswordInput.value = "";
+        targetAccount.password = newPassword;
+        saveState();
         refs.newPasswordInput.value = "";
         setNotice(`${targetName} のパスワードを変更しました。`);
       } catch (error) {
@@ -629,7 +640,7 @@ function bindEvents() {
           || code === "auth/invalid-credential"
           || code === "auth/user-not-found"
         ) {
-          setNotice("前のパスワードが正しくないか、対象利用者が見つかりません。");
+          setNotice("管理データ上の現行パスワードと一致せず変更できません。対象利用者に再ログインしてもらってから再実行してください。");
           return;
         }
         if (code === "auth/weak-password") {
@@ -2705,6 +2716,7 @@ async function handleAuthStateChanged(user) {
     state.editTarget = null;
     pendingLoginId = "";
     pendingLoginDisplayName = "";
+    pendingLoginPassword = "";
     updatePageLock();
     syncAuthUi();
     syncAdminUi();
@@ -2732,6 +2744,13 @@ async function handleAuthStateChanged(user) {
   }
 
   syncCurrentUserFromLoginId();
+  if (pendingLoginPassword) {
+    const account = findAccountByLoginId(state.currentUserId);
+    if (account && normalizeLoginPassword(account.password || "") !== pendingLoginPassword) {
+      account.password = pendingLoginPassword;
+      saveState();
+    }
+  }
   syncAuthProfileDisplayName(user, state.currentUserId);
 
   state.isAdmin = await detectAdminUser(user);
@@ -2739,6 +2758,7 @@ async function handleAuthStateChanged(user) {
   setAuthProfile(user, state.currentUserId, state.currentUser);
   pendingLoginId = "";
   pendingLoginDisplayName = "";
+  pendingLoginPassword = "";
 
   // 管理者は管理者ページのみ、非管理者は管理者ページに入れない
   if (state.isAdmin && !isAdminPage) {
