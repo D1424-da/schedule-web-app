@@ -823,6 +823,11 @@ function renderUserOrderList() {
 }
 
 function bindDragAndDrop(list) {
+  if (list.dataset.dndBound === "1") {
+    return;
+  }
+  list.dataset.dndBound = "1";
+
   let dragSrcIndex = null;
   let dragOverItem = null;
 
@@ -1581,6 +1586,14 @@ function stopCloudListener() {
     cloudUnsubscribe();
     cloudUnsubscribe = null;
   }
+
+  if (cloudSaveTimer) {
+    clearTimeout(cloudSaveTimer);
+    cloudSaveTimer = null;
+  }
+
+  lastKnownRemoteUpdatedAt = "";
+  lastLocalSaveUpdatedAt = "";
 }
 
 function updatePageLock() {
