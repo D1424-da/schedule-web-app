@@ -1803,10 +1803,12 @@ function syncSettingsToForm() {
 }
 
 async function loadState() {
+  let localData = null;
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) {
     try {
-      applyLoadedData(JSON.parse(raw), true);
+      localData = JSON.parse(raw);
+      applyLoadedData(localData, true);
     } catch (error) {
       setNotice("保存データの読み込みに失敗したため初期化しました。");
     }
@@ -1818,7 +1820,8 @@ async function loadState() {
       const snapshot = await firestoreDb.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOCUMENT).get();
       if (snapshot.exists) {
         const cloudData = snapshot.data();
-        applyLoadedData(cloudData, false);
+        const mergedCloudData = mergeCloudDataWithPersonalDraft(cloudData, localData);
+        applyLoadedData(mergedCloudData, false);
         lastKnownRemoteUpdatedAt = normalizeTimestamp(cloudData.updatedAt);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(buildLocalPayload()));
       }
@@ -1858,6 +1861,7 @@ function buildLocalPayload() {
     manualEntries: state.manualEntries,
     settings: state.settings,
     confirmationRequests: state.confirmationRequests,
+    finalizeRequired: scheduleFinalizeRequired,
   };
 }
 
@@ -1899,6 +1903,9 @@ function applyLoadedData(data, restoreSession = true) {
   if (Array.isArray(data.confirmationRequests)) {
     state.confirmationRequests = data.confirmationRequests;
   }
+  if (typeof data.finalizeRequired === "boolean") {
+    scheduleFinalizeRequired = data.finalizeRequired;
+  }
   if (data.currentWeekStart) {
     state.currentWeekStart = fromISODate(data.currentWeekStart);
   }
@@ -1912,6 +1919,47 @@ function applyLoadedData(data, restoreSession = true) {
       state.currentUserId = findLoginIdByUserName(state.currentUser) || "";
     }
   }
+}
+
+function mergeCloudDataWithPersonalDraft(cloudData, draftData = null) {
+  if (!isPersonalPage || !scheduleFinalizeRequired || !cloudData || typeof cloudData !== "object") {
+    return cloudData;
+  }
+
+  const personalName = getPersonalRowName();
+  if (!personalName) {
+    return cloudData;
+  }
+
+  const cloudEntries = cloudData.manualEntries && typeof cloudData.manualEntries === "object"
+    ? cloudData.manualEntries
+    : {};
+  const draftEntriesSource = draftData?.manualEntries && typeof draftData.manualEntries === "object"
+    ? draftData.manualEntries
+    : state.manualEntries;
+
+  const prefix = `${personalName}::`;
+  const mergedEntries = { ...cloudEntries };
+
+  for (const key of Object.keys(mergedEntries)) {
+    if (key.startsWith(prefix)) {
+      delete mergedEntries[key];
+    }
+  }
+
+  if (draftEntriesSource && typeof draftEntriesSource === "object") {
+    for (const [key, value] of Object.entries(draftEntriesSource)) {
+      if (key.startsWith(prefix)) {
+        mergedEntries[key] = value;
+      }
+    }
+  }
+
+  return {
+    ...cloudData,
+    manualEntries: mergedEntries,
+    currentWeekStart: draftData?.currentWeekStart || cloudData.currentWeekStart,
+  };
 }
 
 function queueCloudSave(payload) {
