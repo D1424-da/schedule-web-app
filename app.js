@@ -109,8 +109,11 @@ const refs = {
   editForm: document.getElementById("editForm"),
   editMeta: document.getElementById("editMeta"),
   statusInput: document.getElementById("statusInput"),
+  workInputLabel: document.getElementById("workInputLabel"),
   workInput: document.getElementById("workInput"),
+  placeInputLabel: document.getElementById("placeInputLabel"),
   placeInput: document.getElementById("placeInput"),
+  halfDayWorkHint: document.getElementById("halfDayWorkHint"),
   repeatEnabled: document.getElementById("repeatEnabled"),
   repeatCount: document.getElementById("repeatCount"),
   requestConfirmEnabled: document.getElementById("requestConfirmEnabled"),
@@ -741,6 +744,12 @@ function bindEvents() {
     });
   }
 
+  if (refs.statusInput) {
+    refs.statusInput.addEventListener("change", () => {
+      syncHalfDayInputUi(refs.statusInput?.value || "");
+    });
+  }
+
   if (refs.clearEntryBtn) {
     refs.clearEntryBtn.addEventListener("click", async () => {
       if (!state.editTarget) {
@@ -1165,8 +1174,9 @@ function renderMonthlyCalendar() {
 
 function buildMonthlyEntryText(entry) {
   const parts = [entry?.status || ""];
-  if (entry?.work) {
-    parts.push(entry.work);
+  const work = formatEntryWorkText(entry);
+  if (work) {
+    parts.push(work);
   }
   return parts.filter((v) => Boolean(v)).join(" / ");
 }
@@ -1257,8 +1267,8 @@ function renderCellHtml(entry) {
     return `<div class="cell-status">-</div><div class="cell-work">未入力</div>`;
   }
 
-  const work = entry.work || "";
-  const place = entry.place || "";
+  const work = formatEntryWorkText(entry);
+  const place = formatEntryPlaceText(entry);
 
   return `
     <div class="cell-status">${escapeHtml(entry.status)}</div>
@@ -1351,6 +1361,72 @@ function syncRequestFormUi() {
   if (refs.requestMessageInput) {
     refs.requestMessageInput.disabled = !enabled;
   }
+}
+
+function isMorningOffStatus(status) {
+  return status === "午前休" || status === "午前有休";
+}
+
+function isAfternoonOffStatus(status) {
+  return status === "午後休" || status === "午後有休";
+}
+
+function getHalfDayWorkingSlot(status) {
+  if (isMorningOffStatus(status)) {
+    return "午後";
+  }
+  if (isAfternoonOffStatus(status)) {
+    return "午前";
+  }
+  return "";
+}
+
+function syncHalfDayInputUi(status) {
+  const slot = getHalfDayWorkingSlot(status);
+  const workLabel = slot ? `${slot}の業務内容` : "業務内容";
+  const placeLabel = slot ? `${slot}の場所` : "場所";
+
+  if (refs.workInputLabel) {
+    refs.workInputLabel.textContent = workLabel;
+  }
+  if (refs.placeInputLabel) {
+    refs.placeInputLabel.textContent = placeLabel;
+  }
+  if (refs.workInput) {
+    refs.workInput.placeholder = slot ? `例: ${slot}の作業内容` : "例: 官場線 作業準備";
+  }
+  if (refs.placeInput) {
+    refs.placeInput.placeholder = slot ? `例: ${slot}の訪問先` : "例: 鹿児島市";
+  }
+  if (refs.halfDayWorkHint) {
+    if (slot) {
+      refs.halfDayWorkHint.textContent = `${status}が選択されています。${slot}の業務を入力してください。`;
+      refs.halfDayWorkHint.classList.remove("hidden");
+    } else {
+      refs.halfDayWorkHint.classList.add("hidden");
+      refs.halfDayWorkHint.textContent = "";
+    }
+  }
+}
+
+function formatEntryWorkText(entry) {
+  const work = String(entry?.work || "").trim();
+  if (!work) {
+    return "";
+  }
+
+  const slot = getHalfDayWorkingSlot(entry?.status || "");
+  return slot ? `${slot}業務: ${work}` : work;
+}
+
+function formatEntryPlaceText(entry) {
+  const place = String(entry?.place || "").trim();
+  if (!place) {
+    return "";
+  }
+
+  const slot = getHalfDayWorkingSlot(entry?.status || "");
+  return slot ? `${slot}場所: ${place}` : place;
 }
 
 function populateRequestTargetOptions(ownerName) {
@@ -1811,6 +1887,7 @@ function openEditDialog(name, dateStr, currentEntry) {
   if (refs.placeInput) {
     refs.placeInput.value = currentEntry?.place || "";
   }
+  syncHalfDayInputUi(currentEntry?.status || "現場");
   if (refs.repeatEnabled) {
     refs.repeatEnabled.checked = false;
   }
@@ -2261,14 +2338,10 @@ function queueCloudSave(payload) {
 function notifyRemoteUpdate(cloudData) {
   const incomingCount = getPendingIncomingRequests(cloudData.confirmationRequests).length;
   if (incomingCount > 0) {
-    if (!requestNotificationEnabled) {
-      return;
-    }
-
     const msg = `確認依頼が${incomingCount}件あります。確認依頼セクションを確認してください。`;
     showSyncAlert(msg);
     setNotice(msg);
-    if (window.Notification && Notification.permission === "granted") {
+    if (requestNotificationEnabled && window.Notification && Notification.permission === "granted") {
       try {
         new Notification("確認依頼が届きました", {
           body: `承認待ちの依頼が${incomingCount}件あります。`,
