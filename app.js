@@ -11,7 +11,8 @@ const DEFAULT_STAFF_ACCOUNTS = [
 ];
 const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
 const AUTH_EMAIL_DOMAIN = "schedule.local";
-const ADMIN_LOGIN_ID = "イオリ技建";
+const ADMIN_LOGIN_ID = "イオリ技研";
+const ADMIN_LOGIN_ID_ALIASES = ["イオリ技建"];
 const ADMIN_PASSWORD = "123456";
 const ADMIN_AUTH_LOCAL_PART = "__admin_root_v1";
 const AUTH_PROFILE_MAP_KEY = "weekly-auth-profile-map-v1";
@@ -695,12 +696,7 @@ function renderTable(weekDates) {
     const tr = document.createElement("tr");
 
     const tdName = document.createElement("th");
-    const rowLoginId = findLoginIdByUserName(name);
-    const personalLoginId = isPersonalPage && name === personalRowName
-      ? normalizeLoginId(state.currentUserId)
-      : "";
-    const displayLoginId = rowLoginId || personalLoginId;
-    tdName.textContent = displayLoginId ? `${name}（ID:${displayLoginId}）` : name;
+    tdName.textContent = name;
     tr.appendChild(tdName);
 
     for (const date of weekDates) {
@@ -1159,9 +1155,7 @@ function syncAuthUi() {
   if (!refs.currentUserLabel) {
     return;
   }
-  const userLabel = state.currentUser
-    ? `${state.currentUser}（ID:${state.currentUserId || "-"}）`
-    : "未ログイン";
+  const userLabel = state.currentUser || "未ログイン";
   refs.currentUserLabel.textContent = `ログイン: ${userLabel}${state.isAdmin ? " [管理者]" : ""}`;
 }
 
@@ -1541,7 +1535,9 @@ async function detectAdminUser(user) {
     return true;
   }
 
-  if (user.email === buildAuthEmail(ADMIN_LOGIN_ID)) {
+  const userEmail = String(user.email || "").toLowerCase();
+  const adminAuthEmails = new Set(buildAdminAuthEmailCandidates().map((email) => String(email).toLowerCase()));
+  if (adminAuthEmails.has(userEmail)) {
     return true;
   }
 
@@ -1554,7 +1550,15 @@ async function detectAdminUser(user) {
 }
 
 function isAdminLoginId(loginId) {
-  return normalizeLoginId(loginId) === normalizeLoginId(ADMIN_LOGIN_ID);
+  const normalized = normalizeLoginId(loginId);
+  if (!normalized) {
+    return false;
+  }
+  return getAdminLoginIdCandidates().includes(normalized);
+}
+
+function getAdminLoginIdCandidates() {
+  return [...new Set([ADMIN_LOGIN_ID, ...ADMIN_LOGIN_ID_ALIASES].map((value) => normalizeLoginId(value)).filter((value) => Boolean(value)))];
 }
 
 async function ensureAdminAccount(loginId, loginPassword) {
@@ -1581,7 +1585,7 @@ async function ensureAdminAccount(loginId, loginPassword) {
 }
 
 function isAdminCredential(loginId, loginPassword) {
-  return normalizeLoginId(loginId) === normalizeLoginId(ADMIN_LOGIN_ID)
+  return isAdminLoginId(loginId)
     && normalizeLoginPassword(loginPassword) === normalizeLoginPassword(ADMIN_PASSWORD);
 }
 
@@ -1681,7 +1685,7 @@ function buildAuthEmail(loginId) {
 function buildAdminAuthEmailCandidates() {
   return [
     `${ADMIN_AUTH_LOCAL_PART}@${AUTH_EMAIL_DOMAIN}`,
-    buildAuthEmail(ADMIN_LOGIN_ID),
+    ...getAdminLoginIdCandidates().map((loginId) => buildAuthEmail(loginId)),
   ];
 }
 
