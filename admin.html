@@ -24,7 +24,7 @@
       </style>
     <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet" />
     <title>管理者ページ | 週間予定表管理システム</title>
-      <button class="no-print" onclick="window.print()" style="margin:10px 0;">印刷</button>
+      <!-- 印刷ボタンはbody内に配置 -->
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <link rel="stylesheet" href="style.css" />
   </head>
@@ -49,8 +49,10 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
       </div>
     </header>
-    <button class="no-print" onclick="window.print()" style="margin:10px 0;">印刷</button>
-    <button class="no-print" onclick="downloadPdf()" style="margin:10px 0;">PDFダウンロード</button>
+    <div style="margin:10px 0;" class="no-print">
+      <button onclick="window.print()">印刷</button>
+      <button onclick="downloadPdf()">PDFダウンロード</button>
+    </div>
 
     <script>
     function downloadPdf() {
