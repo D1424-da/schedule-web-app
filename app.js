@@ -49,6 +49,7 @@ let loginBlockedUntil = 0;
 let scheduleNotificationEnabled = true;
 let requestNotificationEnabled = true;
 let lastIncomingRequestSignature = "";
+let halfdayDecisionDrafts = {};
 let tableScrollbarSyncing = false;
 let tableScrollbarResizeBound = false;
 let desktopRequestPanelEl = null;
@@ -1630,9 +1631,12 @@ function renderRequestInbox() {
 
   for (const request of incoming) {
     const needsHalfDayDecision = hasHalfDayOnApproverSide(request);
-    const decisionMade = Boolean(request.halfdayApprovalDecisionPrompted);
-    const decisionAllow = decisionMade ? Boolean(request.halfdayApprovalDecision) : false;
-    const approveDisabled = needsHalfDayDecision && !decisionMade ? "disabled" : "";
+    const draftDecision = halfdayDecisionDrafts[request.id];
+    const decisionMade = typeof draftDecision === "boolean"
+      || Boolean(request.halfdayApprovalDecisionPrompted);
+    const decisionAllow = typeof draftDecision === "boolean"
+      ? draftDecision
+      : Boolean(request.halfdayApprovalDecision);
 
     lines.push(`
       <li class="request-item">
@@ -1647,11 +1651,14 @@ function renderRequestInbox() {
             <button class="btn ${decisionMade && decisionAllow ? "" : "btn-secondary"}" type="button" data-request-action="halfday-allow" data-request-id="${escapeHtml(request.id)}">可能（全日上書き）</button>
             <button class="btn ${decisionMade && !decisionAllow ? "" : "btn-secondary"}" type="button" data-request-action="halfday-deny" data-request-id="${escapeHtml(request.id)}">不可（非休み側のみ）</button>
           </div>
+          ${!decisionMade ? `<div class="request-item-meta">上記を選択すると承認・却下ボタンを表示します。</div>` : ""}
         ` : ""}
-        <div class="request-item-buttons">
-          <button class="btn" type="button" data-request-action="approve" data-request-id="${escapeHtml(request.id)}" ${approveDisabled}>承認して反映</button>
-          <button class="btn btn-secondary" type="button" data-request-action="reject" data-request-id="${escapeHtml(request.id)}">却下</button>
-        </div>
+        ${needsHalfDayDecision && !decisionMade ? "" : `
+          <div class="request-item-buttons">
+            <button class="btn" type="button" data-request-action="approve" data-request-id="${escapeHtml(request.id)}">承認して反映</button>
+            <button class="btn btn-secondary" type="button" data-request-action="reject" data-request-id="${escapeHtml(request.id)}">却下</button>
+          </div>
+        `}
       </li>
     `);
   }
@@ -1768,9 +1775,12 @@ function renderDesktopRequestPanel() {
   desktopRequestListEl.innerHTML = incoming.map((request) => `
     ${(() => {
       const needsHalfDayDecision = hasHalfDayOnApproverSide(request);
-      const decisionMade = Boolean(request.halfdayApprovalDecisionPrompted);
-      const decisionAllow = decisionMade ? Boolean(request.halfdayApprovalDecision) : false;
-      const approveDisabled = needsHalfDayDecision && !decisionMade ? "disabled" : "";
+      const draftDecision = halfdayDecisionDrafts[request.id];
+      const decisionMade = typeof draftDecision === "boolean"
+        || Boolean(request.halfdayApprovalDecisionPrompted);
+      const decisionAllow = typeof draftDecision === "boolean"
+        ? draftDecision
+        : Boolean(request.halfdayApprovalDecision);
       return `
     <li class="desktop-request-item">
       <div class="desktop-request-item-title">${escapeHtml(request.requesterName)} さんから確認依頼</div>
@@ -1782,11 +1792,14 @@ function renderDesktopRequestPanel() {
           <button class="btn ${decisionMade && decisionAllow ? "" : "btn-secondary"}" type="button" data-request-action="halfday-allow" data-request-id="${escapeHtml(request.id)}">可能（全日上書き）</button>
           <button class="btn ${decisionMade && !decisionAllow ? "" : "btn-secondary"}" type="button" data-request-action="halfday-deny" data-request-id="${escapeHtml(request.id)}">不可（非休み側のみ）</button>
         </div>
+        ${!decisionMade ? `<div class="desktop-request-item-meta">上記を選択すると承認・却下ボタンを表示します。</div>` : ""}
       ` : ""}
-      <div class="desktop-request-item-actions">
-        <button class="btn" type="button" data-request-action="approve" data-request-id="${escapeHtml(request.id)}" ${approveDisabled}>承認</button>
-        <button class="btn btn-secondary" type="button" data-request-action="reject" data-request-id="${escapeHtml(request.id)}">却下</button>
-      </div>
+      ${needsHalfDayDecision && !decisionMade ? "" : `
+        <div class="desktop-request-item-actions">
+          <button class="btn" type="button" data-request-action="approve" data-request-id="${escapeHtml(request.id)}">承認</button>
+          <button class="btn btn-secondary" type="button" data-request-action="reject" data-request-id="${escapeHtml(request.id)}">却下</button>
+        </div>
+      `}
     </li>
   `;
     })()}
@@ -1825,10 +1838,9 @@ async function handleConfirmationRequestAction(requestId, action) {
       setNotice("この依頼は操作できません。");
       return;
     }
-    request.halfdayApprovalDecisionPrompted = true;
-    request.halfdayApprovalDecision = action === "halfday-allow";
-    saveState({ localOnly: true });
-    setNotice(request.halfdayApprovalDecision
+    const allow = action === "halfday-allow";
+    halfdayDecisionDrafts[request.id] = allow;
+    setNotice(allow
       ? "半日休みの変更を許可（全日上書き）で設定しました。"
       : "半日休みの変更を不可（非休み側のみ上書き）で設定しました。");
     await render();
@@ -1843,12 +1855,13 @@ async function handleConfirmationRequestAction(requestId, action) {
     const repeatDays = Number(request.repeatDays || 1);
     let allowHalfDayOverwrite = true;
     if (hasHalfDayOnApproverSide(request)) {
-      if (!request.halfdayApprovalDecisionPrompted) {
+      const draftDecision = halfdayDecisionDrafts[request.id];
+      if (typeof draftDecision !== "boolean") {
         setNotice("通知画面で半日休みの変更可否を選択してから承認してください。");
         await render();
         return;
       }
-      allowHalfDayOverwrite = Boolean(request.halfdayApprovalDecision);
+      allowHalfDayOverwrite = draftDecision;
     }
 
     const savedCountOwner = applyApprovedEntryWithRepeat(
@@ -1893,6 +1906,7 @@ async function handleConfirmationRequestAction(requestId, action) {
     const savedCount = savedCountOwner + savedCountTarget + savedCountRequester;
 
     scheduleFinalizeRequired = false;
+    delete halfdayDecisionDrafts[requestId];
     removeConfirmationRequest(requestId);
     try {
       await saveStateImmediately();
@@ -1910,6 +1924,7 @@ async function handleConfirmationRequestAction(requestId, action) {
       setNotice("この依頼は却下できません。");
       return;
     }
+    delete halfdayDecisionDrafts[requestId];
     removeConfirmationRequest(requestId);
     try {
       await saveStateImmediately();
@@ -1933,6 +1948,7 @@ async function handleConfirmationRequestAction(requestId, action) {
       setNotice("この依頼は取消できません。");
       return;
     }
+    delete halfdayDecisionDrafts[requestId];
     removeConfirmationRequest(requestId);
     try {
       await saveStateImmediately();
