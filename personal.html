@@ -3,10 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+    <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet" />
     <title>個人入力ページ | 週間予定表管理システム</title>
     <link rel="stylesheet" href="style.css" />
   </head>
-  <body data-page="personal">
+  <body data-page="personal" class="auth-locked">
     <header class="topbar">
       <h1>個人入力ページ</h1>
       <p class="subtitle">自分の予定を入力</p>
@@ -18,6 +20,10 @@
         <span id="currentUserLabel" class="current-user">ログイン: 未ログイン</span>
         <button id="openLoginBtn" class="btn btn-secondary" type="button">ログイン</button>
         <button id="logoutBtn" class="btn btn-ghost" type="button">ログアウト</button>
+      </div>
+      <div class="notification-tools">
+        <button id="enableNotificationsBtn" class="btn btn-secondary" type="button">通知を有効にする</button>
+        <span id="notificationStatus" class="notification-status">端末通知: 未設定</span>
       </div>
     </header>
 
@@ -37,6 +43,7 @@
         </div>
       </section>
 
+      <p id="syncAlert" class="sync-alert hidden" aria-live="polite"></p>
       <p id="notice" class="notice" aria-live="polite"></p>
     </main>
 
@@ -55,8 +62,8 @@
           <option value="午前休">午前休</option>
           <option value="午後休">午後休</option>
           <option value="有給">有給</option>
-          <option value="午前有給">午前有給</option>
-          <option value="午後有給">午後有給</option>
+          <option value="午前有">午前有</option>
+          <option value="午後有">午後有</option>
         </select>
 
         <label for="workInput">業務内容</label>
@@ -128,6 +135,7 @@
 
     <script src="firebase-config.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <script src="app.js"></script>
   </body>

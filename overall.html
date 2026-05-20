@@ -3,16 +3,27 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+    <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet" />
     <title>全体ページ | 週間予定表管理システム</title>
     <link rel="stylesheet" href="style.css" />
   </head>
-  <body data-page="overall">
+  <body data-page="overall" class="auth-locked">
     <header class="topbar">
       <h1>全体ページ</h1>
       <p class="subtitle">全員の予定を確認</p>
       <div class="page-links">
         <a href="personal.html" class="btn btn-secondary">個人入力ページへ</a>
         <a href="index.html" class="btn btn-ghost">入口へ戻る</a>
+      </div>
+      <div class="auth-bar">
+        <span id="currentUserLabel" class="current-user">ログイン: 未ログイン</span>
+        <button id="openLoginBtn" class="btn btn-secondary" type="button">ログイン</button>
+        <button id="logoutBtn" class="btn btn-ghost" type="button">ログアウト</button>
+      </div>
+      <div class="notification-tools">
+        <button id="enableNotificationsBtn" class="btn btn-secondary" type="button">通知を有効にする</button>
+        <span id="notificationStatus" class="notification-status">端末通知: 未設定</span>
       </div>
     </header>
 
@@ -31,6 +42,8 @@
           <table id="scheduleTable" class="schedule-table"></table>
         </div>
       </section>
+
+      <p id="syncAlert" class="sync-alert hidden" aria-live="polite"></p>
 
       <section class="card" aria-label="管理設定">
         <div class="settings-header">
@@ -103,8 +116,27 @@
       <p id="notice" class="notice" aria-live="polite"></p>
     </main>
 
+    <dialog id="loginDialog" class="edit-dialog">
+      <form id="loginForm" method="dialog">
+        <h2>ログイン</h2>
+        <p class="edit-meta">名前(ID)と誕生日でログインしてください。</p>
+
+        <label for="loginIdInput">ログインID（名前）</label>
+        <input id="loginIdInput" type="text" required placeholder="例: 本社A" />
+
+        <label for="loginPasswordInput">パスワード（誕生日）</label>
+        <input id="loginPasswordInput" type="password" required placeholder="例: 19600123" />
+
+        <div class="dialog-buttons">
+          <button id="loginSubmitBtn" value="login" class="btn">ログイン</button>
+          <button id="loginCancelBtn" value="cancel" class="btn btn-ghost" type="button">閉じる</button>
+        </div>
+      </form>
+    </dialog>
+
     <script src="firebase-config.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <script src="app.js"></script>
   </body>

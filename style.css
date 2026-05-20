@@ -32,6 +32,10 @@ body {
   color: var(--text);
 }
 
+body.auth-locked main {
+  visibility: hidden;
+}
+
 .topbar {
   padding: 20px 16px 12px;
   text-align: center;
@@ -142,6 +146,23 @@ body {
   background: #eef2f5;
   border-radius: 999px;
   padding: 7px 12px;
+}
+
+.notification-tools {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.notification-status {
+  font-size: 14px;
+  color: var(--muted);
+  background: #f3f5f7;
+  border-radius: 999px;
+  padding: 8px 12px;
 }
 
 .container {
@@ -384,6 +405,20 @@ input[type="text"] {
   margin: 0;
   color: #2a5f22;
   font-size: 15px;
+}
+
+.sync-alert {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid #bcd9ff;
+  border-radius: 12px;
+  background: #eef6ff;
+  color: #174b74;
+  font-size: 15px;
+}
+
+.sync-alert.hidden {
+  display: none;
 }
 
 .edit-dialog {

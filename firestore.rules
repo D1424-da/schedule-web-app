@@ -15,10 +15,10 @@ service cloud.firestore {
 
     // ユーザープロファイル
     match /users/{uid} {
-      allow read: if isOwner(uid) || isAdmin();
-      allow create: if isOwner(uid) || isAdmin();
-      allow update: if isOwner(uid) || isAdmin();
-      allow delete: if isAdmin();
+      allow read: if signedIn();
+      allow create: if signedIn();
+      allow update: if signedIn();
+      allow delete: if signedIn();
     }
 
     // 個人スケジュール: 本人のみ更新可
@@ -29,17 +29,16 @@ service cloud.firestore {
       allow delete: if isOwner(uid) || isAdmin();
     }
 
-    // 全体設定（休日ルールなど）は管理者のみ
+    // 全体設定（休日ルールなど）
     match /settings/{docId} {
       allow read: if signedIn();
-      allow write: if isAdmin();
+      allow write: if signedIn();
     }
 
-    // 互換用: 既存の単一ドキュメント構成
-    // 本番では /schedules, /users, /settings に移行してください。
+    // 互換用: 現在の単一ドキュメント構成
     match /appData/{docId} {
       allow read: if signedIn();
-      allow write: if isAdmin();
+      allow write: if signedIn();
     }
 
     // 明示的に未定義パスは拒否

@@ -2,29 +2,39 @@ const STORAGE_KEY = "weekly-schedule-v1";
 
 const STATUS_OPTIONS = ["現場", "内業", "打合せ", "移動", "休み", "午前休", "午後休", "有給", "午前有", "午後有"];
 const DEFAULT_STAFF_ACCOUNTS = [
-  { id: "本社A", name: "本社A", password: "19600101" },
-  { id: "本社B", name: "本社B", password: "19600202" },
-  { id: "支社A", name: "支社A", password: "19600303" },
-  { id: "支社B", name: "支社B", password: "19600404" },
-  { id: "支社C", name: "支社C", password: "19600505" },
-  { id: "支社D", name: "支社D", password: "19600606" },
+  { id: "本社A", name: "本社A" },
+  { id: "本社B", name: "本社B" },
+  { id: "支社A", name: "支社A" },
+  { id: "支社B", name: "支社B" },
+  { id: "支社C", name: "支社C" },
+  { id: "支社D", name: "支社D" },
 ];
 const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
+const AUTH_EMAIL_DOMAIN = "schedule.local";
 
-const pageMode = document.body?.dataset?.page || "personal";
+const pageMode = document.body?.dataset?.page || "home";
 const isPersonalPage = pageMode === "personal";
+const requiresAuth = pageMode === "personal" || pageMode === "overall";
 const FIRESTORE_COLLECTION = "appData";
 const FIRESTORE_DOCUMENT = "weeklySchedule";
 
 let firestoreDb = null;
+let firebaseAuth = null;
 let cloudSyncEnabled = false;
 let cloudSaveTimer = null;
 let cloudLoading = false;
+let cloudUnsubscribe = null;
+let lastKnownRemoteUpdatedAt = "";
+let lastLocalSaveUpdatedAt = "";
+let syncAlertTimer = null;
+let currentFirebaseUser = null;
+let authObserverReady = false;
+let appReady = false;
 
 const state = {
   currentWeekStart: getMonday(new Date()),
   staff: DEFAULT_STAFF_ACCOUNTS.map((item) => item.name),
-  staffAccounts: [...DEFAULT_STAFF_ACCOUNTS],
+  staffAccounts: DEFAULT_STAFF_ACCOUNTS.map((item) => toStaffAccount(item)),
   currentUser: "",
   currentUserId: "",
   manualEntries: {},
@@ -80,30 +90,37 @@ const refs = {
   toggleRegisterBtn: document.getElementById("toggleRegisterBtn"),
   registerPanel: document.getElementById("registerPanel"),
   userOrderList: document.getElementById("userOrderList"),
+  enableNotificationsBtn: document.getElementById("enableNotificationsBtn"),
+  notificationStatus: document.getElementById("notificationStatus"),
+  syncAlert: document.getElementById("syncAlert"),
 };
 
 init();
 
 async function init() {
   initCloudStore();
+  await waitForInitialAuthState();
   await loadState();
   state.currentWeekStart = getMonday(new Date());
 
   buildMonthOptions();
+  syncLoginForm();
+  syncAuthUi();
+  syncSettingsToForm();
+  syncNotificationUi();
+  bindEvents();
+  updatePageLock();
 
-  if (isPersonalPage) {
-    syncLoginForm();
-    syncAuthUi();
+  if (currentFirebaseUser) {
+    startCloudListener();
   }
 
-  syncSettingsToForm();
-  bindEvents();
+  appReady = true;
+  await render();
 
-  if (isPersonalPage && !state.currentUser && refs.loginDialog) {
+  if (requiresAuth && !currentFirebaseUser && refs.loginDialog) {
     refs.loginDialog.showModal();
   }
-
-  await render();
 }
 
 function bindEvents() {
@@ -140,6 +157,12 @@ function bindEvents() {
     });
   }
 
+  if (refs.enableNotificationsBtn) {
+    refs.enableNotificationsBtn.addEventListener("click", async () => {
+      await requestBrowserNotificationPermission();
+    });
+  }
+
   if (refs.loginForm && refs.loginIdInput && refs.loginPasswordInput) {
     refs.loginForm.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -148,41 +171,28 @@ function bindEvents() {
       if (!loginId) {
         return;
       }
-
-      const matchedAccount = findAccountByCredentials(loginId, loginPassword);
-      if (!matchedAccount) {
-        setNotice("IDまたはパスワード（誕生日）が正しくありません。");
+      if (!firebaseAuth) {
+        setNotice("Firebase Authentication の設定が未完了です。");
         return;
       }
 
-      state.currentUser = matchedAccount.name;
-      state.currentUserId = matchedAccount.id;
-      saveState();
-      syncAuthUi();
-      syncLoginForm();
-      if (refs.loginDialog) {
-        refs.loginDialog.close();
+      state.currentUser = normalizeDisplayName(refs.loginIdInput.value);
+      state.currentUserId = loginId;
+
+      try {
+        await firebaseAuth.signInWithEmailAndPassword(buildAuthEmail(loginId), loginPassword);
+      } catch (error) {
+        setNotice("IDまたはパスワード（誕生日）が正しくありません。新規登録後に再度お試しください。");
       }
-      setNotice(`${matchedAccount.name}でログインしました。自分の行のみ入力できます。`);
-      await render();
     });
   }
 
   if (refs.logoutBtn) {
     refs.logoutBtn.addEventListener("click", async () => {
-      state.currentUser = "";
-      state.currentUserId = "";
-      state.editTarget = null;
-      if (refs.editDialog?.open) {
-        refs.editDialog.close();
+      if (!firebaseAuth) {
+        return;
       }
-      saveState();
-      syncAuthUi();
-      if (refs.loginDialog) {
-        refs.loginDialog.showModal();
-      }
-      setNotice("ログアウトしました。ログイン後に入力できます。");
-      await render();
+      await firebaseAuth.signOut();
     });
   }
 
@@ -218,7 +228,7 @@ function bindEvents() {
   }
 
   if (refs.registerUserBtn && refs.registerNameInput && refs.registerBirthdayInput) {
-    refs.registerUserBtn.addEventListener("click", () => {
+    refs.registerUserBtn.addEventListener("click", async () => {
       const displayName = normalizeDisplayName(refs.registerNameInput.value);
       const loginId = normalizeLoginId(displayName);
       const birthday = normalizeLoginPassword(refs.registerBirthdayInput.value);
@@ -231,30 +241,42 @@ function bindEvents() {
         setNotice("誕生日は8桁（YYYYMMDD）で入力してください。");
         return;
       }
+      if (!firebaseAuth) {
+        setNotice("Firebase Authentication の設定が未完了です。");
+        return;
+      }
       if (findAccountByLoginId(loginId)) {
         setNotice("同じ名前（ID）はすでに登録されています。");
         return;
       }
 
-      state.staffAccounts.push({
-        id: loginId,
-        name: displayName,
-        password: birthday,
-      });
-      refreshStaffFromAccounts();
-      saveState();
+      try {
+        if (isPersonalPage) {
+          state.currentUser = displayName;
+          state.currentUserId = loginId;
+          await firebaseAuth.createUserWithEmailAndPassword(buildAuthEmail(loginId), birthday);
+        } else {
+          await createUserWithoutSwitchingSession(buildAuthEmail(loginId), birthday);
+        }
 
-      refs.registerNameInput.value = "";
-      refs.registerBirthdayInput.value = "";
+        state.staffAccounts.push(toStaffAccount({ id: loginId, name: displayName }));
+        refreshStaffFromAccounts();
+        saveState();
 
-      if (isPersonalPage && refs.loginIdInput && refs.loginPasswordInput) {
-        refs.loginIdInput.value = displayName;
-        refs.loginPasswordInput.value = "";
-        refs.loginPasswordInput.focus();
+        refs.registerNameInput.value = "";
+        refs.registerBirthdayInput.value = "";
+
+        if (isPersonalPage && refs.loginIdInput && refs.loginPasswordInput) {
+          refs.loginIdInput.value = displayName;
+          refs.loginPasswordInput.value = "";
+          refs.loginPasswordInput.focus();
+        }
+
+        setNotice(`${displayName} を新規登録しました。ログインできます。`);
+        await render();
+      } catch (error) {
+        setNotice(convertFirebaseAuthError(error));
       }
-
-      setNotice(`${displayName} を新規登録しました。個人入力ページでログインできます。`);
-      render();
     });
   }
 
@@ -375,7 +397,7 @@ function initCloudStore() {
     return;
   }
 
-  if (!window.firebase || !window.firebase.firestore) {
+  if (!window.firebase || !window.firebase.firestore || !window.firebase.auth) {
     return;
   }
 
@@ -383,18 +405,85 @@ function initCloudStore() {
     window.firebase.initializeApp(config);
   }
 
+  firebaseAuth = window.firebase.auth();
   firestoreDb = window.firebase.firestore();
   cloudSyncEnabled = true;
 }
 
+function waitForInitialAuthState() {
+  if (!firebaseAuth) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => {
+    firebaseAuth.onAuthStateChanged(async (user) => {
+      currentFirebaseUser = user;
+
+      if (!authObserverReady) {
+        authObserverReady = true;
+        resolve();
+        return;
+      }
+
+      if (appReady) {
+        await handleAuthStateChanged(user);
+      }
+    });
+  });
+}
+
 async function render() {
+  if (requiresAuth && !currentFirebaseUser) {
+    return;
+  }
+
   const weekDates = getWeekDates(state.currentWeekStart);
   await ensureHolidayCache(weekDates);
 
   renderWeekLabel(weekDates);
   renderTable(weekDates);
   renderUserOrderList();
-  saveState();
+}
+
+function startCloudListener() {
+  if (!cloudSyncEnabled || !currentFirebaseUser || cloudUnsubscribe) {
+    return;
+  }
+
+  cloudUnsubscribe = firestoreDb.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOCUMENT).onSnapshot(
+    async (snapshot) => {
+      if (!snapshot.exists) {
+        return;
+      }
+
+      const cloudData = snapshot.data();
+      const remoteUpdatedAt = normalizeTimestamp(cloudData.updatedAt);
+      if (!remoteUpdatedAt) {
+        return;
+      }
+
+      if (!lastKnownRemoteUpdatedAt) {
+        lastKnownRemoteUpdatedAt = remoteUpdatedAt;
+        return;
+      }
+
+      if (remoteUpdatedAt === lastKnownRemoteUpdatedAt) {
+        return;
+      }
+
+      lastKnownRemoteUpdatedAt = remoteUpdatedAt;
+      applyLoadedData(cloudData);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(buildPayload()));
+      await render();
+
+      if (remoteUpdatedAt !== lastLocalSaveUpdatedAt) {
+        notifyRemoteUpdate(cloudData);
+      }
+    },
+    () => {
+      setNotice("Firestore監視に失敗しました。再読み込みしてください。");
+    },
+  );
 }
 
 function renderWeekLabel(weekDates) {
@@ -528,7 +617,7 @@ function renderUserOrderList() {
     meta.innerHTML = `
       <strong>${escapeHtml(account.name)}</strong>
       <span>（ID: ${escapeHtml(account.id)}）</span>
-      <span class="password-mask">PW: ${maskPassword(account.password)}</span>
+      <span class="password-mask">認証: Firebase</span>
     `;
 
     const buttons = document.createElement("div");
@@ -844,20 +933,21 @@ async function loadState() {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) {
     try {
-      applyLoadedData(JSON.parse(raw));
+      applyLoadedData(JSON.parse(raw), true);
     } catch (error) {
       setNotice("保存データの読み込みに失敗したため初期化しました。");
     }
   }
 
-  if (cloudSyncEnabled) {
+  if (cloudSyncEnabled && currentFirebaseUser) {
     cloudLoading = true;
     try {
       const snapshot = await firestoreDb.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOCUMENT).get();
       if (snapshot.exists) {
         const cloudData = snapshot.data();
-        applyLoadedData(cloudData);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(buildPayload()));
+        applyLoadedData(cloudData, false);
+        lastKnownRemoteUpdatedAt = normalizeTimestamp(cloudData.updatedAt);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(buildLocalPayload()));
       }
     } catch (error) {
       setNotice("Firestore読込に失敗。ローカルデータで続行します。");
@@ -870,12 +960,14 @@ async function loadState() {
 }
 
 function saveState() {
-  const payload = buildPayload();
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  queueCloudSave(payload);
+  const localPayload = buildLocalPayload();
+  const cloudPayload = buildCloudPayload();
+  lastLocalSaveUpdatedAt = normalizeTimestamp(cloudPayload.updatedAt);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(localPayload));
+  queueCloudSave(cloudPayload);
 }
 
-function buildPayload() {
+function buildLocalPayload() {
   return {
     currentWeekStart: toISODate(state.currentWeekStart),
     currentUser: state.currentUser,
@@ -884,11 +976,24 @@ function buildPayload() {
     staffAccounts: state.staffAccounts,
     manualEntries: state.manualEntries,
     settings: state.settings,
+  };
+}
+
+function buildCloudPayload() {
+  return {
+    currentWeekStart: toISODate(state.currentWeekStart),
+    staff: state.staff,
+    staffAccounts: state.staffAccounts,
+    manualEntries: state.manualEntries,
+    settings: state.settings,
+    updatedByName: state.currentUser || (isPersonalPage ? "未ログイン利用者" : "管理画面"),
+    updatedById: state.currentUserId || "",
+    updatedByPage: pageMode,
     updatedAt: new Date().toISOString(),
   };
 }
 
-function applyLoadedData(data) {
+function applyLoadedData(data, restoreSession = true) {
   if (!data || typeof data !== "object") {
     return;
   }
@@ -896,11 +1001,7 @@ function applyLoadedData(data) {
     state.staff = data.staff;
   }
   if (data.staffAccounts && Array.isArray(data.staffAccounts)) {
-    state.staffAccounts = data.staffAccounts.map((item) => ({
-      id: normalizeLoginId(item.id || item.name || ""),
-      name: normalizeLoginId(item.name || item.id || ""),
-      password: normalizeLoginPassword(item.password || ""),
-    }));
+    state.staffAccounts = data.staffAccounts.map((item) => toStaffAccount(item));
   }
   if (data.manualEntries && typeof data.manualEntries === "object") {
     state.manualEntries = data.manualEntries;
@@ -914,18 +1015,20 @@ function applyLoadedData(data) {
   if (data.currentWeekStart) {
     state.currentWeekStart = fromISODate(data.currentWeekStart);
   }
-  if (data.currentUser && typeof data.currentUser === "string") {
-    state.currentUser = data.currentUser;
-  }
-  if (data.currentUserId && typeof data.currentUserId === "string") {
-    state.currentUserId = data.currentUserId;
-  } else if (state.currentUser) {
-    state.currentUserId = findLoginIdByUserName(state.currentUser) || "";
+  if (restoreSession) {
+    if (data.currentUser && typeof data.currentUser === "string") {
+      state.currentUser = data.currentUser;
+    }
+    if (data.currentUserId && typeof data.currentUserId === "string") {
+      state.currentUserId = data.currentUserId;
+    } else if (state.currentUser) {
+      state.currentUserId = findLoginIdByUserName(state.currentUser) || "";
+    }
   }
 }
 
 function queueCloudSave(payload) {
-  if (!cloudSyncEnabled || cloudLoading) {
+  if (!cloudSyncEnabled || cloudLoading || !currentFirebaseUser) {
     return;
   }
 
@@ -936,10 +1039,210 @@ function queueCloudSave(payload) {
   cloudSaveTimer = setTimeout(async () => {
     try {
       await firestoreDb.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOCUMENT).set(payload, { merge: true });
+      lastKnownRemoteUpdatedAt = normalizeTimestamp(payload.updatedAt);
     } catch (error) {
       setNotice("Firestore保存に失敗。再度保存してください。");
     }
   }, 400);
+}
+
+function notifyRemoteUpdate(cloudData) {
+  const updaterName = String(cloudData.updatedByName || "他の利用者");
+  const updatedAt = normalizeTimestamp(cloudData.updatedAt);
+  const timeLabel = formatTimeLabel(updatedAt);
+  const message = `${updaterName} が予定を更新しました。${timeLabel}`.trim();
+
+  showSyncAlert(message);
+  setNotice(message);
+
+  if (window.Notification && Notification.permission === "granted") {
+    const body = cloudData.updatedByPage === "overall"
+      ? "全体ページの内容が更新されました。"
+      : "個人入力ページの内容が更新されました。";
+    try {
+      new Notification("週間予定表が更新されました", {
+        body: `${updaterName} が更新しました。${body}`,
+      });
+    } catch (error) {
+      // ブラウザ通知不可時は画面内通知のみ継続
+    }
+  }
+}
+
+function showSyncAlert(text) {
+  if (!refs.syncAlert) {
+    return;
+  }
+
+  refs.syncAlert.textContent = text;
+  refs.syncAlert.classList.remove("hidden");
+
+  if (syncAlertTimer) {
+    clearTimeout(syncAlertTimer);
+  }
+
+  syncAlertTimer = setTimeout(() => {
+    refs.syncAlert?.classList.add("hidden");
+  }, 7000);
+}
+
+function syncNotificationUi() {
+  if (!refs.notificationStatus || !refs.enableNotificationsBtn) {
+    return;
+  }
+
+  if (!("Notification" in window)) {
+    refs.notificationStatus.textContent = "端末通知: このブラウザは未対応";
+    refs.enableNotificationsBtn.disabled = true;
+    return;
+  }
+
+  if (Notification.permission === "granted") {
+    refs.notificationStatus.textContent = "端末通知: 有効";
+    refs.enableNotificationsBtn.disabled = true;
+    return;
+  }
+
+  if (Notification.permission === "denied") {
+    refs.notificationStatus.textContent = "端末通知: ブロックされています";
+    refs.enableNotificationsBtn.disabled = true;
+    return;
+  }
+
+  refs.notificationStatus.textContent = "端末通知: 未設定";
+  refs.enableNotificationsBtn.disabled = false;
+}
+
+async function requestBrowserNotificationPermission() {
+  if (!("Notification" in window)) {
+    setNotice("このブラウザでは端末通知を利用できません。");
+    syncNotificationUi();
+    return;
+  }
+
+  const permission = await Notification.requestPermission();
+  syncNotificationUi();
+
+  if (permission === "granted") {
+    setNotice("端末通知を有効にしました。他の利用者の更新時に通知します。");
+    return;
+  }
+
+  setNotice("端末通知は有効化されませんでした。画面内通知は引き続き表示されます。");
+}
+
+async function handleAuthStateChanged(user) {
+  currentFirebaseUser = user;
+
+  if (!user) {
+    stopCloudListener();
+    state.currentUser = "";
+    state.currentUserId = "";
+    state.editTarget = null;
+    updatePageLock();
+    syncAuthUi();
+    syncLoginForm();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(buildLocalPayload()));
+    if (requiresAuth && refs.loginDialog) {
+      refs.loginDialog.showModal();
+    }
+    setNotice("ログアウトしました。ログイン後に利用できます。");
+    return;
+  }
+
+  updatePageLock();
+  syncAuthUi();
+  syncLoginForm();
+  if (refs.loginDialog?.open) {
+    refs.loginDialog.close();
+  }
+  startCloudListener();
+  saveState();
+  setNotice(`${state.currentUser || "利用者"}でログインしました。`);
+  await render();
+}
+
+async function createUserWithoutSwitchingSession(email, password) {
+  const config = window.__FIREBASE_CONFIG__;
+  const secondaryName = `register-${Date.now()}`;
+  const secondaryApp = window.firebase.initializeApp(config, secondaryName);
+
+  try {
+    const secondaryAuth = secondaryApp.auth();
+    return await secondaryAuth.createUserWithEmailAndPassword(email, password);
+  } finally {
+    await secondaryApp.delete();
+  }
+}
+
+function stopCloudListener() {
+  if (cloudUnsubscribe) {
+    cloudUnsubscribe();
+    cloudUnsubscribe = null;
+  }
+}
+
+function updatePageLock() {
+  if (!requiresAuth) {
+    document.body.classList.remove("auth-locked");
+    return;
+  }
+
+  document.body.classList.toggle("auth-locked", !currentFirebaseUser);
+}
+
+function toStaffAccount(item) {
+  const id = normalizeLoginId(item.id || item.name || "");
+  return {
+    id,
+    name: normalizeDisplayName(item.name || item.id || ""),
+    password: "",
+  };
+}
+
+function buildAuthEmail(loginId) {
+  return `${encodeLoginIdForEmail(loginId)}@${AUTH_EMAIL_DOMAIN}`;
+}
+
+function encodeLoginIdForEmail(value) {
+  const normalized = normalizeLoginId(value);
+  const bytes = new TextEncoder().encode(normalized);
+  let binary = "";
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+}
+
+function convertFirebaseAuthError(error) {
+  const code = error?.code || "";
+  switch (code) {
+    case "auth/email-already-in-use":
+      return "この名前(ID)はすでに登録されています。";
+    case "auth/weak-password":
+      return "パスワードは8桁の誕生日で入力してください。";
+    case "auth/network-request-failed":
+      return "通信に失敗しました。ネットワークを確認してください。";
+    default:
+      return "Firebase Authentication の処理に失敗しました。設定内容を確認してください。";
+  }
+}
+
+function normalizeTimestamp(value) {
+  return typeof value === "string" ? value : "";
+}
+
+function formatTimeLabel(value) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return `(${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")})`;
 }
 
 function normalizeLoginId(value) {
@@ -958,8 +1261,7 @@ function normalizeLoginPassword(value) {
 }
 
 function maskPassword(password) {
-  const len = Math.max(4, String(password || "").length);
-  return "*".repeat(len);
+  return "Firebase認証";
 }
 
 function findAccountByCredentials(loginId, loginPassword) {
