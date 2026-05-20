@@ -1595,8 +1595,8 @@ function getLoginIdFromAuthUser(user) {
 
   const localPart = email.split("@")[0] || "";
   const decoded = decodeLoginIdFromEmailLocal(localPart);
-  if (decoded && !containsReplacementChar(decoded)) {
-    return decoded;
+  if (decoded && !containsReplacementChar(decoded) && isKnownLoginId(decoded)) {
+    return normalizeLoginId(decoded);
   }
 
   const mapped = findLoginIdByAuthLocalPart(localPart);
@@ -1606,11 +1606,16 @@ function getLoginIdFromAuthUser(user) {
 
   try {
     const decodedUri = decodeURIComponent(localPart);
-    if (decodedUri && !containsReplacementChar(decodedUri)) {
+    if (decodedUri && !containsReplacementChar(decodedUri) && isKnownLoginId(decodedUri)) {
       return normalizeLoginId(decodedUri);
     }
   } catch (error) {
     // legacy形式でURIエンコードされていない場合は無視
+  }
+
+  // 既存データと一致確認できない場合の最後の後方互換フォールバック
+  if (decoded && !containsReplacementChar(decoded)) {
+    return normalizeLoginId(decoded);
   }
 
   return "";
@@ -1649,26 +1654,40 @@ function findLoginIdByAuthLocalPart(localPart) {
   }
 
   const normalizedLocal = normalizeLoginId(localPart);
+  const normalizedLocalLower = normalizedLocal.toLowerCase();
   for (const account of state.staffAccounts) {
     const accountId = normalizeLoginId(account.id);
     if (!accountId) {
       continue;
     }
 
-    if (encodeLoginIdForEmail(accountId) === localPart) {
+    const encoded = encodeLoginIdForEmail(accountId);
+    if (encoded === localPart || encoded.toLowerCase() === normalizedLocalLower) {
       return accountId;
     }
 
-    if (encodeURIComponent(accountId) === localPart) {
+    const encodedUri = encodeURIComponent(accountId);
+    if (encodedUri === localPart || encodedUri.toLowerCase() === normalizedLocalLower) {
       return accountId;
     }
 
-    if (accountId === normalizedLocal) {
+    if (accountId === normalizedLocal || accountId.toLowerCase() === normalizedLocalLower) {
       return accountId;
     }
   }
 
   return "";
+}
+
+function isKnownLoginId(value) {
+  const normalized = normalizeLoginId(value);
+  if (!normalized) {
+    return false;
+  }
+  if (isAdminLoginId(normalized)) {
+    return true;
+  }
+  return state.staffAccounts.some((account) => normalizeLoginId(account.id) === normalized);
 }
 
 function containsReplacementChar(value) {
