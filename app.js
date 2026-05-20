@@ -1710,8 +1710,8 @@ function hasHalfDayOnApproverSide(request) {
     const targetDate = addDays(startDate, i);
     const dateStr = toISODate(targetDate);
     for (const approverRowName of candidateNames) {
-      const key = entryKey(approverRowName, dateStr);
-      const status = normalizeDisplayName(state.manualEntries[key]?.status || "");
+      const entry = resolveEntry(approverRowName, dateStr);
+      const status = normalizeDisplayName(entry?.status || "");
       if (getHalfDayWorkingSlot(status)) {
         return true;
       }
