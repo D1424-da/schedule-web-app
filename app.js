@@ -114,6 +114,39 @@ async function init() {
   loadAuthProfileMap();
   await waitForInitialAuthState();
   await loadState();
+
+  // 初期ロード時は waitForInitialAuthState が handleAuthStateChanged を呼ばないため
+  // ここで管理者判定とページアクセス制御を実行する
+  if (currentFirebaseUser) {
+    const cachedProfile = getAuthProfile(currentFirebaseUser);
+    if (cachedProfile?.loginId) {
+      state.currentUserId = normalizeLoginId(cachedProfile.loginId);
+      state.currentUser = normalizeDisplayName(cachedProfile.displayName || cachedProfile.loginId);
+    } else {
+      const authLoginId = getLoginIdFromAuthUser(currentFirebaseUser);
+      if (authLoginId) {
+        state.currentUserId = authLoginId;
+        const account = findAccountByLoginId(authLoginId);
+        state.currentUser = account?.name || authLoginId;
+      }
+    }
+
+    state.isAdmin = await detectAdminUser(currentFirebaseUser);
+
+    // 管理者は管理者ページのみ許可
+    if (state.isAdmin && !isAdminPage) {
+      window.location.href = "admin.html";
+      return;
+    }
+    // 非管理者が管理者ページに直アクセスした場合は全体ページへ
+    if (!state.isAdmin && isAdminPage) {
+      window.location.href = "overall.html";
+      return;
+    }
+  } else if (isAdminPage) {
+    // 未ログインで管理者ページに来た場合はログインダイアログを表示するためそのまま続行
+  }
+
   state.currentWeekStart = getMonday(new Date());
 
   buildMonthOptions();
@@ -1323,8 +1356,13 @@ async function handleAuthStateChanged(user) {
   pendingLoginId = "";
   pendingLoginDisplayName = "";
 
+  // 管理者は管理者ページのみ、非管理者は管理者ページに入れない
   if (state.isAdmin && !isAdminPage) {
     window.location.href = "admin.html";
+    return;
+  }
+  if (!state.isAdmin && isAdminPage) {
+    window.location.href = "overall.html";
     return;
   }
 
