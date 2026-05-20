@@ -1,6 +1,6 @@
 const STORAGE_KEY = "weekly-schedule-v1";
 
-const STATUS_OPTIONS = ["現場", "内業", "打合せ", "移動", "休み", "午前休", "午後休", "有給", "午前有", "午後有"];
+const STATUS_OPTIONS = ["現場", "内業", "打合せ", "移動", "休み", "午前休", "午後休", "有給", "午前有休", "午後有休"];
 const DEFAULT_STAFF_ACCOUNTS = [
   { id: "本社A", name: "本社A" },
   { id: "本社B", name: "本社B" },
@@ -911,8 +911,8 @@ function getStatusClass(entry) {
     case "午後休":
       return "status-off";
     case "有給":
-    case "午前有":
-    case "午後有":
+    case "午前有休":
+    case "午後有休":
       return "status-paid";
     default:
       return "";
