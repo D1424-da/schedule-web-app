@@ -1040,6 +1040,7 @@ function renderRequestInbox() {
       <li class="request-item">
         <div class="request-item-title">受信: ${escapeHtml(request.requesterName)} さんから確認依頼</div>
         <div class="request-item-meta">対象: ${escapeHtml(request.ownerName)} / ${escapeHtml(request.startDate)} / ${request.repeatDays}日分</div>
+        <div class="request-item-meta">送信日時: ${escapeHtml(formatDateTimeLabel(request.createdAt))}</div>
         <div class="request-item-meta">内容: ${escapeHtml(request.entryData?.status || "")}${request.entryData?.work ? ` / ${escapeHtml(request.entryData.work)}` : ""}${request.entryData?.place ? ` / ${escapeHtml(request.entryData.place)}` : ""}</div>
         ${request.message ? `<div class="request-item-meta">メモ: ${escapeHtml(request.message)}</div>` : ""}
         <div class="request-item-buttons">
@@ -1055,6 +1056,7 @@ function renderRequestInbox() {
       <li class="request-item">
         <div class="request-item-title">送信: ${escapeHtml(request.targetName)} さんへ確認依頼中</div>
         <div class="request-item-meta">対象: ${escapeHtml(request.ownerName)} / ${escapeHtml(request.startDate)} / ${request.repeatDays}日分</div>
+        <div class="request-item-meta">送信日時: ${escapeHtml(formatDateTimeLabel(request.createdAt))}</div>
         ${request.message ? `<div class="request-item-meta">メモ: ${escapeHtml(request.message)}</div>` : ""}
         <div class="request-item-buttons">
           <button class="btn btn-ghost" type="button" data-request-action="cancel" data-request-id="${escapeHtml(request.id)}">依頼を取消</button>
@@ -2425,6 +2427,19 @@ function formatTimeLabel(value) {
   }
 
   return `(${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")})`;
+}
+
+function formatDateTimeLabel(value) {
+  if (!value) {
+    return "不明";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "不明";
+  }
+
+  return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 
 function normalizeLoginId(value) {
