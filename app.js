@@ -13,11 +13,13 @@ const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
 const AUTH_EMAIL_DOMAIN = "schedule.local";
 const ADMIN_LOGIN_ID = "イオリ技建";
 const ADMIN_PASSWORD = "123456";
+const AUTH_PROFILE_MAP_KEY = "weekly-auth-profile-map-v1";
 
 const pageMode = document.body?.dataset?.page || "home";
 const isPersonalPage = pageMode === "personal";
 const isOverallPage = pageMode === "overall";
-const requiresAuth = pageMode === "personal" || pageMode === "overall";
+const isAdminPage = pageMode === "admin";
+const requiresAuth = pageMode === "personal" || pageMode === "overall" || pageMode === "admin";
 const FIRESTORE_COLLECTION = "appData";
 const FIRESTORE_DOCUMENT = "weeklySchedule";
 
@@ -35,6 +37,7 @@ let authObserverReady = false;
 let appReady = false;
 let pendingLoginId = "";
 let pendingLoginDisplayName = "";
+let authProfileMap = {};
 
 const state = {
   currentWeekStart: getMonday(new Date()),
@@ -108,6 +111,7 @@ init();
 
 async function init() {
   initCloudStore();
+  loadAuthProfileMap();
   await waitForInitialAuthState();
   await loadState();
   state.currentWeekStart = getMonday(new Date());
@@ -944,7 +948,7 @@ function syncAuthUi() {
 }
 
 function syncAdminUi() {
-  if (!isOverallPage) {
+  if (!isOverallPage && !isAdminPage) {
     return;
   }
 
@@ -969,7 +973,7 @@ function syncAdminUi() {
 }
 
 function canManageAdminSettings() {
-  return !isOverallPage || state.isAdmin;
+  return (!isOverallPage && !isAdminPage) || state.isAdmin;
 }
 
 function canEditRow(name) {
@@ -977,7 +981,7 @@ function canEditRow(name) {
     return false;
   }
 
-  if (isOverallPage && state.isAdmin) {
+  if ((isOverallPage || isAdminPage) && state.isAdmin) {
     return true;
   }
 
@@ -1233,6 +1237,7 @@ async function handleAuthStateChanged(user) {
   }
 
   const authLoginId = getLoginIdFromAuthUser(user);
+  const cachedProfile = getAuthProfile(user);
   const authAccount = authLoginId ? findAccountByLoginId(authLoginId) : null;
   if (authLoginId && (authAccount || isAdminLoginId(authLoginId))) {
     state.currentUserId = authLoginId;
@@ -1240,11 +1245,20 @@ async function handleAuthStateChanged(user) {
   } else if (pendingLoginId) {
     state.currentUserId = pendingLoginId;
     state.currentUser = pendingLoginDisplayName || pendingLoginId;
+  } else if (cachedProfile?.loginId) {
+    state.currentUserId = normalizeLoginId(cachedProfile.loginId);
+    state.currentUser = normalizeDisplayName(cachedProfile.displayName || cachedProfile.loginId);
   }
 
   state.isAdmin = await detectAdminUser(user);
+  setAuthProfile(user, state.currentUserId, state.currentUser);
   pendingLoginId = "";
   pendingLoginDisplayName = "";
+
+  if (state.isAdmin && !isAdminPage) {
+    window.location.href = "admin.html";
+    return;
+  }
 
   updatePageLock();
   syncAuthUi();
@@ -1403,8 +1417,27 @@ function getLoginIdFromAuthUser(user) {
     return "";
   }
 
-  const encoded = email.split("@")[0] || "";
-  return decodeLoginIdFromEmailLocal(encoded);
+  const localPart = email.split("@")[0] || "";
+  const decoded = decodeLoginIdFromEmailLocal(localPart);
+  if (decoded && !containsReplacementChar(decoded)) {
+    return decoded;
+  }
+
+  const mapped = findLoginIdByAuthLocalPart(localPart);
+  if (mapped) {
+    return mapped;
+  }
+
+  try {
+    const decodedUri = decodeURIComponent(localPart);
+    if (decodedUri && !containsReplacementChar(decodedUri)) {
+      return normalizeLoginId(decodedUri);
+    }
+  } catch (error) {
+    // legacy形式でURIエンコードされていない場合は無視
+  }
+
+  return "";
 }
 
 function encodeLoginIdForEmail(value) {
@@ -1432,6 +1465,80 @@ function decodeLoginIdFromEmailLocal(value) {
   } catch (error) {
     return "";
   }
+}
+
+function findLoginIdByAuthLocalPart(localPart) {
+  if (!localPart) {
+    return "";
+  }
+
+  const normalizedLocal = normalizeLoginId(localPart);
+  for (const account of state.staffAccounts) {
+    const accountId = normalizeLoginId(account.id);
+    if (!accountId) {
+      continue;
+    }
+
+    if (encodeLoginIdForEmail(accountId) === localPart) {
+      return accountId;
+    }
+
+    if (encodeURIComponent(accountId) === localPart) {
+      return accountId;
+    }
+
+    if (accountId === normalizedLocal) {
+      return accountId;
+    }
+  }
+
+  return "";
+}
+
+function containsReplacementChar(value) {
+  return String(value).includes("�");
+}
+
+function loadAuthProfileMap() {
+  try {
+    const raw = localStorage.getItem(AUTH_PROFILE_MAP_KEY);
+    if (!raw) {
+      authProfileMap = {};
+      return;
+    }
+
+    const parsed = JSON.parse(raw);
+    authProfileMap = parsed && typeof parsed === "object" ? parsed : {};
+  } catch (error) {
+    authProfileMap = {};
+  }
+}
+
+function saveAuthProfileMap() {
+  localStorage.setItem(AUTH_PROFILE_MAP_KEY, JSON.stringify(authProfileMap));
+}
+
+function getAuthProfile(user) {
+  const key = String(user?.uid || user?.email || "");
+  if (!key) {
+    return null;
+  }
+  return authProfileMap[key] || null;
+}
+
+function setAuthProfile(user, loginId, displayName) {
+  const key = String(user?.uid || user?.email || "");
+  const normalizedId = normalizeLoginId(loginId);
+  if (!key || !normalizedId) {
+    return;
+  }
+
+  authProfileMap[key] = {
+    loginId: normalizedId,
+    displayName: normalizeDisplayName(displayName || normalizedId),
+    updatedAt: new Date().toISOString(),
+  };
+  saveAuthProfileMap();
 }
 
 function convertFirebaseAuthError(error) {
