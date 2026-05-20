@@ -219,10 +219,11 @@ function bindEvents() {
 
   if (refs.registerUserBtn && refs.registerNameInput && refs.registerBirthdayInput) {
     refs.registerUserBtn.addEventListener("click", () => {
-      const name = normalizeLoginId(refs.registerNameInput.value);
+      const displayName = normalizeDisplayName(refs.registerNameInput.value);
+      const loginId = normalizeLoginId(displayName);
       const birthday = normalizeLoginPassword(refs.registerBirthdayInput.value);
 
-      if (!name) {
+      if (!displayName) {
         setNotice("名前（ID）を入力してください。");
         return;
       }
@@ -230,14 +231,14 @@ function bindEvents() {
         setNotice("誕生日は8桁（YYYYMMDD）で入力してください。");
         return;
       }
-      if (findLoginIdByUserName(name)) {
+      if (findAccountByLoginId(loginId)) {
         setNotice("同じ名前（ID）はすでに登録されています。");
         return;
       }
 
       state.staffAccounts.push({
-        id: name,
-        name,
+        id: loginId,
+        name: displayName,
         password: birthday,
       });
       refreshStaffFromAccounts();
@@ -247,12 +248,12 @@ function bindEvents() {
       refs.registerBirthdayInput.value = "";
 
       if (isPersonalPage && refs.loginIdInput && refs.loginPasswordInput) {
-        refs.loginIdInput.value = name;
+        refs.loginIdInput.value = displayName;
         refs.loginPasswordInput.value = "";
         refs.loginPasswordInput.focus();
       }
 
-      setNotice(`${name} を新規登録しました。個人入力ページでログインできます。`);
+      setNotice(`${displayName} を新規登録しました。個人入力ページでログインできます。`);
       render();
     });
   }
@@ -938,7 +939,14 @@ function queueCloudSave(payload) {
 }
 
 function normalizeLoginId(value) {
-  return String(value).trim();
+  return String(value)
+    .trim()
+    .replaceAll(" ", "")
+    .replaceAll("　", "");
+}
+
+function normalizeDisplayName(value) {
+  return String(value).trim().replaceAll("　", " ").replace(/\s+/g, " ");
 }
 
 function normalizeLoginPassword(value) {
@@ -958,6 +966,11 @@ function findAccountByCredentials(loginId, loginPassword) {
       (item) => normalizeLoginId(item.id) === normalizedId && normalizeLoginPassword(item.password) === normalizedPassword,
     ) || null
   );
+}
+
+function findAccountByLoginId(loginId) {
+  const normalizedId = normalizeLoginId(loginId);
+  return state.staffAccounts.find((item) => normalizeLoginId(item.id) === normalizedId) || null;
 }
 
 function findLoginIdByUserName(name) {
