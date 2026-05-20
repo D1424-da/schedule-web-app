@@ -328,7 +328,7 @@ function bindEvents() {
         return;
       }
 
-      const weekStartIso = toISODate(state.currentWeekStart);
+      const weekStartIso = toISODate(getMonday(new Date()));
       const key = getWeeklyBusinessNoteKey(loginId, weekStartIso);
       const text = String(refs.businessNoteInput.value || "").trim();
 
@@ -343,7 +343,7 @@ function bindEvents() {
         };
       }
 
-      saveState({ forceCloud: true });
+      saveWeeklyBusinessNotesImmediately();
       renderWeeklyBusinessNotes();
       setNotice("業務欄を保存しました。全体ページへ即時反映しました。");
     });
@@ -856,7 +856,7 @@ async function render() {
 }
 
 function renderWeeklyBusinessNotes() {
-  const weekStartIso = toISODate(state.currentWeekStart);
+  const weekStartIso = toISODate(getMonday(new Date()));
 
   if (isPersonalPage && refs.personalBusinessNoteSection && refs.businessNoteInput) {
     const loginId = normalizeLoginId(state.currentUserId);
@@ -2077,6 +2077,35 @@ function saveState(options = {}) {
   const cloudPayload = buildCloudPayload(announce);
   lastLocalSaveUpdatedAt = normalizeTimestamp(cloudPayload.updatedAt);
   queueCloudSave(cloudPayload);
+}
+
+function saveWeeklyBusinessNotesImmediately() {
+  const localPayload = buildLocalPayload();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(localPayload));
+
+  if (!cloudSyncEnabled || !currentFirebaseUser || !firestoreDb) {
+    return;
+  }
+
+  const payload = {
+    weeklyBusinessNotes: state.weeklyBusinessNotes,
+    updatedByName: state.currentUser || (isPersonalPage ? "未ログイン利用者" : "管理画面"),
+    updatedById: state.currentUserId || "",
+    updatedByPage: pageMode,
+    notifyScope: "silent",
+    updatedAt: new Date().toISOString(),
+  };
+
+  lastLocalSaveUpdatedAt = normalizeTimestamp(payload.updatedAt);
+
+  firestoreDb.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOCUMENT)
+    .set(payload, { merge: true })
+    .then(() => {
+      lastKnownRemoteUpdatedAt = normalizeTimestamp(payload.updatedAt);
+    })
+    .catch(() => {
+      setNotice("業務欄の即時反映に失敗しました。再度保存してください。");
+    });
 }
 
 function buildLocalPayload() {
