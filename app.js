@@ -1658,6 +1658,51 @@ function renderRequestInbox() {
   }
 
   refs.requestInboxList.innerHTML = lines.join("");
+
+  // 受信依頼について、承認側が半日休みの場合は事前確認を行う
+  checkAndPromptIncomingRequests(incoming);
+}
+
+function checkAndPromptIncomingRequests(incoming) {
+  if (!Array.isArray(incoming) || incoming.length === 0) {
+    return;
+  }
+
+  for (const request of incoming) {
+    if (!request || request.halfdayApprovalDecisionPrompted) {
+      continue;
+    }
+
+    const currentId = normalizeLoginId(state.currentUserId);
+    if (normalizeLoginId(request.targetId) !== currentId) {
+      continue;
+    }
+
+    const requestedStatus = String(request.entryData?.status || "").trim();
+    const isHalfDayRequest = Boolean(getHalfDayWorkingSlot(requestedStatus));
+    if (!isHalfDayRequest) {
+      continue;
+    }
+
+    // 承認側（現在のユーザー）のこの日付での状態を確認
+    const approverRowName = state.currentUser;
+    if (!approverRowName) {
+      continue;
+    }
+
+    const currentEntryKey = entryKey(approverRowName, request.startDate);
+    const currentEntry = state.manualEntries[currentEntryKey];
+    const currentStatus = String(currentEntry?.status || "").trim();
+    const approverIsHalfDay = Boolean(getHalfDayWorkingSlot(currentStatus));
+
+    if (approverIsHalfDay) {
+      // 承認側が半日休みなので、確認ダイアログを表示
+      const message = `受信側（${escapeHtml(approverRowName)}）が${currentStatus}で、\n半日休み設定が重複しています。\n\nOK: 半日休みを含めて全部上書き\nキャンセル: 休みではない側のみ上書き`;
+      const allowOverwrite = window.confirm(message);
+      request.halfdayApprovalDecision = allowOverwrite;
+      request.halfdayApprovalDecisionPrompted = true;
+    }
+  }
 }
 
 function ensureDesktopRequestPanel() {
@@ -1771,9 +1816,14 @@ async function handleConfirmationRequestAction(requestId, action) {
     const isHalfDayRequest = Boolean(getHalfDayWorkingSlot(requestedStatus));
     let allowHalfDayOverwrite = true;
     if (isHalfDayRequest) {
-      allowHalfDayOverwrite = window.confirm(
-        "半日休み設定も含めて上書きしますか？\nOK: 半日休みを含めて全部上書き\nキャンセル: 休みではない側のみ上書き",
-      );
+      // 受信時に既に確認済みならそれを使う、そうでなければダイアログを出す
+      if (request.halfdayApprovalDecisionPrompted) {
+        allowHalfDayOverwrite = request.halfdayApprovalDecision;
+      } else {
+        allowHalfDayOverwrite = window.confirm(
+          "半日休み設定も含めて上書きしますか？\nOK: 半日休みを含めて全部上書き\nキャンセル: 休みではない側のみ上書き",
+        );
+      }
     }
 
     const savedCountOwner = applyApprovedEntryWithRepeat(
