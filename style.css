@@ -476,9 +476,21 @@ input[type="text"] {
 
 .edit-dialog {
   width: min(560px, 95vw);
+  max-height: 90vh;
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: 0;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+}
+
+.edit-dialog::backdrop {
+  background-color: rgba(0, 0, 0, 0.5);
 }
 
 .edit-dialog form {
