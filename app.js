@@ -3,6 +3,7 @@ const SCHEDULE_NOTIFICATION_PREFERENCE_KEY = "weekly-notification-schedule-enabl
 const REQUEST_NOTIFICATION_PREFERENCE_KEY = "weekly-notification-request-enabled-v1";
 
 const STATUS_OPTIONS = ["現場", "内業", "打合せ", "移動", "営業", "事務", "総務", "休み", "午前休", "午後休", "有給", "午前有休", "午後有休"];
+const HALF_DAY_SECONDARY_STATUS_OPTIONS = ["現場", "内業", "打合せ", "移動", "営業", "事務", "総務"];
 const DEFAULT_STAFF_ACCOUNTS = [
   { id: "本社A", name: "本社A" },
   { id: "本社B", name: "本社B" },
@@ -109,6 +110,9 @@ const refs = {
   editForm: document.getElementById("editForm"),
   editMeta: document.getElementById("editMeta"),
   statusInput: document.getElementById("statusInput"),
+  secondaryStatusRow: document.getElementById("secondaryStatusRow"),
+  secondaryStatusLabel: document.getElementById("secondaryStatusLabel"),
+  secondaryStatusInput: document.getElementById("secondaryStatusInput"),
   workInputLabel: document.getElementById("workInputLabel"),
   workInput: document.getElementById("workInput"),
   placeInputLabel: document.getElementById("placeInputLabel"),
@@ -132,6 +136,10 @@ const refs = {
   toggleRegisterBtn: document.getElementById("toggleRegisterBtn"),
   registerPanel: document.getElementById("registerPanel"),
   userOrderList: document.getElementById("userOrderList"),
+  changePasswordUserSelect: document.getElementById("changePasswordUserSelect"),
+  currentPasswordInput: document.getElementById("currentPasswordInput"),
+  newPasswordInput: document.getElementById("newPasswordInput"),
+  changePasswordBtn: document.getElementById("changePasswordBtn"),
   adminSettingsSection: document.getElementById("adminSettingsSection"),
   adminRegisterSection: document.getElementById("adminRegisterSection"),
   adminOnlyNotice: document.getElementById("adminOnlyNotice"),
@@ -573,6 +581,66 @@ function bindEvents() {
     });
   }
 
+  if (refs.changePasswordBtn && refs.changePasswordUserSelect && refs.currentPasswordInput && refs.newPasswordInput) {
+    refs.changePasswordBtn.addEventListener("click", async () => {
+      if (!canManageAdminSettings() || !state.isAdmin) {
+        setNotice("管理者のみ操作できます。");
+        return;
+      }
+
+      const targetId = normalizeLoginId(refs.changePasswordUserSelect.value);
+      const currentPassword = normalizeLoginPassword(refs.currentPasswordInput.value);
+      const newPassword = normalizeLoginPassword(refs.newPasswordInput.value);
+
+      if (!targetId) {
+        setNotice("対象利用者を選択してください。");
+        return;
+      }
+      if (!currentPassword) {
+        setNotice("前のパスワードを入力してください。");
+        return;
+      }
+      if (!/^\d{8}$/.test(newPassword)) {
+        setNotice("新しいパスワードは任意の8桁の数字で入力してください。");
+        return;
+      }
+      if (currentPassword === newPassword) {
+        setNotice("新しいパスワードは前のパスワードと別にしてください。");
+        return;
+      }
+      if (!firebaseAuth) {
+        setNotice("Firebase Authentication の設定が未完了です。");
+        return;
+      }
+
+      const targetAccount = findAccountByLoginId(targetId);
+      const targetName = targetAccount?.name || targetId;
+
+      try {
+        await changeUserPasswordWithoutSwitchingSession(targetId, currentPassword, newPassword);
+        refs.currentPasswordInput.value = "";
+        refs.newPasswordInput.value = "";
+        setNotice(`${targetName} のパスワードを変更しました。`);
+      } catch (error) {
+        const code = error?.code || "";
+        if (
+          code === "auth/wrong-password"
+          || code === "auth/invalid-login-credentials"
+          || code === "auth/invalid-credential"
+          || code === "auth/user-not-found"
+        ) {
+          setNotice("前のパスワードが正しくないか、対象利用者が見つかりません。");
+          return;
+        }
+        if (code === "auth/weak-password") {
+          setNotice("新しいパスワードは任意の8桁の数字で入力してください。");
+          return;
+        }
+        setNotice(convertFirebaseAuthError(error));
+      }
+    });
+  }
+
   if (refs.userOrderList) {
     refs.userOrderList.addEventListener("click", async (event) => {
       if (!canManageAdminSettings()) {
@@ -685,11 +753,21 @@ function bindEvents() {
 
       const entryData = {
         status: refs.statusInput?.value || "現場",
+        secondaryStatus: "",
         work: refs.workInput?.value.trim() || "",
         place: refs.placeInput?.value.trim() || "",
         source: "manual",
         updatedAt: new Date().toISOString(),
       };
+
+      if (getHalfDayWorkingSlot(entryData.status)) {
+        const secondaryStatus = String(refs.secondaryStatusInput?.value || "").trim();
+        if (!secondaryStatus) {
+          setNotice("半日休ステータス時は、もう半日の状態を選択してください。");
+          return;
+        }
+        entryData.secondaryStatus = secondaryStatus;
+      }
 
       const repeatDays = refs.repeatEnabled?.checked ? Number(refs.repeatCount?.value || 1) : 1;
       const requiresConfirmation = Boolean(refs.requestConfirmEnabled?.checked);
@@ -746,7 +824,9 @@ function bindEvents() {
 
   if (refs.statusInput) {
     refs.statusInput.addEventListener("change", () => {
-      syncHalfDayInputUi(refs.statusInput?.value || "");
+      const status = refs.statusInput?.value || "";
+      syncHalfDayInputUi(status);
+      syncHalfDaySecondaryStatusUi(status);
     });
   }
 
@@ -859,6 +939,7 @@ async function render() {
   renderWeeklyBusinessNotes();
   renderMonthlyCalendar();
   renderUserOrderList();
+  renderPasswordChangeUserOptions();
   renderRequestInbox();
   renderDesktopRequestPanel();
   syncFinalizeButtonUi();
@@ -1173,7 +1254,7 @@ function renderMonthlyCalendar() {
 }
 
 function buildMonthlyEntryText(entry) {
-  const parts = [entry?.status || ""];
+  const parts = [formatEntryStatusText(entry)];
   const work = formatEntryWorkText(entry);
   if (work) {
     parts.push(work);
@@ -1267,11 +1348,12 @@ function renderCellHtml(entry) {
     return `<div class="cell-status">-</div><div class="cell-work">未入力</div>`;
   }
 
+  const statusText = formatEntryStatusText(entry);
   const work = formatEntryWorkText(entry);
   const place = formatEntryPlaceText(entry);
 
   return `
-    <div class="cell-status">${escapeHtml(entry.status)}</div>
+    <div class="cell-status">${escapeHtml(statusText)}</div>
     <div class="cell-work">${escapeHtml(work)}</div>
     <div class="cell-place">${escapeHtml(place)}</div>
   `;
@@ -1353,6 +1435,36 @@ function renderUserOrderList() {
   bindDragAndDrop(refs.userOrderList);
 }
 
+function renderPasswordChangeUserOptions() {
+  if (!refs.changePasswordUserSelect) {
+    return;
+  }
+
+  if (!state.isAdmin) {
+    refs.changePasswordUserSelect.innerHTML = '<option value="">選択してください</option>';
+    return;
+  }
+
+  const currentValue = normalizeLoginId(refs.changePasswordUserSelect.value);
+  const options = state.staffAccounts
+    .filter((account) => {
+      const accountId = normalizeLoginId(account.id);
+      return Boolean(accountId) && !isAdminLoginId(accountId);
+    })
+    .map((account) => `<option value="${escapeHtml(account.id)}">${escapeHtml(account.name)}（${escapeHtml(account.id)}）</option>`)
+    .join("");
+
+  refs.changePasswordUserSelect.innerHTML = `<option value="">選択してください</option>${options}`;
+
+  if (currentValue) {
+    const exists = Array.from(refs.changePasswordUserSelect.options)
+      .some((option) => normalizeLoginId(option.value) === currentValue);
+    if (exists) {
+      refs.changePasswordUserSelect.value = currentValue;
+    }
+  }
+}
+
 function syncRequestFormUi() {
   const enabled = Boolean(refs.requestConfirmEnabled?.checked);
   if (refs.requestTargetInput) {
@@ -1413,6 +1525,40 @@ function syncHalfDayInputUi(status) {
       refs.halfDayWorkHint.textContent = "";
     }
   }
+}
+
+function syncHalfDaySecondaryStatusUi(status) {
+  if (!refs.secondaryStatusRow || !refs.secondaryStatusInput) {
+    return;
+  }
+
+  const slot = getHalfDayWorkingSlot(status);
+  if (!slot) {
+    refs.secondaryStatusRow.classList.add("hidden");
+    refs.secondaryStatusInput.value = "";
+    return;
+  }
+
+  if (refs.secondaryStatusLabel) {
+    refs.secondaryStatusLabel.textContent = `${slot}の状態`;
+  }
+
+  refs.secondaryStatusRow.classList.remove("hidden");
+}
+
+function formatEntryStatusText(entry) {
+  const status = String(entry?.status || "").trim();
+  if (!status) {
+    return "";
+  }
+
+  const slot = getHalfDayWorkingSlot(status);
+  const secondaryStatus = String(entry?.secondaryStatus || "").trim();
+  if (slot && secondaryStatus) {
+    return `${status} / ${slot}:${secondaryStatus}`;
+  }
+
+  return status;
 }
 
 function formatEntryWorkText(entry) {
@@ -1476,7 +1622,7 @@ function renderRequestInbox() {
         <div class="request-item-title">受信: ${escapeHtml(request.requesterName)} さんから確認依頼</div>
         <div class="request-item-meta">対象: ${escapeHtml(request.ownerName)} / ${escapeHtml(request.startDate)} / ${request.repeatDays}日分</div>
         <div class="request-item-meta">送信日時: ${escapeHtml(formatDateTimeLabel(request.createdAt))}</div>
-        <div class="request-item-meta">内容: ${escapeHtml(request.entryData?.status || "")}${request.entryData?.work ? ` / ${escapeHtml(request.entryData.work)}` : ""}${request.entryData?.place ? ` / ${escapeHtml(request.entryData.place)}` : ""}</div>
+        <div class="request-item-meta">内容: ${escapeHtml(formatEntryStatusText(request.entryData))}${request.entryData?.work ? ` / ${escapeHtml(request.entryData.work)}` : ""}${request.entryData?.place ? ` / ${escapeHtml(request.entryData.place)}` : ""}</div>
         ${request.message ? `<div class="request-item-meta">メモ: ${escapeHtml(request.message)}</div>` : ""}
         <div class="request-item-buttons">
           <button class="btn" type="button" data-request-action="approve" data-request-id="${escapeHtml(request.id)}">承認して反映</button>
@@ -1887,13 +2033,22 @@ function openEditDialog(name, dateStr, currentEntry) {
     refs.statusInput.innerHTML = STATUS_OPTIONS.map((s) => `<option value="${s}">${s}</option>`).join("");
     refs.statusInput.value = currentEntry?.status || "現場";
   }
+  if (refs.secondaryStatusInput) {
+    const options = HALF_DAY_SECONDARY_STATUS_OPTIONS
+      .map((s) => `<option value="${s}">${s}</option>`)
+      .join("");
+    refs.secondaryStatusInput.innerHTML = `<option value="">選択してください</option>${options}`;
+    refs.secondaryStatusInput.value = currentEntry?.secondaryStatus || "";
+  }
   if (refs.workInput) {
     refs.workInput.value = currentEntry?.work || "";
   }
   if (refs.placeInput) {
     refs.placeInput.value = currentEntry?.place || "";
   }
-  syncHalfDayInputUi(currentEntry?.status || "現場");
+  const status = currentEntry?.status || "現場";
+  syncHalfDayInputUi(status);
+  syncHalfDaySecondaryStatusUi(status);
   if (refs.repeatEnabled) {
     refs.repeatEnabled.checked = false;
   }
@@ -2693,6 +2848,49 @@ async function createUserWithoutSwitchingSession(email, password) {
     const secondaryAuth = secondaryApp.auth();
     return await secondaryAuth.createUserWithEmailAndPassword(email, password);
   } finally {
+    await secondaryApp.delete();
+  }
+}
+
+async function changeUserPasswordWithoutSwitchingSession(loginId, currentPassword, newPassword) {
+  const config = window.__FIREBASE_CONFIG__;
+  const secondaryName = `password-change-${Date.now()}`;
+  const secondaryApp = window.firebase.initializeApp(config, secondaryName);
+
+  try {
+    const secondaryAuth = secondaryApp.auth();
+    const candidates = buildAuthEmailCandidates(loginId);
+    let lastError = null;
+
+    for (const email of candidates) {
+      try {
+        await secondaryAuth.signInWithEmailAndPassword(email, currentPassword);
+        break;
+      } catch (error) {
+        lastError = error;
+        const code = error?.code || "";
+        if (
+          code === "auth/user-not-found"
+          || code === "auth/invalid-credential"
+          || code === "auth/invalid-login-credentials"
+        ) {
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    if (!secondaryAuth.currentUser) {
+      throw lastError || new Error("password-change-sign-in-failed");
+    }
+
+    await secondaryAuth.currentUser.updatePassword(newPassword);
+  } finally {
+    try {
+      await secondaryApp.auth().signOut();
+    } catch (error) {
+      // no-op
+    }
     await secondaryApp.delete();
   }
 }

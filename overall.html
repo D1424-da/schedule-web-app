@@ -41,7 +41,10 @@
         <div id="weekLabel" class="week-label"></div>
       </section>
 
-      <section class="card" aria-label="週間予定表">
+      <section class="card" aria-label="週間作業予定表">
+        <div class="settings-header">
+          <h2>週間作業予定表</h2>
+        </div>
         <div class="table-wrap">
           <table id="scheduleTable" class="schedule-table"></table>
         </div>
@@ -58,7 +61,10 @@
         <ul id="overallBusinessNoteList" class="request-list"></ul>
       </section>
 
-      <section class="card monthly-card" aria-label="月間予定表">
+      <section class="card monthly-card" aria-label="月間作業カレンダー">
+        <div class="settings-header">
+          <h2>月間作業カレンダー</h2>
+        </div>
         <div class="month-nav">
           <button id="prevMonthBtn" class="btn btn-secondary" type="button">前月</button>
           <button id="currentMonthBtn" class="btn btn-ghost" type="button">当月</button>
@@ -169,6 +175,13 @@
           <option value="午前有休">午前有休</option>
           <option value="午後有休">午後有休</option>
         </select>
+
+        <div id="secondaryStatusRow" class="halfday-secondary-row hidden">
+          <label id="secondaryStatusLabel" for="secondaryStatusInput">もう半日の状態</label>
+          <select id="secondaryStatusInput">
+            <option value="">選択してください</option>
+          </select>
+        </div>
 
         <label id="workInputLabel" for="workInput">業務内容</label>
         <input id="workInput" type="text" placeholder="例: 官場線 作業準備" />

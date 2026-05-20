@@ -121,6 +121,26 @@
           </div>
           <p class="subtitle-mini">上下ボタン、ドラッグで順序を変更できます。パスワードは伏せて表示されます。</p>
           <ul id="userOrderList" class="user-order-list" aria-label="利用者並び順"></ul>
+
+          <hr class="section-divider" />
+
+          <div class="settings-header">
+            <h2>利用者パスワード変更（管理者）</h2>
+          </div>
+          <p class="subtitle-mini">前のパスワードは表示されません。新しいパスワードは任意の8桁の数字で入力してください。</p>
+          <div class="field-grid">
+            <label for="changePasswordUserSelect">対象利用者</label>
+            <select id="changePasswordUserSelect">
+              <option value="">選択してください</option>
+            </select>
+            <label for="currentPasswordInput">前のパスワード</label>
+            <input id="currentPasswordInput" type="password" autocomplete="current-password" placeholder="前のパスワード" />
+            <label for="newPasswordInput">新しいパスワード</label>
+            <input id="newPasswordInput" type="password" autocomplete="new-password" placeholder="例: 12345678" />
+          </div>
+          <div class="field-row">
+            <button id="changePasswordBtn" class="btn" type="button">パスワードを変更</button>
+          </div>
         </div>
       </section>
 
@@ -155,6 +175,13 @@
           <option value="午前有休">午前有休</option>
           <option value="午後有休">午後有休</option>
         </select>
+
+        <div id="secondaryStatusRow" class="halfday-secondary-row hidden">
+          <label id="secondaryStatusLabel" for="secondaryStatusInput">もう半日の状態</label>
+          <select id="secondaryStatusInput">
+            <option value="">選択してください</option>
+          </select>
+        </div>
 
         <label id="workInputLabel" for="workInput">業務内容</label>
         <input id="workInput" type="text" placeholder="例: 官場線 作業準備" />

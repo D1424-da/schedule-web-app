@@ -578,7 +578,8 @@ a.btn {
 }
 
 select,
-input[type="text"] {
+input[type="text"],
+input[type="password"] {
   width: 100%;
   min-height: 44px;
   font-size: 17px;
@@ -652,6 +653,15 @@ input[type="text"] {
 .edit-meta {
   margin: 0 0 4px;
   color: var(--muted);
+}
+
+.halfday-secondary-row {
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid #e2e8ed;
+  border-radius: 8px;
+  background: #f7fafc;
 }
 
 .halfday-highlight-label {
