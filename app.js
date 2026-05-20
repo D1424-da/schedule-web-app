@@ -1691,8 +1691,16 @@ function checkAndPromptIncomingRequests(incoming) {
 }
 
 function hasHalfDayOnApproverSide(request) {
-  const approverRowName = normalizeDisplayName(state.currentUser || "");
-  if (!approverRowName || !request?.startDate) {
+  const currentId = normalizeLoginId(state.currentUserId);
+  const approverPrimaryName = resolveRowNameByLoginId(currentId, request?.targetName || state.currentUser);
+  const candidateNames = [
+    approverPrimaryName,
+    normalizeDisplayName(request?.targetName || ""),
+    normalizeDisplayName(state.currentUser || ""),
+    normalizeDisplayName(currentId || ""),
+  ].filter(Boolean).filter((value, index, array) => array.indexOf(value) === index);
+
+  if (candidateNames.length === 0 || !request?.startDate) {
     return false;
   }
 
@@ -1700,10 +1708,13 @@ function hasHalfDayOnApproverSide(request) {
   const startDate = fromISODate(request.startDate);
   for (let i = 0; i < repeatDays; i += 1) {
     const targetDate = addDays(startDate, i);
-    const key = entryKey(approverRowName, toISODate(targetDate));
-    const status = normalizeDisplayName(state.manualEntries[key]?.status || "");
-    if (getHalfDayWorkingSlot(status)) {
-      return true;
+    const dateStr = toISODate(targetDate);
+    for (const approverRowName of candidateNames) {
+      const key = entryKey(approverRowName, dateStr);
+      const status = normalizeDisplayName(state.manualEntries[key]?.status || "");
+      if (getHalfDayWorkingSlot(status)) {
+        return true;
+      }
     }
   }
 
@@ -1837,9 +1848,9 @@ async function handleConfirmationRequestAction(requestId, action) {
       allowHalfDayOverwrite,
     );
 
-    const approverAccount = findAccountByLoginId(currentId);
-    const targetRowName = normalizeDisplayName(
-      approverAccount?.name || request.targetName || state.currentUser || currentId,
+    const targetRowName = resolveRowNameByLoginId(
+      currentId,
+      request.targetName || state.currentUser || currentId,
     );
     let savedCountTarget = 0;
     if (targetRowName && targetRowName !== request.ownerName) {
@@ -1853,7 +1864,10 @@ async function handleConfirmationRequestAction(requestId, action) {
     }
 
     // 送信側（requesterName）のスケジュールも更新（オーナーと異なり、かつ承認者とも異なる場合）
-    const requesterRowName = normalizeDisplayName(request.requesterName || "");
+    const requesterRowName = resolveRowNameByLoginId(
+      normalizeLoginId(request.requesterId),
+      request.requesterName || "",
+    );
     let savedCountRequester = 0;
     if (requesterRowName && requesterRowName !== request.ownerName && requesterRowName !== targetRowName) {
       savedCountRequester = applyApprovedEntryWithRepeat(
@@ -3550,6 +3564,22 @@ function findAccountByCredentials(loginId, loginPassword) {
 function findAccountByLoginId(loginId) {
   const normalizedId = normalizeLoginId(loginId);
   return state.staffAccounts.find((item) => normalizeLoginId(item.id) === normalizedId) || null;
+}
+
+function resolveRowNameByLoginId(loginId, fallbackName = "") {
+  const normalizedId = normalizeLoginId(loginId);
+  const account = findAccountByLoginId(normalizedId);
+  const accountName = normalizeDisplayName(account?.name || "");
+  if (accountName) {
+    return accountName;
+  }
+
+  const fallback = normalizeDisplayName(fallbackName || "");
+  if (fallback) {
+    return fallback;
+  }
+
+  return normalizeDisplayName(normalizedId || "");
 }
 
 function findLoginIdByUserName(name) {
