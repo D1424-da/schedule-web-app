@@ -1779,7 +1779,12 @@ async function handleConfirmationRequestAction(requestId, action) {
       repeatDays,
     );
     removeConfirmationRequest(requestId);
-    saveState({ forceCloud: true });
+    try {
+      await saveStateImmediately();
+    } catch (error) {
+      setNotice("承認結果の共有に失敗しました。通信状態を確認して再操作してください。");
+      return;
+    }
     setNotice(`${request.requesterName} さんの依頼を承認し、${savedCount}件を反映しました。`);
     await render();
     return;
@@ -1791,7 +1796,12 @@ async function handleConfirmationRequestAction(requestId, action) {
       return;
     }
     removeConfirmationRequest(requestId);
-    saveState({ forceCloud: true });
+    try {
+      await saveStateImmediately();
+    } catch (error) {
+      setNotice("却下結果の共有に失敗しました。通信状態を確認して再操作してください。");
+      return;
+    }
     setNotice(`${request.requesterName} さんの依頼を却下しました。`);
     await render();
     return;
@@ -1803,7 +1813,12 @@ async function handleConfirmationRequestAction(requestId, action) {
       return;
     }
     removeConfirmationRequest(requestId);
-    saveState({ forceCloud: true });
+    try {
+      await saveStateImmediately();
+    } catch (error) {
+      setNotice("取消結果の共有に失敗しました。通信状態を確認して再操作してください。");
+      return;
+    }
     setNotice("確認依頼を取り消しました。");
     await render();
   }
@@ -2349,6 +2364,21 @@ function saveState(options = {}) {
   const cloudPayload = buildCloudPayload(announce);
   lastLocalSaveUpdatedAt = normalizeTimestamp(cloudPayload.updatedAt);
   queueCloudSave(cloudPayload);
+}
+
+async function saveStateImmediately(options = {}) {
+  const announce = options?.announce === true;
+  const localPayload = buildLocalPayload();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(localPayload));
+
+  if (!cloudSyncEnabled || !currentFirebaseUser || !firestoreDb) {
+    return;
+  }
+
+  const cloudPayload = buildCloudPayload(announce);
+  lastLocalSaveUpdatedAt = normalizeTimestamp(cloudPayload.updatedAt);
+  await firestoreDb.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOCUMENT).set(cloudPayload, { merge: true });
+  lastKnownRemoteUpdatedAt = normalizeTimestamp(cloudPayload.updatedAt);
 }
 
 function saveWeeklyBusinessNotesImmediately() {
