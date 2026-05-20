@@ -75,6 +75,7 @@ const state = {
   holidaysByYear: {},
   editTarget: null,
   confirmationRequests: [],
+  weeklyBusinessNotes: {},
 };
 
 const refs = {
@@ -138,6 +139,12 @@ const refs = {
   syncAlert: document.getElementById("syncAlert"),
   requestInboxSection: document.getElementById("requestInboxSection"),
   requestInboxList: document.getElementById("requestInboxList"),
+  personalBusinessNoteSection: document.getElementById("personalBusinessNoteSection"),
+  businessNoteInput: document.getElementById("businessNoteInput"),
+  saveBusinessNoteBtn: document.getElementById("saveBusinessNoteBtn"),
+  businessNoteMeta: document.getElementById("businessNoteMeta"),
+  overallBusinessNoteSection: document.getElementById("overallBusinessNoteSection"),
+  overallBusinessNoteList: document.getElementById("overallBusinessNoteList"),
 };
 
 function openDialog(dialog) {
@@ -310,6 +317,35 @@ function bindEvents() {
       finalizeInFlight = false;
       syncFinalizeButtonUi();
       setNotice("入力内容を確定し、他の利用者へ通知しました。");
+    });
+  }
+
+  if (refs.saveBusinessNoteBtn && refs.businessNoteInput) {
+    refs.saveBusinessNoteBtn.addEventListener("click", () => {
+      const loginId = normalizeLoginId(state.currentUserId);
+      if (!loginId) {
+        setNotice("業務欄を保存するにはログインが必要です。");
+        return;
+      }
+
+      const weekStartIso = toISODate(state.currentWeekStart);
+      const key = getWeeklyBusinessNoteKey(loginId, weekStartIso);
+      const text = String(refs.businessNoteInput.value || "").trim();
+
+      if (!text) {
+        delete state.weeklyBusinessNotes[key];
+      } else {
+        state.weeklyBusinessNotes[key] = {
+          text,
+          updatedAt: new Date().toISOString(),
+          updatedById: loginId,
+          updatedByName: state.currentUser || loginId,
+        };
+      }
+
+      saveState({ forceCloud: true });
+      renderWeeklyBusinessNotes();
+      setNotice("業務欄を保存しました。全体ページへ即時反映しました。");
     });
   }
 
@@ -811,11 +847,57 @@ async function render() {
 
   renderWeekLabel(weekDates);
   renderTable(weekDates);
+  renderWeeklyBusinessNotes();
   renderMonthlyCalendar();
   renderUserOrderList();
   renderRequestInbox();
   renderDesktopRequestPanel();
   syncFinalizeButtonUi();
+}
+
+function renderWeeklyBusinessNotes() {
+  const weekStartIso = toISODate(state.currentWeekStart);
+
+  if (isPersonalPage && refs.personalBusinessNoteSection && refs.businessNoteInput) {
+    const loginId = normalizeLoginId(state.currentUserId);
+    const key = getWeeklyBusinessNoteKey(loginId, weekStartIso);
+    const note = state.weeklyBusinessNotes[key];
+    refs.personalBusinessNoteSection.classList.remove("hidden");
+    refs.businessNoteInput.value = note?.text || "";
+    if (refs.businessNoteMeta) {
+      refs.businessNoteMeta.textContent = note?.updatedAt
+        ? `最終更新: ${formatDateTimeLabel(note.updatedAt)} / 保存すると全体ページへ即時反映されます。`
+        : "保存すると全体ページへ即時反映されます。";
+    }
+  }
+
+  if (isOverallPage && refs.overallBusinessNoteSection && refs.overallBusinessNoteList) {
+    refs.overallBusinessNoteSection.classList.remove("hidden");
+    const lines = [];
+
+    for (const account of state.staffAccounts) {
+      const loginId = normalizeLoginId(account.id);
+      if (!loginId) {
+        continue;
+      }
+      const key = getWeeklyBusinessNoteKey(loginId, weekStartIso);
+      const note = state.weeklyBusinessNotes[key];
+
+      lines.push(`
+        <li class="business-note-item">
+          <div class="business-note-name">${escapeHtml(account.name)}</div>
+          <div class="business-note-text">${escapeHtml(note?.text || "（未入力）")}</div>
+          <div class="request-item-meta">${note?.updatedAt ? `最終更新: ${escapeHtml(formatDateTimeLabel(note.updatedAt))}` : ""}</div>
+        </li>
+      `);
+    }
+
+    refs.overallBusinessNoteList.innerHTML = lines.join("");
+  }
+}
+
+function getWeeklyBusinessNoteKey(loginId, weekStartIso) {
+  return `${normalizeLoginId(loginId)}::${weekStartIso}`;
 }
 
 function startCloudListener() {
@@ -1955,10 +2037,11 @@ async function loadState() {
 function saveState(options = {}) {
   const announce = options?.announce === true;
   const localOnly = options?.localOnly === true;
+  const forceCloud = options?.forceCloud === true;
   const localPayload = buildLocalPayload();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(localPayload));
 
-  if (localOnly) {
+  if (localOnly && !forceCloud) {
     return;
   }
 
@@ -1977,6 +2060,7 @@ function buildLocalPayload() {
     manualEntries: state.manualEntries,
     settings: state.settings,
     confirmationRequests: state.confirmationRequests,
+    weeklyBusinessNotes: state.weeklyBusinessNotes,
     finalizeRequired: scheduleFinalizeRequired,
   };
 }
@@ -1989,6 +2073,7 @@ function buildCloudPayload(announce = false) {
     manualEntries: state.manualEntries,
     settings: state.settings,
     confirmationRequests: state.confirmationRequests,
+    weeklyBusinessNotes: state.weeklyBusinessNotes,
     updatedByName: state.currentUser || (isPersonalPage ? "未ログイン利用者" : "管理画面"),
     updatedById: state.currentUserId || "",
     updatedByPage: pageMode,
@@ -2018,6 +2103,9 @@ function applyLoadedData(data, restoreSession = true) {
   }
   if (Array.isArray(data.confirmationRequests)) {
     state.confirmationRequests = data.confirmationRequests;
+  }
+  if (data.weeklyBusinessNotes && typeof data.weeklyBusinessNotes === "object") {
+    state.weeklyBusinessNotes = data.weeklyBusinessNotes;
   }
   if (typeof data.finalizeRequired === "boolean") {
     scheduleFinalizeRequired = data.finalizeRequired;
