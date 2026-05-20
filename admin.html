@@ -4,8 +4,27 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+      <style>
+      /* 印刷用A4横レイアウト */
+      @media print {
+        @page {
+          size: A4 landscape;
+          margin: 15mm;
+        }
+        body {
+          width: 100%;
+          margin: 0;
+          background: white;
+        }
+        .no-print {
+          display: none !important;
+        }
+        /* 必要に応じて表や業務欄のレイアウト調整を追加 */
+      }
+      </style>
     <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet" />
     <title>管理者ページ | 週間予定表管理システム</title>
+      <button class="no-print" onclick="window.print()" style="margin:10px 0;">印刷</button>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <link rel="stylesheet" href="style.css" />
   </head>
