@@ -1766,6 +1766,8 @@ async function handleConfirmationRequestAction(requestId, action) {
       setNotice("この依頼は承認できません。");
       return;
     }
+    const repeatDays = Number(request.repeatDays || 1);
+    clearManualEntriesWithRepeat(request.ownerName, request.startDate, repeatDays);
     const savedCount = saveManualEntriesWithRepeat(
       request.ownerName,
       request.startDate,
@@ -1774,7 +1776,7 @@ async function handleConfirmationRequestAction(requestId, action) {
         source: "manual",
         updatedAt: new Date().toISOString(),
       },
-      Number(request.repeatDays || 1),
+      repeatDays,
     );
     removeConfirmationRequest(requestId);
     saveState({ forceCloud: true });
@@ -2093,6 +2095,17 @@ function saveManualEntriesWithRepeat(name, startDateStr, entryData, repeatDays) 
   markScheduleNeedsFinalize();
 
   return count;
+}
+
+function clearManualEntriesWithRepeat(name, startDateStr, repeatDays) {
+  const count = clamp(repeatDays, 1, 12);
+  const startDate = fromISODate(startDateStr);
+
+  for (let i = 0; i < count; i += 1) {
+    const targetDate = addDays(startDate, i);
+    const key = entryKey(name, toISODate(targetDate));
+    delete state.manualEntries[key];
+  }
 }
 
 function isCompanyHoliday(date) {
