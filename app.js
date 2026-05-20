@@ -245,6 +245,13 @@ function bindEvents() {
 
       refs.registerNameInput.value = "";
       refs.registerBirthdayInput.value = "";
+
+      if (isPersonalPage && refs.loginIdInput && refs.loginPasswordInput) {
+        refs.loginIdInput.value = name;
+        refs.loginPasswordInput.value = "";
+        refs.loginPasswordInput.focus();
+      }
+
       setNotice(`${name} を新規登録しました。個人入力ページでログインできます。`);
       render();
     });
