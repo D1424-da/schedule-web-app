@@ -316,6 +316,34 @@ a.btn {
   font-size: 13px;
 }
 
+.table-scrollbar {
+  margin-top: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 14px;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 999px;
+  background: #e8edf1;
+}
+
+.table-scrollbar-inner {
+  height: 1px;
+}
+
+.table-scrollbar::-webkit-scrollbar {
+  height: 12px;
+}
+
+.table-scrollbar::-webkit-scrollbar-track {
+  background: #e8edf1;
+  border-radius: 999px;
+}
+
+.table-scrollbar::-webkit-scrollbar-thumb {
+  background: #7f96a3;
+  border-radius: 999px;
+}
+
 .schedule-table {
   width: max-content;
   border-collapse: collapse;

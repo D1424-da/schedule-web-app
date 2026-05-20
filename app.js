@@ -46,6 +46,8 @@ let loginInFlight = false;
 let loginBlockedUntil = 0;
 let scheduleNotificationEnabled = true;
 let requestNotificationEnabled = true;
+let tableScrollbarSyncing = false;
+let tableScrollbarResizeBound = false;
 
 const LOGIN_BLOCK_MS_AFTER_TOO_MANY_REQUESTS = 60 * 1000;
 
@@ -76,6 +78,8 @@ const refs = {
   todayBtn: document.getElementById("todayBtn"),
   weekLabel: document.getElementById("weekLabel"),
   scheduleTable: document.getElementById("scheduleTable"),
+  scheduleScrollbar: document.getElementById("scheduleScrollbar"),
+  scheduleScrollbarInner: document.getElementById("scheduleScrollbarInner"),
   notice: document.getElementById("notice"),
   currentUserLabel: document.getElementById("currentUserLabel"),
   openLoginBtn: document.getElementById("openLoginBtn"),
@@ -212,6 +216,7 @@ async function init() {
   syncSettingsToForm();
   syncNotificationUi();
   bindEvents();
+  bindTableScrollbarSync();
   updatePageLock();
 
   if (currentFirebaseUser) {
@@ -897,6 +902,74 @@ function renderTable(weekDates) {
   refs.scheduleTable.innerHTML = "";
   refs.scheduleTable.appendChild(thead);
   refs.scheduleTable.appendChild(tbody);
+  syncTableScrollbar();
+}
+
+function bindTableScrollbarSync() {
+  if (!refs.scheduleTable || !refs.scheduleScrollbar) {
+    return;
+  }
+
+  const wrap = refs.scheduleTable.closest(".table-wrap");
+  if (!wrap) {
+    return;
+  }
+
+  if (wrap.dataset.scrollSyncBound !== "1") {
+    wrap.dataset.scrollSyncBound = "1";
+    wrap.addEventListener("scroll", () => {
+      if (!refs.scheduleScrollbar || tableScrollbarSyncing) {
+        return;
+      }
+      tableScrollbarSyncing = true;
+      refs.scheduleScrollbar.scrollLeft = wrap.scrollLeft;
+      tableScrollbarSyncing = false;
+    });
+  }
+
+  if (refs.scheduleScrollbar.dataset.scrollSyncBound !== "1") {
+    refs.scheduleScrollbar.dataset.scrollSyncBound = "1";
+    refs.scheduleScrollbar.addEventListener("scroll", () => {
+      if (tableScrollbarSyncing) {
+        return;
+      }
+      tableScrollbarSyncing = true;
+      wrap.scrollLeft = refs.scheduleScrollbar.scrollLeft;
+      tableScrollbarSyncing = false;
+    });
+  }
+
+  if (!tableScrollbarResizeBound) {
+    tableScrollbarResizeBound = true;
+    window.addEventListener("resize", () => {
+      syncTableScrollbar();
+    });
+  }
+}
+
+function syncTableScrollbar() {
+  if (!refs.scheduleTable || !refs.scheduleScrollbar || !refs.scheduleScrollbarInner) {
+    return;
+  }
+
+  const wrap = refs.scheduleTable.closest(".table-wrap");
+  if (!wrap) {
+    return;
+  }
+
+  const contentWidth = Math.ceil(refs.scheduleTable.scrollWidth);
+  const viewportWidth = Math.ceil(wrap.clientWidth);
+
+  if (contentWidth <= viewportWidth + 1) {
+    refs.scheduleScrollbar.classList.add("hidden");
+    refs.scheduleScrollbar.scrollLeft = 0;
+    refs.scheduleScrollbarInner.style.width = "1px";
+    return;
+  }
+
+  refs.scheduleScrollbar.classList.remove("hidden");
+  refs.scheduleScrollbarInner.style.width = `${contentWidth}px`;
+  refs.scheduleScrollbar.scrollLeft = wrap.scrollLeft;
 }
 
 function renderCellHtml(entry) {
