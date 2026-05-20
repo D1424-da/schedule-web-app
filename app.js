@@ -249,8 +249,19 @@ function bindEvents() {
   }
 
   if (refs.openLoginBtn && refs.loginDialog) {
-    refs.openLoginBtn.addEventListener("click", () => {
+    const handler = () => {
+      console.log('openLoginBtn clicked');
       openDialog(refs.loginDialog);
+    };
+    refs.openLoginBtn.addEventListener("click", handler);
+    refs.openLoginBtn.addEventListener("touchend", (e) => {
+      e.preventDefault();
+      handler();
+    });
+  } else {
+    console.warn("openLoginBtn or loginDialog not found:", {
+      openLoginBtn: !!refs.openLoginBtn,
+      loginDialog: !!refs.loginDialog
     });
   }
 

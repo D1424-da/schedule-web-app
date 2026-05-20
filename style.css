@@ -259,6 +259,9 @@ body.auth-locked main {
   min-height: 46px;
   font-size: 18px;
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 a.btn {
