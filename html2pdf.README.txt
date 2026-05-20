@@ -1,0 +1,3 @@
+// CDN経由でhtml2pdf.jsを読み込む
+// 必要に応じてバージョンを調整してください
+// <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
