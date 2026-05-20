@@ -1780,7 +1780,7 @@ async function handleConfirmationRequestAction(requestId, action) {
     request.resolvedAt = new Date().toISOString();
     request.resolvedById = currentId;
     trimResolvedRequests();
-    saveState({ localOnly: isPersonalPage });
+    saveState({ forceCloud: true });
     setNotice(`${request.requesterName} さんの依頼を承認し、${savedCount}件を反映しました。`);
     await render();
     return;
