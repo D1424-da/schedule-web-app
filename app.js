@@ -1768,7 +1768,7 @@ async function handleConfirmationRequestAction(requestId, action) {
     }
     const repeatDays = Number(request.repeatDays || 1);
     clearManualEntriesWithRepeat(request.ownerName, request.startDate, repeatDays);
-    const savedCount = saveManualEntriesWithRepeat(
+    const savedCountOwner = saveManualEntriesWithRepeat(
       request.ownerName,
       request.startDate,
       {
@@ -1778,6 +1778,24 @@ async function handleConfirmationRequestAction(requestId, action) {
       },
       repeatDays,
     );
+
+    const targetRowName = normalizeDisplayName(request.targetName || "");
+    let savedCountTarget = 0;
+    if (targetRowName && targetRowName !== request.ownerName) {
+      clearManualEntriesWithRepeat(targetRowName, request.startDate, repeatDays);
+      savedCountTarget = saveManualEntriesWithRepeat(
+        targetRowName,
+        request.startDate,
+        {
+          ...request.entryData,
+          source: "manual",
+          updatedAt: new Date().toISOString(),
+        },
+        repeatDays,
+      );
+    }
+
+    const savedCount = savedCountOwner + savedCountTarget;
     removeConfirmationRequest(requestId);
     try {
       await saveStateImmediately();
