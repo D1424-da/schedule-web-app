@@ -48,6 +48,8 @@ let scheduleNotificationEnabled = true;
 let requestNotificationEnabled = true;
 let tableScrollbarSyncing = false;
 let tableScrollbarResizeBound = false;
+let desktopRequestPanelEl = null;
+let desktopRequestListEl = null;
 
 const LOGIN_BLOCK_MS_AFTER_TOO_MANY_REQUESTS = 60 * 1000;
 
@@ -217,6 +219,7 @@ async function init() {
   syncSettingsToForm();
   syncNotificationUi();
   bindEvents();
+  ensureDesktopRequestPanel();
   bindTableScrollbarSync();
   updatePageLock();
 
@@ -767,6 +770,7 @@ async function render() {
   renderTable(weekDates);
   renderUserOrderList();
   renderRequestInbox();
+  renderDesktopRequestPanel();
 }
 
 function startCloudListener() {
@@ -1156,6 +1160,80 @@ function renderRequestInbox() {
   }
 
   refs.requestInboxList.innerHTML = lines.join("");
+}
+
+function ensureDesktopRequestPanel() {
+  if (desktopRequestPanelEl || typeof document === "undefined") {
+    return;
+  }
+
+  const panel = document.createElement("section");
+  panel.id = "desktopRequestPanel";
+  panel.className = "desktop-request-panel hidden";
+  panel.setAttribute("aria-live", "polite");
+  panel.innerHTML = `
+    <div class="desktop-request-panel-title">確認依頼（承認待ち）</div>
+    <ul id="desktopRequestList" class="desktop-request-list"></ul>
+  `;
+
+  document.body.appendChild(panel);
+  desktopRequestPanelEl = panel;
+  desktopRequestListEl = panel.querySelector("#desktopRequestList");
+
+  if (desktopRequestListEl) {
+    desktopRequestListEl.addEventListener("click", async (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+
+      const button = target.closest("button[data-request-action]");
+      if (!button) {
+        return;
+      }
+
+      const action = button.dataset.requestAction;
+      const requestId = String(button.dataset.requestId || "");
+      if (!action || !requestId) {
+        return;
+      }
+
+      await handleConfirmationRequestAction(requestId, action);
+    });
+  }
+}
+
+function renderDesktopRequestPanel() {
+  if (!desktopRequestPanelEl || !desktopRequestListEl) {
+    return;
+  }
+
+  // PC画面のみ常駐表示（モバイルは既存セクションで対応）
+  if (window.innerWidth < 900 || !currentFirebaseUser) {
+    desktopRequestPanelEl.classList.add("hidden");
+    desktopRequestListEl.innerHTML = "";
+    return;
+  }
+
+  const incoming = getPendingIncomingRequests(state.confirmationRequests);
+  if (incoming.length === 0) {
+    desktopRequestPanelEl.classList.add("hidden");
+    desktopRequestListEl.innerHTML = "";
+    return;
+  }
+
+  desktopRequestPanelEl.classList.remove("hidden");
+  desktopRequestListEl.innerHTML = incoming.map((request) => `
+    <li class="desktop-request-item">
+      <div class="desktop-request-item-title">${escapeHtml(request.requesterName)} さんから確認依頼</div>
+      <div class="desktop-request-item-meta">${escapeHtml(request.ownerName)} / ${escapeHtml(request.startDate)} / ${request.repeatDays}日分</div>
+      <div class="desktop-request-item-meta">送信日時: ${escapeHtml(formatDateTimeLabel(request.createdAt))}</div>
+      <div class="desktop-request-item-actions">
+        <button class="btn" type="button" data-request-action="approve" data-request-id="${escapeHtml(request.id)}">承認</button>
+        <button class="btn btn-secondary" type="button" data-request-action="reject" data-request-id="${escapeHtml(request.id)}">却下</button>
+      </div>
+    </li>
+  `).join("");
 }
 
 function getPendingIncomingRequests(requests) {

@@ -635,6 +635,66 @@ input[type="text"] {
   padding: 6px 10px;
 }
 
+.desktop-request-panel {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  width: min(360px, 36vw);
+  max-height: 60vh;
+  overflow: auto;
+  z-index: 60;
+  border: 1px solid #b7d3f5;
+  border-radius: 12px;
+  background: #f3f9ff;
+  box-shadow: 0 10px 26px rgba(27, 64, 99, 0.22);
+  padding: 10px;
+}
+
+.desktop-request-panel-title {
+  font-weight: 700;
+  color: #174b74;
+  margin-bottom: 8px;
+}
+
+.desktop-request-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.desktop-request-item {
+  border: 1px solid #c9def5;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 8px;
+  display: grid;
+  gap: 5px;
+}
+
+.desktop-request-item-title {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.desktop-request-item-meta {
+  font-size: 12px;
+  color: #41545f;
+}
+
+.desktop-request-item-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.desktop-request-item-actions .btn {
+  min-height: 32px;
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
 .dialog-buttons {
   margin-top: 8px;
   display: flex;
@@ -678,6 +738,10 @@ input[type="text"] {
 }
 
 @media (max-width: 768px) {
+  .desktop-request-panel {
+    display: none !important;
+  }
+
   .topbar {
     padding: 16px 12px 10px;
   }
