@@ -1383,22 +1383,28 @@ function getHalfDayWorkingSlot(status) {
 
 function syncHalfDayInputUi(status) {
   const slot = getHalfDayWorkingSlot(status);
+  const isHalfDayMode = Boolean(slot);
   const workLabel = slot ? `${slot}の業務内容` : "業務内容";
   const placeLabel = slot ? `${slot}の場所` : "場所";
 
   if (refs.workInputLabel) {
     refs.workInputLabel.textContent = workLabel;
+    refs.workInputLabel.classList.toggle("halfday-highlight-label", isHalfDayMode);
   }
   if (refs.placeInputLabel) {
     refs.placeInputLabel.textContent = placeLabel;
+    refs.placeInputLabel.classList.toggle("halfday-highlight-label", isHalfDayMode);
   }
   if (refs.workInput) {
     refs.workInput.placeholder = slot ? `例: ${slot}の作業内容` : "例: 官場線 作業準備";
+    refs.workInput.classList.toggle("halfday-highlight-input", isHalfDayMode);
   }
   if (refs.placeInput) {
     refs.placeInput.placeholder = slot ? `例: ${slot}の訪問先` : "例: 鹿児島市";
+    refs.placeInput.classList.toggle("halfday-highlight-input", isHalfDayMode);
   }
   if (refs.halfDayWorkHint) {
+    refs.halfDayWorkHint.classList.toggle("halfday-highlight-hint", isHalfDayMode);
     if (slot) {
       refs.halfDayWorkHint.textContent = `${status}が選択されています。${slot}の業務を入力してください。`;
       refs.halfDayWorkHint.classList.remove("hidden");

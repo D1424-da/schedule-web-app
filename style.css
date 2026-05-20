@@ -654,6 +654,31 @@ input[type="text"] {
   color: var(--muted);
 }
 
+.halfday-highlight-label {
+  color: #8a4f00;
+  font-weight: 700;
+}
+
+.halfday-highlight-input {
+  background: #fff7e8;
+  border-color: #e3b777;
+}
+
+.halfday-highlight-input:focus {
+  outline: none;
+  border-color: #c88b35;
+  box-shadow: 0 0 0 3px rgba(200, 139, 53, 0.16);
+}
+
+.halfday-highlight-hint {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid #efd6a8;
+  border-radius: 8px;
+  background: #fff7e8;
+  color: #7b4d00;
+}
+
 .repeat-row {
   margin-top: 4px;
   display: flex;
