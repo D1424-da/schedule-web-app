@@ -234,7 +234,7 @@ function bindEvents() {
 
       try {
         await ensureAdminAccount(loginId, loginPassword);
-        await firebaseAuth.signInWithEmailAndPassword(buildAuthEmail(loginId), loginPassword);
+        await signInWithLoginId(loginId, loginPassword);
       } catch (error) {
         const migrated = await migrateLegacyAccountOnLogin(loginId, loginPassword, error);
         if (!migrated) {
@@ -1592,7 +1592,7 @@ async function migrateLegacyAccountOnLogin(loginId, loginPassword, loginError) {
   } catch (migrationError) {
     if (migrationError?.code === "auth/email-already-in-use") {
       try {
-        await firebaseAuth.signInWithEmailAndPassword(buildAuthEmail(loginId), loginPassword);
+        await signInWithLoginId(loginId, loginPassword);
         return true;
       } catch (signInError) {
         return false;
@@ -1615,6 +1615,53 @@ function isAuthUserMissingError(error) {
 
 function buildAuthEmail(loginId) {
   return `${encodeLoginIdForEmail(loginId)}@${AUTH_EMAIL_DOMAIN}`;
+}
+
+function buildAuthEmailCandidates(loginId) {
+  const normalized = normalizeLoginId(loginId);
+  if (!normalized) {
+    return [];
+  }
+
+  const candidates = [
+    `${encodeLoginIdForEmail(normalized)}@${AUTH_EMAIL_DOMAIN}`,
+    `${encodeURIComponent(normalized)}@${AUTH_EMAIL_DOMAIN}`,
+    `${normalized}@${AUTH_EMAIL_DOMAIN}`,
+  ];
+
+  return [...new Set(candidates)];
+}
+
+async function signInWithLoginId(loginId, loginPassword) {
+  if (!firebaseAuth) {
+    throw new Error("firebaseAuth is not initialized");
+  }
+
+  const candidates = buildAuthEmailCandidates(loginId);
+  let lastError = null;
+
+  for (const email of candidates) {
+    try {
+      return await firebaseAuth.signInWithEmailAndPassword(email, loginPassword);
+    } catch (error) {
+      lastError = error;
+      const code = error?.code || "";
+
+      // 候補メール形式違いの可能性があるため次候補へ進む
+      if (
+        code === "auth/user-not-found" ||
+        code === "auth/invalid-credential" ||
+        code === "auth/invalid-login-credentials"
+      ) {
+        continue;
+      }
+
+      // それ以外は即時失敗とみなす
+      throw error;
+    }
+  }
+
+  throw lastError || new Error("sign-in failed");
 }
 
 function getLoginIdFromAuthUser(user) {
