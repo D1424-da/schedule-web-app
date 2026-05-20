@@ -33,6 +33,8 @@ let syncAlertTimer = null;
 let currentFirebaseUser = null;
 let authObserverReady = false;
 let appReady = false;
+let pendingLoginId = "";
+let pendingLoginDisplayName = "";
 
 const state = {
   currentWeekStart: getMonday(new Date()),
@@ -190,6 +192,8 @@ function bindEvents() {
 
       state.currentUser = normalizeDisplayName(refs.loginIdInput.value);
       state.currentUserId = loginId;
+  pendingLoginId = loginId;
+  pendingLoginDisplayName = state.currentUser;
 
       try {
         await ensureAdminAccount(loginId, loginPassword);
@@ -1214,6 +1218,8 @@ async function handleAuthStateChanged(user) {
     state.currentUserId = "";
     state.isAdmin = false;
     state.editTarget = null;
+    pendingLoginId = "";
+    pendingLoginDisplayName = "";
     updatePageLock();
     syncAuthUi();
     syncAdminUi();
@@ -1227,13 +1233,18 @@ async function handleAuthStateChanged(user) {
   }
 
   const authLoginId = getLoginIdFromAuthUser(user);
-  if (authLoginId) {
+  const authAccount = authLoginId ? findAccountByLoginId(authLoginId) : null;
+  if (authLoginId && (authAccount || isAdminLoginId(authLoginId))) {
     state.currentUserId = authLoginId;
-    const account = findAccountByLoginId(authLoginId);
-    state.currentUser = account?.name || authLoginId;
+    state.currentUser = authAccount?.name || authLoginId;
+  } else if (pendingLoginId) {
+    state.currentUserId = pendingLoginId;
+    state.currentUser = pendingLoginDisplayName || pendingLoginId;
   }
 
   state.isAdmin = await detectAdminUser(user);
+  pendingLoginId = "";
+  pendingLoginDisplayName = "";
 
   updatePageLock();
   syncAuthUi();
@@ -1255,11 +1266,15 @@ async function detectAdminUser(user) {
   }
 
   const authLoginId = normalizeLoginId(getLoginIdFromAuthUser(user));
-  if (authLoginId && authLoginId === normalizeLoginId(ADMIN_LOGIN_ID)) {
+  if (isAdminLoginId(authLoginId)) {
     return true;
   }
 
-  if (normalizeLoginId(state.currentUserId) === normalizeLoginId(ADMIN_LOGIN_ID)) {
+  if (isAdminLoginId(state.currentUserId)) {
+    return true;
+  }
+
+  if (isAdminLoginId(pendingLoginId)) {
     return true;
   }
 
@@ -1273,6 +1288,10 @@ async function detectAdminUser(user) {
   } catch (error) {
     return false;
   }
+}
+
+function isAdminLoginId(loginId) {
+  return normalizeLoginId(loginId) === normalizeLoginId(ADMIN_LOGIN_ID);
 }
 
 async function ensureAdminAccount(loginId, loginPassword) {
