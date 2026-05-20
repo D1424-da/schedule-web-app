@@ -14,6 +14,7 @@ const AUTH_EMAIL_DOMAIN = "schedule.local";
 
 const pageMode = document.body?.dataset?.page || "home";
 const isPersonalPage = pageMode === "personal";
+const isOverallPage = pageMode === "overall";
 const requiresAuth = pageMode === "personal" || pageMode === "overall";
 const FIRESTORE_COLLECTION = "appData";
 const FIRESTORE_DOCUMENT = "weeklySchedule";
@@ -37,6 +38,7 @@ const state = {
   staffAccounts: DEFAULT_STAFF_ACCOUNTS.map((item) => toStaffAccount(item)),
   currentUser: "",
   currentUserId: "",
+  isAdmin: false,
   manualEntries: {},
   settings: {
     holidayAutoEnabled: true,
@@ -90,6 +92,9 @@ const refs = {
   toggleRegisterBtn: document.getElementById("toggleRegisterBtn"),
   registerPanel: document.getElementById("registerPanel"),
   userOrderList: document.getElementById("userOrderList"),
+  adminSettingsSection: document.getElementById("adminSettingsSection"),
+  adminRegisterSection: document.getElementById("adminRegisterSection"),
+  adminOnlyNotice: document.getElementById("adminOnlyNotice"),
   enableNotificationsBtn: document.getElementById("enableNotificationsBtn"),
   notificationStatus: document.getElementById("notificationStatus"),
   syncAlert: document.getElementById("syncAlert"),
@@ -106,6 +111,7 @@ async function init() {
   buildMonthOptions();
   syncLoginForm();
   syncAuthUi();
+  syncAdminUi();
   syncSettingsToForm();
   syncNotificationUi();
   bindEvents();
@@ -147,6 +153,10 @@ function bindEvents() {
 
   if (refs.toggleSettingsBtn && refs.settingsPanel) {
     refs.toggleSettingsBtn.addEventListener("click", () => {
+      if (!canManageAdminSettings()) {
+        setNotice("管理者のみ操作できます。");
+        return;
+      }
       refs.settingsPanel.classList.toggle("hidden");
     });
   }
@@ -207,6 +217,10 @@ function bindEvents() {
 
   if (refs.saveSettingsBtn) {
     refs.saveSettingsBtn.addEventListener("click", async () => {
+      if (!canManageAdminSettings()) {
+        setNotice("管理者のみ操作できます。");
+        return;
+      }
       if (!refs.holidayAutoEnabled) {
         return;
       }
@@ -226,12 +240,20 @@ function bindEvents() {
 
   if (refs.toggleRegisterBtn && refs.registerPanel) {
     refs.toggleRegisterBtn.addEventListener("click", () => {
+      if (!canManageAdminSettings()) {
+        setNotice("管理者のみ操作できます。");
+        return;
+      }
       refs.registerPanel.classList.toggle("hidden");
     });
   }
 
   if (refs.registerUserBtn && refs.registerNameInput && refs.registerBirthdayInput) {
     refs.registerUserBtn.addEventListener("click", async () => {
+      if (!canManageAdminSettings()) {
+        setNotice("管理者のみ操作できます。");
+        return;
+      }
       const displayName = normalizeDisplayName(refs.registerNameInput.value);
       const loginId = normalizeLoginId(displayName);
       const birthday = normalizeLoginPassword(refs.registerBirthdayInput.value);
@@ -285,6 +307,10 @@ function bindEvents() {
 
   if (refs.userOrderList) {
     refs.userOrderList.addEventListener("click", async (event) => {
+      if (!canManageAdminSettings()) {
+        setNotice("管理者のみ操作できます。");
+        return;
+      }
       const target = event.target;
       if (!(target instanceof HTMLElement)) {
         return;
@@ -475,8 +501,8 @@ function startCloudListener() {
       }
 
       lastKnownRemoteUpdatedAt = remoteUpdatedAt;
-      applyLoadedData(cloudData);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(buildPayload()));
+      applyLoadedData(cloudData, false);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(buildLocalPayload()));
       await render();
 
       if (remoteUpdatedAt !== lastLocalSaveUpdatedAt) {
@@ -605,7 +631,10 @@ function renderCellHtml(entry) {
 }
 
 function renderUserOrderList() {
-  if (!refs.userOrderList || isPersonalPage) {
+  if (!refs.userOrderList || isPersonalPage || !state.isAdmin) {
+    if (refs.userOrderList) {
+      refs.userOrderList.innerHTML = "";
+    }
     return;
   }
 
@@ -902,7 +931,36 @@ function syncAuthUi() {
   const userLabel = state.currentUser
     ? `${state.currentUser}（ID:${state.currentUserId || "-"}）`
     : "未ログイン";
-  refs.currentUserLabel.textContent = `ログイン: ${userLabel}`;
+  refs.currentUserLabel.textContent = `ログイン: ${userLabel}${state.isAdmin ? " [管理者]" : ""}`;
+}
+
+function syncAdminUi() {
+  if (!isOverallPage) {
+    return;
+  }
+
+  const showAdmin = Boolean(state.isAdmin);
+
+  if (refs.adminSettingsSection) {
+    refs.adminSettingsSection.classList.toggle("hidden", !showAdmin);
+  }
+  if (refs.adminRegisterSection) {
+    refs.adminRegisterSection.classList.toggle("hidden", !showAdmin);
+  }
+  if (refs.adminOnlyNotice) {
+    refs.adminOnlyNotice.classList.toggle("hidden", showAdmin);
+  }
+
+  if (!showAdmin && refs.settingsPanel) {
+    refs.settingsPanel.classList.add("hidden");
+  }
+  if (!showAdmin && refs.registerPanel) {
+    refs.registerPanel.classList.add("hidden");
+  }
+}
+
+function canManageAdminSettings() {
+  return !isOverallPage || state.isAdmin;
 }
 
 function canEditRow(name) {
@@ -1141,9 +1199,11 @@ async function handleAuthStateChanged(user) {
     stopCloudListener();
     state.currentUser = "";
     state.currentUserId = "";
+    state.isAdmin = false;
     state.editTarget = null;
     updatePageLock();
     syncAuthUi();
+    syncAdminUi();
     syncLoginForm();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(buildLocalPayload()));
     if (requiresAuth && refs.loginDialog) {
@@ -1153,8 +1213,11 @@ async function handleAuthStateChanged(user) {
     return;
   }
 
+  state.isAdmin = await detectAdminUser(user);
+
   updatePageLock();
   syncAuthUi();
+  syncAdminUi();
   syncLoginForm();
   if (refs.loginDialog?.open) {
     refs.loginDialog.close();
@@ -1163,6 +1226,19 @@ async function handleAuthStateChanged(user) {
   saveState();
   setNotice(`${state.currentUser || "利用者"}でログインしました。`);
   await render();
+}
+
+async function detectAdminUser(user) {
+  if (!user || !firebaseAuth) {
+    return false;
+  }
+
+  try {
+    const tokenResult = await user.getIdTokenResult();
+    return tokenResult?.claims?.admin === true;
+  } catch (error) {
+    return false;
+  }
 }
 
 async function createUserWithoutSwitchingSession(email, password) {

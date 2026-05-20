@@ -423,6 +423,18 @@ input[type="text"] {
   font-size: 15px;
 }
 
+.admin-only-notice {
+  color: #7b5a00;
+  background: #fff6db;
+  border: 1px solid #f0dfaa;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.hidden {
+  display: none !important;
+}
+
 .sync-alert {
   margin: 0;
   padding: 12px 14px;

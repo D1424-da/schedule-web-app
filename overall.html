@@ -45,7 +45,9 @@
 
       <p id="syncAlert" class="sync-alert hidden" aria-live="polite"></p>
 
-      <section class="card" aria-label="管理設定">
+      <p id="adminOnlyNotice" class="notice admin-only-notice hidden" aria-live="polite">管理者でログインすると、休日設定と利用者管理を表示できます。</p>
+
+      <section id="adminSettingsSection" class="card" aria-label="管理設定">
         <div class="settings-header">
           <h2>休日設定（管理者）</h2>
           <button id="toggleSettingsBtn" class="btn btn-secondary">開く / 閉じる</button>
@@ -86,7 +88,7 @@
         </div>
       </section>
 
-      <section class="card" aria-label="利用者登録">
+      <section id="adminRegisterSection" class="card" aria-label="利用者登録">
         <div class="settings-header">
           <h2>利用者の新規登録</h2>
           <button id="toggleRegisterBtn" class="btn btn-secondary">開く / 閉じる</button>
