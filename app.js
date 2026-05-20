@@ -1216,6 +1216,13 @@ async function handleAuthStateChanged(user) {
     return;
   }
 
+  const authLoginId = getLoginIdFromAuthUser(user);
+  if (authLoginId) {
+    state.currentUserId = authLoginId;
+    const account = findAccountByLoginId(authLoginId);
+    state.currentUser = account?.name || authLoginId;
+  }
+
   state.isAdmin = await detectAdminUser(user);
 
   updatePageLock();
@@ -1227,7 +1234,8 @@ async function handleAuthStateChanged(user) {
   }
   startCloudListener();
   saveState();
-  setNotice(`${state.currentUser || "利用者"}でログインしました。`);
+  const signedInLabel = state.currentUser || state.currentUserId || "利用者";
+  setNotice(`${signedInLabel}${state.isAdmin ? "（管理者）" : ""}でログインしました。`);
   await render();
 }
 
@@ -1351,6 +1359,16 @@ function buildAuthEmail(loginId) {
   return `${encodeLoginIdForEmail(loginId)}@${AUTH_EMAIL_DOMAIN}`;
 }
 
+function getLoginIdFromAuthUser(user) {
+  const email = String(user?.email || "");
+  if (!email.includes("@")) {
+    return "";
+  }
+
+  const encoded = email.split("@")[0] || "";
+  return decodeLoginIdFromEmailLocal(encoded);
+}
+
 function encodeLoginIdForEmail(value) {
   const normalized = normalizeLoginId(value);
   const bytes = new TextEncoder().encode(normalized);
@@ -1359,6 +1377,23 @@ function encodeLoginIdForEmail(value) {
     binary += String.fromCharCode(byte);
   });
   return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+}
+
+function decodeLoginIdFromEmailLocal(value) {
+  if (!value) {
+    return "";
+  }
+
+  try {
+    const base64 = value.replaceAll("-", "+").replaceAll("_", "/");
+    const padded = base64 + "===".slice((base64.length + 3) % 4);
+    const binary = atob(padded);
+    const bytes = Uint8Array.from(binary, (ch) => ch.charCodeAt(0));
+    const decoded = new TextDecoder().decode(bytes);
+    return normalizeLoginId(decoded);
+  } catch (error) {
+    return "";
+  }
 }
 
 function convertFirebaseAuthError(error) {
