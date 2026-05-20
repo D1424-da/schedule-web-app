@@ -39,6 +39,10 @@ let appReady = false;
 let pendingLoginId = "";
 let pendingLoginDisplayName = "";
 let authProfileMap = {};
+let loginInFlight = false;
+let loginBlockedUntil = 0;
+
+const LOGIN_BLOCK_MS_AFTER_TOO_MANY_REQUESTS = 60 * 1000;
 
 const state = {
   currentWeekStart: getMonday(new Date()),
@@ -228,15 +232,31 @@ function bindEvents() {
         return;
       }
 
+      if (loginInFlight) {
+        return;
+      }
+
+      const blockedRemainingMs = loginBlockedUntil - Date.now();
+      if (blockedRemainingMs > 0) {
+        const waitSec = Math.ceil(blockedRemainingMs / 1000);
+        setNotice(`ログイン待機中です。${waitSec}秒後に再試行してください。`);
+        return;
+      }
+
       state.currentUser = normalizeDisplayName(refs.loginIdInput.value);
       state.currentUserId = loginId;
   pendingLoginId = loginId;
   pendingLoginDisplayName = state.currentUser;
 
+      loginInFlight = true;
       try {
         await ensureAdminAccount(loginId, loginPassword);
         await signInWithLoginId(loginId, loginPassword);
       } catch (error) {
+        if (error?.code === "auth/too-many-requests") {
+          loginBlockedUntil = Date.now() + LOGIN_BLOCK_MS_AFTER_TOO_MANY_REQUESTS;
+        }
+
         const migrated = await migrateLegacyAccountOnLogin(loginId, loginPassword, error);
         if (!migrated) {
           console.warn("signInWithEmailAndPassword failed", {
@@ -245,6 +265,8 @@ function bindEvents() {
           });
           setNotice(convertFirebaseAuthError(error));
         }
+      } finally {
+        loginInFlight = false;
       }
     });
   }
@@ -1659,6 +1681,7 @@ async function signInWithLoginId(loginId, loginPassword) {
   }
 
   const candidates = buildAuthEmailCandidates(loginId);
+  const allowLegacyFallback = shouldTryLegacyEmailFallback(loginId, loginPassword);
   let lastError = null;
 
   for (const email of candidates) {
@@ -1668,11 +1691,17 @@ async function signInWithLoginId(loginId, loginPassword) {
       lastError = error;
       const code = error?.code || "";
 
-      // 候補メール形式違いの可能性があるため次候補へ進む
+      // ユーザー未登録時のみ次候補へ進む。
+      // invalid-login-credentials は誤パスワードでも発生するため無条件で続行すると
+      // 短時間で試行回数が増えて auth/too-many-requests を誘発しやすい。
+      if (code === "auth/user-not-found") {
+        continue;
+      }
+
+      // 旧形式メールの後方互換は、ローカル既知パスワード一致時のみ許可して総試行数を抑える。
       if (
-        code === "auth/user-not-found" ||
-        code === "auth/invalid-credential" ||
-        code === "auth/invalid-login-credentials"
+        allowLegacyFallback &&
+        (code === "auth/invalid-credential" || code === "auth/invalid-login-credentials")
       ) {
         continue;
       }
@@ -1683,6 +1712,19 @@ async function signInWithLoginId(loginId, loginPassword) {
   }
 
   throw lastError || new Error("sign-in failed");
+}
+
+function shouldTryLegacyEmailFallback(loginId, loginPassword) {
+  if (isAdminLoginId(loginId)) {
+    return true;
+  }
+
+  const account = findAccountByLoginId(loginId);
+  if (!account) {
+    return false;
+  }
+
+  return normalizeLoginPassword(account.password || "") === normalizeLoginPassword(loginPassword);
 }
 
 function getLoginIdFromAuthUser(user) {

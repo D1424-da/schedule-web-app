@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="週間予定表アイコン">
+  <rect width="64" height="64" rx="12" fill="#1f6aa5" />
+  <rect x="10" y="14" width="44" height="40" rx="6" fill="#ffffff" />
+  <rect x="10" y="14" width="44" height="10" rx="6" fill="#f0b429" />
+  <rect x="18" y="30" width="8" height="8" rx="2" fill="#1f6aa5" />
+  <rect x="30" y="30" width="8" height="8" rx="2" fill="#1f6aa5" />
+  <rect x="42" y="30" width="8" height="8" rx="2" fill="#1f6aa5" />
+  <rect x="18" y="42" width="8" height="8" rx="2" fill="#1f6aa5" />
+  <rect x="30" y="42" width="20" height="8" rx="2" fill="#1f6aa5" />
+</svg>
