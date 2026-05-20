@@ -872,9 +872,7 @@ function renderWeeklyBusinessNotes() {
   }
 
   if (isOverallPage && refs.overallBusinessNoteSection && refs.overallBusinessNoteList) {
-    refs.overallBusinessNoteSection.classList.remove("hidden");
-    const lines = [];
-
+    const visibleNotes = [];
     for (const account of state.staffAccounts) {
       const loginId = normalizeLoginId(account.id);
       if (!loginId) {
@@ -882,11 +880,28 @@ function renderWeeklyBusinessNotes() {
       }
       const key = getWeeklyBusinessNoteKey(loginId, weekStartIso);
       const note = state.weeklyBusinessNotes[key];
+      const text = String(note?.text || "").trim();
+      if (!text) {
+        continue;
+      }
+      visibleNotes.push({ account, note, text });
+    }
+
+    if (visibleNotes.length === 0) {
+      refs.overallBusinessNoteSection.classList.add("hidden");
+      refs.overallBusinessNoteList.innerHTML = "";
+      return;
+    }
+
+    refs.overallBusinessNoteSection.classList.remove("hidden");
+    const lines = [];
+
+    for (const { account, note, text } of visibleNotes) {
 
       lines.push(`
         <li class="business-note-item">
           <div class="business-note-name">${escapeHtml(account.name)}</div>
-          <div class="business-note-text">${escapeHtml(note?.text || "（未入力）")}</div>
+          <div class="business-note-text">${escapeHtml(text)}</div>
           <div class="request-item-meta">${note?.updatedAt ? `最終更新: ${escapeHtml(formatDateTimeLabel(note.updatedAt))}` : ""}</div>
         </li>
       `);
