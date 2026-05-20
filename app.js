@@ -1,5 +1,6 @@
 const STORAGE_KEY = "weekly-schedule-v1";
-const NOTIFICATION_PREFERENCE_KEY = "weekly-notification-enabled-v1";
+const SCHEDULE_NOTIFICATION_PREFERENCE_KEY = "weekly-notification-schedule-enabled-v1";
+const REQUEST_NOTIFICATION_PREFERENCE_KEY = "weekly-notification-request-enabled-v1";
 
 const STATUS_OPTIONS = ["現場", "内業", "打合せ", "移動", "休み", "午前休", "午後休", "有給", "午前有休", "午後有休"];
 const DEFAULT_STAFF_ACCOUNTS = [
@@ -43,7 +44,8 @@ let pendingLoginDisplayName = "";
 let authProfileMap = {};
 let loginInFlight = false;
 let loginBlockedUntil = 0;
-let notificationEnabled = true;
+let scheduleNotificationEnabled = true;
+let requestNotificationEnabled = true;
 
 const LOGIN_BLOCK_MS_AFTER_TOO_MANY_REQUESTS = 60 * 1000;
 
@@ -115,6 +117,8 @@ const refs = {
   adminRegisterSection: document.getElementById("adminRegisterSection"),
   adminOnlyNotice: document.getElementById("adminOnlyNotice"),
   enableNotificationsBtn: document.getElementById("enableNotificationsBtn"),
+  toggleScheduleNotificationsBtn: document.getElementById("toggleScheduleNotificationsBtn"),
+  toggleRequestNotificationsBtn: document.getElementById("toggleRequestNotificationsBtn"),
   notificationStatus: document.getElementById("notificationStatus"),
   syncAlert: document.getElementById("syncAlert"),
   requestInboxSection: document.getElementById("requestInboxSection"),
@@ -158,7 +162,7 @@ init();
 async function init() {
   initCloudStore();
   loadAuthProfileMap();
-  loadNotificationPreference();
+  loadNotificationPreferences();
   await waitForInitialAuthState();
   await loadState();
   let currentUserAddedToStaff = false;
@@ -277,6 +281,32 @@ function bindEvents() {
   if (refs.enableNotificationsBtn) {
     refs.enableNotificationsBtn.addEventListener("click", async () => {
       await requestBrowserNotificationPermission();
+    });
+  }
+
+  if (refs.toggleScheduleNotificationsBtn) {
+    refs.toggleScheduleNotificationsBtn.addEventListener("click", () => {
+      if (!("Notification" in window) || Notification.permission !== "granted") {
+        setNotice("先に端末通知を有効化してください。");
+        return;
+      }
+      setScheduleNotificationEnabled(!scheduleNotificationEnabled);
+      setNotice(scheduleNotificationEnabled
+        ? "更新通知を有効にしました。"
+        : "更新通知を無効にしました。");
+    });
+  }
+
+  if (refs.toggleRequestNotificationsBtn) {
+    refs.toggleRequestNotificationsBtn.addEventListener("click", () => {
+      if (!("Notification" in window) || Notification.permission !== "granted") {
+        setNotice("先に端末通知を有効化してください。");
+        return;
+      }
+      setRequestNotificationEnabled(!requestNotificationEnabled);
+      setNotice(requestNotificationEnabled
+        ? "確認依頼通知を有効にしました。"
+        : "確認依頼通知を無効にしました。");
     });
   }
 
@@ -1683,10 +1713,14 @@ function queueCloudSave(payload) {
 function notifyRemoteUpdate(cloudData) {
   const incomingCount = getPendingIncomingRequests(cloudData.confirmationRequests).length;
   if (incomingCount > 0) {
+    if (!requestNotificationEnabled) {
+      return;
+    }
+
     const msg = `確認依頼が${incomingCount}件あります。確認依頼セクションを確認してください。`;
     showSyncAlert(msg);
     setNotice(msg);
-    if (window.Notification && Notification.permission === "granted" && notificationEnabled) {
+    if (window.Notification && Notification.permission === "granted") {
       try {
         new Notification("確認依頼が届きました", {
           body: `承認待ちの依頼が${incomingCount}件あります。`,
@@ -1698,6 +1732,10 @@ function notifyRemoteUpdate(cloudData) {
     return;
   }
 
+  if (!scheduleNotificationEnabled) {
+    return;
+  }
+
   const updaterName = String(cloudData.updatedByName || "他の利用者");
   const updatedAt = normalizeTimestamp(cloudData.updatedAt);
   const timeLabel = formatTimeLabel(updatedAt);
@@ -1706,7 +1744,7 @@ function notifyRemoteUpdate(cloudData) {
   showSyncAlert(message);
   setNotice(message);
 
-  if (window.Notification && Notification.permission === "granted" && notificationEnabled) {
+  if (window.Notification && Notification.permission === "granted") {
     const body = cloudData.updatedByPage === "overall"
       ? "全体ページの内容が更新されました。"
       : "個人入力ページの内容が更新されました。";
@@ -1720,30 +1758,37 @@ function notifyRemoteUpdate(cloudData) {
   }
 }
 
-function loadNotificationPreference() {
+function loadNotificationPreferences() {
   try {
-    const raw = localStorage.getItem(NOTIFICATION_PREFERENCE_KEY);
-    if (raw === null) {
-      notificationEnabled = true;
-      return;
-    }
-    notificationEnabled = raw !== "0";
+    const scheduleRaw = localStorage.getItem(SCHEDULE_NOTIFICATION_PREFERENCE_KEY);
+    scheduleNotificationEnabled = scheduleRaw === null ? true : scheduleRaw !== "0";
+
+    const requestRaw = localStorage.getItem(REQUEST_NOTIFICATION_PREFERENCE_KEY);
+    requestNotificationEnabled = requestRaw === null ? true : requestRaw !== "0";
   } catch (error) {
-    notificationEnabled = true;
+    scheduleNotificationEnabled = true;
+    requestNotificationEnabled = true;
   }
 }
 
-function saveNotificationPreference() {
+function saveNotificationPreferences() {
   try {
-    localStorage.setItem(NOTIFICATION_PREFERENCE_KEY, notificationEnabled ? "1" : "0");
+    localStorage.setItem(SCHEDULE_NOTIFICATION_PREFERENCE_KEY, scheduleNotificationEnabled ? "1" : "0");
+    localStorage.setItem(REQUEST_NOTIFICATION_PREFERENCE_KEY, requestNotificationEnabled ? "1" : "0");
   } catch (error) {
     // localStorage が使えない環境ではメモリ上の設定のみ使う
   }
 }
 
-function setNotificationEnabled(enabled) {
-  notificationEnabled = !!enabled;
-  saveNotificationPreference();
+function setScheduleNotificationEnabled(enabled) {
+  scheduleNotificationEnabled = !!enabled;
+  saveNotificationPreferences();
+  syncNotificationUi();
+}
+
+function setRequestNotificationEnabled(enabled) {
+  requestNotificationEnabled = !!enabled;
+  saveNotificationPreferences();
   syncNotificationUi();
 }
 
@@ -1765,7 +1810,7 @@ function showSyncAlert(text) {
 }
 
 function syncNotificationUi() {
-  if (!refs.notificationStatus || !refs.enableNotificationsBtn) {
+  if (!refs.notificationStatus || !refs.enableNotificationsBtn || !refs.toggleScheduleNotificationsBtn || !refs.toggleRequestNotificationsBtn) {
     return;
   }
 
@@ -1773,13 +1818,25 @@ function syncNotificationUi() {
     refs.notificationStatus.textContent = "端末通知: このブラウザは未対応";
     refs.enableNotificationsBtn.textContent = "通知未対応";
     refs.enableNotificationsBtn.disabled = true;
+    refs.toggleScheduleNotificationsBtn.textContent = "更新通知: 未対応";
+    refs.toggleRequestNotificationsBtn.textContent = "確認依頼通知: 未対応";
+    refs.toggleScheduleNotificationsBtn.disabled = true;
+    refs.toggleRequestNotificationsBtn.disabled = true;
     return;
   }
 
   if (Notification.permission === "granted") {
-    refs.notificationStatus.textContent = notificationEnabled ? "端末通知: 有効" : "端末通知: 無効（アプリ設定）";
-    refs.enableNotificationsBtn.textContent = notificationEnabled ? "通知を無効にする" : "通知を有効にする";
+    refs.notificationStatus.textContent = "端末通知: 許可済み";
+    refs.enableNotificationsBtn.textContent = "端末通知を再確認";
     refs.enableNotificationsBtn.disabled = false;
+    refs.toggleScheduleNotificationsBtn.textContent = scheduleNotificationEnabled
+      ? "更新通知を無効にする"
+      : "更新通知を有効にする";
+    refs.toggleRequestNotificationsBtn.textContent = requestNotificationEnabled
+      ? "確認依頼通知を無効にする"
+      : "確認依頼通知を有効にする";
+    refs.toggleScheduleNotificationsBtn.disabled = false;
+    refs.toggleRequestNotificationsBtn.disabled = false;
     return;
   }
 
@@ -1787,12 +1844,24 @@ function syncNotificationUi() {
     refs.notificationStatus.textContent = "端末通知: ブロックされています";
     refs.enableNotificationsBtn.textContent = "通知設定を確認";
     refs.enableNotificationsBtn.disabled = true;
+    refs.toggleScheduleNotificationsBtn.textContent = "更新通知を有効にする";
+    refs.toggleRequestNotificationsBtn.textContent = "確認依頼通知を有効にする";
+    refs.toggleScheduleNotificationsBtn.disabled = true;
+    refs.toggleRequestNotificationsBtn.disabled = true;
     return;
   }
 
   refs.notificationStatus.textContent = "端末通知: 未設定";
   refs.enableNotificationsBtn.textContent = "通知を有効にする";
   refs.enableNotificationsBtn.disabled = false;
+  refs.toggleScheduleNotificationsBtn.textContent = scheduleNotificationEnabled
+    ? "更新通知を無効にする"
+    : "更新通知を有効にする";
+  refs.toggleRequestNotificationsBtn.textContent = requestNotificationEnabled
+    ? "確認依頼通知を無効にする"
+    : "確認依頼通知を有効にする";
+  refs.toggleScheduleNotificationsBtn.disabled = true;
+  refs.toggleRequestNotificationsBtn.disabled = true;
 }
 
 async function requestBrowserNotificationPermission() {
@@ -1803,12 +1872,8 @@ async function requestBrowserNotificationPermission() {
   }
 
   if (Notification.permission === "granted") {
-    setNotificationEnabled(!notificationEnabled);
-    if (notificationEnabled) {
-      setNotice("端末通知を有効にしました。他の利用者の更新時に通知します。");
-    } else {
-      setNotice("端末通知を無効にしました。画面内通知は引き続き表示されます。");
-    }
+    syncNotificationUi();
+    setNotice("端末通知は許可済みです。更新通知・確認依頼通知は個別ボタンで切り替えてください。");
     return;
   }
 
@@ -1816,7 +1881,8 @@ async function requestBrowserNotificationPermission() {
   syncNotificationUi();
 
   if (permission === "granted") {
-    setNotificationEnabled(true);
+    setScheduleNotificationEnabled(true);
+    setRequestNotificationEnabled(true);
     setNotice("端末通知を有効にしました。他の利用者の更新時に通知します。");
     return;
   }
