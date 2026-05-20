@@ -2,7 +2,7 @@ const STORAGE_KEY = "weekly-schedule-v1";
 const SCHEDULE_NOTIFICATION_PREFERENCE_KEY = "weekly-notification-schedule-enabled-v1";
 const REQUEST_NOTIFICATION_PREFERENCE_KEY = "weekly-notification-request-enabled-v1";
 
-const STATUS_OPTIONS = ["現場", "内業", "打合せ", "移動", "休み", "午前休", "午後休", "有給", "午前有休", "午後有休"];
+const STATUS_OPTIONS = ["現場", "内業", "打合せ", "移動", "営業", "事務", "総務", "休み", "午前休", "午後休", "有給", "午前有休", "午後有休"];
 const DEFAULT_STAFF_ACCOUNTS = [
   { id: "本社A", name: "本社A" },
   { id: "本社B", name: "本社B" },
