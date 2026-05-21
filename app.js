@@ -1293,6 +1293,8 @@ function renderProgressProjectCards(projects, ownerUserId) {
                             <div class="progress-input-controls">
                               <button type="button" class="progress-decrement-btn" data-progress-action="decrement" data-project-id="${escapeHtml(project.id)}" data-item-id="${escapeHtml(item.id)}" data-user-id="${escapeHtml(ownerUserId)}" aria-label="進捗を減らす">−</button>
                               <input class="progress-pct-input" type="number" min="0" max="100" value="${progress}"
+                                id="progress-pct-${escapeHtml(project.id)}-${escapeHtml(item.id)}"
+                                name="progress-pct-${escapeHtml(item.id)}"
                                 data-progress-action="update-progress"
                                 data-project-id="${escapeHtml(project.id)}"
                                 data-item-id="${escapeHtml(item.id)}"
