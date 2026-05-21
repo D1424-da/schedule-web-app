@@ -10,12 +10,12 @@
   --company: #e9f4ea;
   --sunday: #f8ebef;
   --manual: #eef7ff;
-  --status-genba: #d6f0ff;
-  --status-naigyo: #ecf3ff;
-  --status-meeting: #fff1d6;
-  --status-move: #f0f0f0;
-  --status-off: #ffe8ef;
-  --status-paid: #e6f7e6;
+  --status-genba: #a8d8f5;
+  --status-naigyo: #c8dcfa;
+  --status-meeting: #ffd98a;
+  --status-move: #d6d6d6;
+  --status-off: #f5b8cc;
+  --status-paid: #b8e8b8;
 }
 
 * {
