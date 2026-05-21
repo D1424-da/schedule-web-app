@@ -2088,9 +2088,9 @@ function renderOverallMonthlyTable({ tableEl, monthStart }) {
 
         if (activeProjects.length > 0) {
           const projectListEl = document.createElement("span");
-          projectListEl.className = "monthly-project-list";
+          projectListEl.className = "monthly-project-inline-track";
           activeProjects.forEach((project) => {
-            projectListEl.appendChild(createProjectChipElement(project));
+            projectListEl.appendChild(createProjectTimelineSegment(project, dateStr, { compact: true }));
           });
           lineEl.appendChild(projectListEl);
         }
@@ -2152,9 +2152,9 @@ function renderSingleMonthlyTable({ tableEl, monthStart, targetName }) {
       const activeProjects = getActiveProjectsForUserOnDate(targetLoginId, dateStr);
       if (activeProjects.length > 0) {
         const projectListEl = document.createElement("div");
-        projectListEl.className = "monthly-project-list";
+        projectListEl.className = "monthly-project-timeline";
         activeProjects.forEach((project) => {
-          projectListEl.appendChild(createProjectChipElement(project));
+          projectListEl.appendChild(createProjectTimelineSegment(project, dateStr));
         });
         td.appendChild(projectListEl);
       }
@@ -2223,16 +2223,36 @@ function getProjectColorById(projectId) {
   };
 }
 
-function createProjectChipElement(project) {
-  const chipEl = document.createElement("span");
-  chipEl.className = "monthly-project-chip";
-  chipEl.textContent = `工程:${String(project?.name || "").trim() || "名称未設定"}`;
+function createProjectTimelineSegment(project, dateStr, options = {}) {
+  const isCompact = options.compact === true;
+  const segmentEl = document.createElement("span");
+  segmentEl.className = isCompact ? "monthly-project-segment monthly-project-segment-compact" : "monthly-project-segment";
+
+  const projectName = String(project?.name || "").trim() || "名称未設定";
+  const start = String(project?.startDate || "").trim();
+  const end = String(project?.endDate || "").trim();
+  const isStart = Boolean(start && start === dateStr);
+  const isEnd = Boolean(end && end === dateStr);
+
+  if (isStart) {
+    segmentEl.classList.add("is-start");
+  }
+  if (isEnd) {
+    segmentEl.classList.add("is-end");
+  }
+
+  const labelText = isStart || (isStart && isEnd) ? projectName : "";
+  if (labelText && !isCompact) {
+    segmentEl.textContent = labelText;
+  }
 
   const color = getProjectColorById(project?.id || project?.name || "project");
-  chipEl.style.backgroundColor = color.background;
-  chipEl.style.borderColor = color.border;
-  chipEl.style.color = color.text;
-  return chipEl;
+  segmentEl.style.backgroundColor = color.background;
+  segmentEl.style.borderColor = color.border;
+  segmentEl.style.color = color.text;
+  segmentEl.title = `${projectName}${start ? ` / 開始:${start}` : ""}${end ? ` / 終了:${end}` : ""}`;
+
+  return segmentEl;
 }
 
 function getLoggedInScheduleTargetName() {
