@@ -382,7 +382,7 @@ body.auth-locked main {
 .monthly-project-segment-bar {
   display: block;
   width: calc(100% + 10px);
-  height: 2px;
+  height: 3px;
   margin: 0 -5px;
   border-radius: 0;
 }
@@ -413,6 +413,81 @@ body.auth-locked main {
 
 .monthly-card-overall {
   width: 100%;
+}
+
+.monthly-gantt-table {
+  width: max-content;
+  min-width: 100%;
+  table-layout: auto;
+}
+
+.monthly-gantt-table .monthly-gantt-user-head,
+.monthly-gantt-table .monthly-gantt-user-cell {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  min-width: 128px;
+  background: #ffffff;
+  box-shadow: 1px 0 0 var(--line);
+}
+
+.monthly-gantt-table .monthly-gantt-user-head {
+  z-index: 3;
+}
+
+.monthly-gantt-table th.monthly-gantt-day-head,
+.monthly-gantt-table td.monthly-gantt-cell {
+  min-width: 36px;
+  width: 36px;
+  padding: 1px 0;
+  height: 96px;
+  vertical-align: top;
+}
+
+.monthly-gantt-day-head.is-weekend,
+.monthly-gantt-cell.is-weekend {
+  background: #f7f3f5;
+}
+
+.monthly-gantt-day-head.is-holiday,
+.monthly-gantt-cell.is-holiday {
+  background: #fff1dd;
+}
+
+.monthly-gantt-segment-wrap {
+  display: grid;
+  gap: 1px;
+  align-content: start;
+  min-height: 90px;
+}
+
+.monthly-gantt-segment-item {
+  margin-top: 0;
+}
+
+.monthly-gantt-segment-item .monthly-project-segment-label {
+  display: none;
+}
+
+.monthly-gantt-segment-item .monthly-project-segment-bar {
+  height: 6px;
+  margin: 0 -1px;
+  width: calc(100% + 2px);
+}
+
+.monthly-gantt-off-entry {
+  margin: 0 auto;
+  padding: 2px 2px;
+  border-radius: 4px;
+  background: #fff3cd;
+  color: #7b1f1f;
+  font-size: 9px;
+  line-height: 1.1;
+  font-weight: 700;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  white-space: normal;
+  max-height: 86px;
 }
 
 .monthly-card-personal .month-label {
@@ -1626,6 +1701,28 @@ input[type="date"] {
 
   .month-label {
     font-size: 16px;
+  }
+
+  .monthly-gantt-table .monthly-gantt-user-head,
+  .monthly-gantt-table .monthly-gantt-user-cell {
+    min-width: 96px;
+  }
+
+  .monthly-gantt-table th.monthly-gantt-day-head,
+  .monthly-gantt-table td.monthly-gantt-cell {
+    min-width: 30px;
+    width: 30px;
+    padding: 1px 0;
+    height: 84px;
+  }
+
+  .monthly-gantt-segment-wrap {
+    min-height: 78px;
+  }
+
+  .monthly-gantt-off-entry {
+    max-height: 74px;
+    font-size: 8px;
   }
 
   .monthly-table th {

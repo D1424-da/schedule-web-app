@@ -53,6 +53,7 @@ let scheduleNotificationEnabled = true;
 let requestNotificationEnabled = true;
 let lastIncomingRequestSignature = "";
 let tableScrollbarSyncing = false;
+let monthlyScrollbarSyncing = false;
 let tableScrollbarResizeBound = false;
 let desktopRequestPanelEl = null;
 let desktopRequestListEl = null;
@@ -106,6 +107,8 @@ const refs = {
   monthlyScheduleTable: document.getElementById("monthlyScheduleTable"),
   scheduleScrollbar: document.getElementById("scheduleScrollbar"),
   scheduleScrollbarInner: document.getElementById("scheduleScrollbarInner"),
+  monthlyScrollbar: document.getElementById("monthlyScrollbar"),
+  monthlyScrollbarInner: document.getElementById("monthlyScrollbarInner"),
   notice: document.getElementById("notice"),
   currentUserLabel: document.getElementById("currentUserLabel"),
   openLoginBtn: document.getElementById("openLoginBtn"),
@@ -279,6 +282,7 @@ async function init() {
   bindPrintFitEvents();
   ensureDesktopRequestPanel();
   bindTableScrollbarSync();
+  bindMonthlyScrollbarSync();
   updatePageLock();
 
   if (currentFirebaseUser) {
@@ -2039,6 +2043,8 @@ function renderMonthlyCalendar() {
     tableEl: refs.monthlyScheduleTable,
     monthStart,
   });
+
+  syncMonthlyScrollbar();
 }
 
 function createMonthlyTableHeader() {
@@ -2055,10 +2061,9 @@ function createMonthlyTableHeader() {
 }
 
 function renderOverallMonthlyTable({ tableEl, monthStart }) {
-  renderProjectMonthlyTable({
+  renderOverallMonthlyGanttTable({
     tableEl,
     monthStart,
-    mode: "overall",
   });
 }
 
@@ -2075,28 +2080,20 @@ function getOverallProjectOwners() {
   const owners = [];
   const seenIds = new Set();
 
-  for (const name of state.staff || []) {
-    const loginId = findLoginIdByUserName(name) || name;
-    const normalizedLoginId = normalizeLoginId(loginId);
-    if (!normalizedLoginId || seenIds.has(normalizedLoginId)) {
-      continue;
-    }
-    seenIds.add(normalizedLoginId);
-    owners.push({
-      loginId: normalizedLoginId,
-      displayName: name,
-    });
-  }
-
   for (const [loginId, entry] of Object.entries(state.progressProjectsByUser || {})) {
     const normalizedLoginId = normalizeLoginId(loginId);
-    if (!normalizedLoginId || seenIds.has(normalizedLoginId)) {
+    const projects = Array.isArray(entry?.projects) ? entry.projects : [];
+    if (!normalizedLoginId || seenIds.has(normalizedLoginId) || projects.length === 0) {
       continue;
     }
     seenIds.add(normalizedLoginId);
+    const account = findAccountByLoginId(normalizedLoginId);
     owners.push({
       loginId: normalizedLoginId,
-      displayName: entry?.userName || resolveRowNameByLoginId(normalizedLoginId, normalizedLoginId) || normalizedLoginId,
+      displayName: account?.name
+        || entry?.userName
+        || resolveRowNameByLoginId(normalizedLoginId, normalizedLoginId)
+        || normalizedLoginId,
     });
   }
 
@@ -2109,6 +2106,131 @@ function getPersonalProjectOwner(targetName) {
     loginId: normalizeLoginId(loginId),
     displayName: targetName,
   }];
+}
+
+function getDatesInMonth(monthStart) {
+  const year = monthStart.getFullYear();
+  const month = monthStart.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  return Array.from({ length: daysInMonth }, (_, index) => new Date(year, month, index + 1));
+}
+
+function renderOverallMonthlyGanttTable({ tableEl, monthStart }) {
+  const owners = getOverallProjectOwners();
+  const monthDates = getDatesInMonth(monthStart);
+
+  const table = document.createElement("table");
+  table.className = "monthly-table monthly-gantt-table";
+
+  const thead = document.createElement("thead");
+  const headerRow = document.createElement("tr");
+
+  const userHead = document.createElement("th");
+  userHead.className = "monthly-gantt-user-head";
+  userHead.textContent = "担当";
+  headerRow.appendChild(userHead);
+
+  for (const date of monthDates) {
+    const th = document.createElement("th");
+    const dateStr = toISODate(date);
+    const holidayName = String(getHolidayName(dateStr) || "").trim();
+
+    th.className = "monthly-gantt-day-head";
+    if (date.getDay() === 0 || date.getDay() === 6) {
+      th.classList.add("is-weekend");
+    }
+    if (holidayName) {
+      th.classList.add("is-holiday");
+      th.title = holidayName;
+    }
+
+    th.textContent = String(date.getDate());
+    headerRow.appendChild(th);
+  }
+
+  thead.appendChild(headerRow);
+
+  const tbody = document.createElement("tbody");
+
+  for (const owner of owners) {
+    const tr = document.createElement("tr");
+
+    const userCell = document.createElement("th");
+    userCell.className = "monthly-gantt-user-cell";
+    userCell.textContent = owner.displayName;
+    tr.appendChild(userCell);
+
+    for (const date of monthDates) {
+      const dateStr = toISODate(date);
+      const td = document.createElement("td");
+      td.className = "monthly-gantt-cell";
+      const entry = resolveEntry(owner.displayName, dateStr);
+      const isOffEntry = isEngineeringCalendarOffEntry(entry);
+      const offSource = String(entry?.source || "");
+
+      if (date.getDay() === 0 || date.getDay() === 6) {
+        td.classList.add("is-weekend");
+      }
+      if (getHolidayName(dateStr)) {
+        td.classList.add("is-holiday");
+      }
+
+      const segmentWrap = document.createElement("div");
+      segmentWrap.className = "monthly-gantt-segment-wrap";
+
+      if (isOffEntry && offSource !== "sunday" && offSource !== "company") {
+        const offEl = document.createElement("div");
+        offEl.className = "monthly-gantt-off-entry";
+        offEl.textContent = offSource === "holiday"
+          ? String(getHolidayName(dateStr) || "祝日")
+          : String(entry?.status || "休み");
+        offEl.title = buildEngineeringOffLabel(entry);
+        segmentWrap.appendChild(offEl);
+      }
+
+      const activeProjects = getActiveProjectsForUserOnDate(owner.loginId, dateStr);
+      for (const project of activeProjects) {
+        if (isOffEntry) {
+          continue;
+        }
+        if (shouldSkipProjectTimeline(dateStr, owner.displayName, owner.loginId)) {
+          continue;
+        }
+
+        const segment = createProjectTimelineSegment(project, dateStr, {
+          compact: true,
+          showLabel: false,
+          labelText: buildEngineeringProjectLabel(project),
+        });
+        segment.classList.add("monthly-gantt-segment-item");
+        segmentWrap.appendChild(segment);
+      }
+
+      if (segmentWrap.childElementCount > 0) {
+        td.appendChild(segmentWrap);
+      }
+
+      tr.appendChild(td);
+    }
+
+    tbody.appendChild(tr);
+  }
+
+  if (owners.length === 0) {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.className = "monthly-empty";
+    td.colSpan = monthDates.length + 1;
+    td.textContent = "工程データがありません。";
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+  }
+
+  table.appendChild(thead);
+  table.appendChild(tbody);
+
+  tableEl.innerHTML = "";
+  tableEl.appendChild(table);
 }
 
 function renderProjectMonthlyTable({ tableEl, monthStart, mode, targetName }) {
@@ -2196,7 +2318,7 @@ function renderProjectMonthlyTable({ tableEl, monthStart, mode, targetName }) {
 
           lineEl.appendChild(createProjectTimelineSegment(project, dateStr, {
             compact: mode !== "personal",
-            showLabel: shouldShowProjectTimelineLabel(dateStr, project),
+            showLabel: shouldShowProjectTimelineLabel(dateStr, project, mode),
             labelText,
           }));
 
@@ -2254,7 +2376,7 @@ function shouldSkipProjectTimeline(dateStr, rowName, userId) {
   return source === "holiday" || source === "sunday" || source === "company";
 }
 
-function shouldShowProjectTimelineLabel(dateStr, project) {
+function shouldShowProjectTimelineLabel(dateStr, project, mode = "personal") {
   const start = String(project?.startDate || "").trim();
   if (!dateStr) {
     return false;
@@ -2265,6 +2387,9 @@ function shouldShowProjectTimelineLabel(dateStr, project) {
   }
 
   const date = fromISODate(dateStr);
+  if (mode === "overall" && date.getDay() === 1) {
+    return true;
+  }
   return date.getDate() === 1;
 }
 
@@ -2434,6 +2559,7 @@ function bindTableScrollbarSync() {
     tableScrollbarResizeBound = true;
     window.addEventListener("resize", () => {
       syncTableScrollbar();
+      syncMonthlyScrollbar();
     });
   }
 }
@@ -2461,6 +2587,67 @@ function syncTableScrollbar() {
   refs.scheduleScrollbar.classList.remove("hidden");
   refs.scheduleScrollbarInner.style.width = `${contentWidth}px`;
   refs.scheduleScrollbar.scrollLeft = wrap.scrollLeft;
+}
+
+function bindMonthlyScrollbarSync() {
+  if (!refs.monthlyScheduleTable || !refs.monthlyScrollbar) {
+    return;
+  }
+
+  const wrap = refs.monthlyScheduleTable.closest(".table-wrap");
+  if (!wrap) {
+    return;
+  }
+
+  if (wrap.dataset.monthlyScrollSyncBound !== "1") {
+    wrap.dataset.monthlyScrollSyncBound = "1";
+    wrap.addEventListener("scroll", () => {
+      if (!refs.monthlyScrollbar || monthlyScrollbarSyncing) {
+        return;
+      }
+      monthlyScrollbarSyncing = true;
+      refs.monthlyScrollbar.scrollLeft = wrap.scrollLeft;
+      monthlyScrollbarSyncing = false;
+    });
+  }
+
+  if (refs.monthlyScrollbar.dataset.monthlyScrollSyncBound !== "1") {
+    refs.monthlyScrollbar.dataset.monthlyScrollSyncBound = "1";
+    refs.monthlyScrollbar.addEventListener("scroll", () => {
+      if (monthlyScrollbarSyncing) {
+        return;
+      }
+      monthlyScrollbarSyncing = true;
+      wrap.scrollLeft = refs.monthlyScrollbar.scrollLeft;
+      monthlyScrollbarSyncing = false;
+    });
+  }
+
+}
+
+function syncMonthlyScrollbar() {
+  if (!refs.monthlyScheduleTable || !refs.monthlyScrollbar || !refs.monthlyScrollbarInner) {
+    return;
+  }
+
+  const wrap = refs.monthlyScheduleTable.closest(".table-wrap");
+  if (!wrap) {
+    return;
+  }
+
+  const contentWidth = Math.ceil(refs.monthlyScheduleTable.scrollWidth);
+  const viewportWidth = Math.ceil(wrap.clientWidth);
+
+  if (contentWidth <= viewportWidth + 1) {
+    refs.monthlyScrollbar.classList.add("hidden");
+    refs.monthlyScrollbar.scrollLeft = 0;
+    refs.monthlyScrollbarInner.style.width = "1px";
+    return;
+  }
+
+  refs.monthlyScrollbar.classList.remove("hidden");
+  refs.monthlyScrollbarInner.style.width = `${contentWidth}px`;
+  refs.monthlyScrollbar.scrollLeft = wrap.scrollLeft;
 }
 
 function renderCellHtml(entry) {
