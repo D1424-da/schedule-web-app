@@ -1022,6 +1022,20 @@ input[type="password"] {
     min-width: var(--mobile-fixed-panel-min-width);
   }
 
+  body[data-page="personal"] #personalBusinessNoteSection,
+  body[data-page="overall"] #overallBusinessNoteSection,
+  body[data-page="personal"] #progressSection,
+  body[data-page="overall"] #progressSection {
+    overflow-x: visible;
+  }
+
+  body[data-page="personal"] #personalBusinessNoteSection > *,
+  body[data-page="overall"] #overallBusinessNoteSection > *,
+  body[data-page="personal"] #progressSection > *,
+  body[data-page="overall"] #progressSection > * {
+    min-width: 0;
+  }
+
   body[data-page="personal"] .controls .week-nav,
   body[data-page="overall"] .controls .week-nav,
   body[data-page="personal"] .monthly-card .month-nav,
@@ -1208,6 +1222,75 @@ input[type="password"] {
   .business-note-input {
     min-height: 96px;
     font-size: 14px;
+  }
+
+  .progress-project-list {
+    gap: 10px;
+  }
+
+  .progress-project-card {
+    padding: 10px;
+  }
+
+  .progress-project-header {
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .progress-project-title {
+    min-width: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .progress-project-summary {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .progress-bar-wrap {
+    width: 100%;
+    max-width: none;
+  }
+
+  .progress-project-actions {
+    width: 100%;
+  }
+
+  .progress-items-container {
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
+  }
+
+  .progress-item-table {
+    min-width: 520px;
+    font-size: 12px;
+  }
+
+  .progress-item-table th {
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+
+  .progress-item-table td {
+    padding: 8px;
+  }
+
+  .progress-item-name-cell {
+    min-width: 88px;
+  }
+
+  .progress-item-cell {
+    min-width: 140px;
+  }
+
+  .progress-note-cell,
+  .progress-meta-cell {
+    font-size: 11px;
   }
 
   .settings-header h2 {
@@ -1425,6 +1508,81 @@ input[type="password"] {
     min-height: 88px;
     font-size: 13px;
     padding: 8px;
+  }
+
+  .progress-project-list {
+    gap: 8px;
+  }
+
+  .progress-project-card {
+    padding: 8px;
+  }
+
+  .progress-project-header {
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
+  .progress-project-title {
+    min-width: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+  }
+
+  .progress-project-summary {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .progress-overall-label,
+  .progress-deadline-status,
+  .progress-deadline-date {
+    font-size: 10px;
+  }
+
+  .progress-bar-wrap {
+    width: 100%;
+    max-width: none;
+  }
+
+  .progress-project-actions {
+    width: 100%;
+  }
+
+  .progress-items-container {
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
+  }
+
+  .progress-item-table {
+    min-width: 480px;
+    font-size: 11px;
+  }
+
+  .progress-item-table th {
+    padding: 5px 6px;
+    font-size: 10px;
+  }
+
+  .progress-item-table td {
+    padding: 6px;
+  }
+
+  .progress-item-name-cell {
+    min-width: 80px;
+  }
+
+  .progress-item-cell {
+    min-width: 120px;
+  }
+
+  .progress-note-cell,
+  .progress-meta-cell {
+    font-size: 10px;
   }
 
   .settings-header {
