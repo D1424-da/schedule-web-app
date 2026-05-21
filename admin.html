@@ -34,6 +34,8 @@
       <p class="subtitle">登録・休日設定・全体編集</p>
       <div class="page-links">
         <a href="index.html" class="btn btn-ghost">入口へ戻る</a>
+        <button class="btn btn-secondary no-print" type="button" onclick="window.print()">印刷</button>
+        <button class="btn btn-secondary no-print" type="button" onclick="downloadPdf()">PDFダウンロード</button>
       </div>
       <div class="auth-bar">
         <span id="currentUserLabel" class="current-user">ログイン: 未ログイン</span>
@@ -45,14 +47,8 @@
         <button id="toggleScheduleNotificationsBtn" class="btn btn-secondary" type="button">更新通知を無効にする</button>
         <button id="toggleRequestNotificationsBtn" class="btn btn-secondary" type="button">確認依頼通知を無効にする</button>
         <span id="notificationStatus" class="notification-status">端末通知: 未設定</span>
-    <!-- html2pdf.js CDN -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
       </div>
     </header>
-    <div style="margin:10px 0;" class="no-print">
-      <button onclick="window.print()">印刷</button>
-      <button onclick="downloadPdf()">PDFダウンロード</button>
-    </div>
 
     <script>
     function downloadPdf() {
@@ -289,6 +285,7 @@
     </dialog>
 
     <script src="firebase-config.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>

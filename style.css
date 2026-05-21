@@ -475,7 +475,7 @@ a.btn {
 
 .cell-btn.readonly {
   cursor: default;
-  filter: saturate(0.96);
+  opacity: 0.92;
 }
 
 .cell-btn.manual {
