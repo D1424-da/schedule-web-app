@@ -950,8 +950,6 @@ input[type="password"] {
 
   body[data-page="personal"] .controls,
   body[data-page="overall"] .controls,
-  body[data-page="personal"] #personalWeeklySection,
-  body[data-page="overall"] #overallWeeklySection,
   body[data-page="personal"] #personalBusinessNoteSection,
   body[data-page="overall"] #overallBusinessNoteSection,
   body[data-page="personal"] #progressSection,
@@ -964,12 +962,11 @@ input[type="password"] {
     scrollbar-gutter: stable;
     scrollbar-width: auto;
     scrollbar-color: #5f7b8b #dbe5ec;
+    touch-action: pan-x;
   }
 
   body[data-page="personal"] .controls::-webkit-scrollbar,
   body[data-page="overall"] .controls::-webkit-scrollbar,
-  body[data-page="personal"] #personalWeeklySection::-webkit-scrollbar,
-  body[data-page="overall"] #overallWeeklySection::-webkit-scrollbar,
   body[data-page="personal"] #personalBusinessNoteSection::-webkit-scrollbar,
   body[data-page="overall"] #overallBusinessNoteSection::-webkit-scrollbar,
   body[data-page="personal"] #progressSection::-webkit-scrollbar,
@@ -981,8 +978,6 @@ input[type="password"] {
 
   body[data-page="personal"] .controls::-webkit-scrollbar-track,
   body[data-page="overall"] .controls::-webkit-scrollbar-track,
-  body[data-page="personal"] #personalWeeklySection::-webkit-scrollbar-track,
-  body[data-page="overall"] #overallWeeklySection::-webkit-scrollbar-track,
   body[data-page="personal"] #personalBusinessNoteSection::-webkit-scrollbar-track,
   body[data-page="overall"] #overallBusinessNoteSection::-webkit-scrollbar-track,
   body[data-page="personal"] #progressSection::-webkit-scrollbar-track,
@@ -995,8 +990,6 @@ input[type="password"] {
 
   body[data-page="personal"] .controls::-webkit-scrollbar-thumb,
   body[data-page="overall"] .controls::-webkit-scrollbar-thumb,
-  body[data-page="personal"] #personalWeeklySection::-webkit-scrollbar-thumb,
-  body[data-page="overall"] #overallWeeklySection::-webkit-scrollbar-thumb,
   body[data-page="personal"] #personalBusinessNoteSection::-webkit-scrollbar-thumb,
   body[data-page="overall"] #overallBusinessNoteSection::-webkit-scrollbar-thumb,
   body[data-page="personal"] #progressSection::-webkit-scrollbar-thumb,
@@ -1010,8 +1003,6 @@ input[type="password"] {
 
   body[data-page="personal"] .controls > *,
   body[data-page="overall"] .controls > *,
-  body[data-page="personal"] #personalWeeklySection > *,
-  body[data-page="overall"] #overallWeeklySection > *,
   body[data-page="personal"] #personalBusinessNoteSection > *,
   body[data-page="overall"] #overallBusinessNoteSection > *,
   body[data-page="personal"] #progressSection > *,
