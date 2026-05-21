@@ -1159,11 +1159,11 @@ function renderProgressSection() {
   const projects = Array.isArray(state.progressProjects) ? state.progressProjects : [];
 
   if (refs.addProgressProjectBtn) {
-    refs.addProgressProjectBtn.classList.toggle("hidden", !state.isAdmin);
+    refs.addProgressProjectBtn.classList.toggle("hidden", !currentFirebaseUser);
   }
 
   if (projects.length === 0) {
-    refs.progressProjectList.innerHTML = '<p class="subtitle-mini">工程データがありません。管理者が業務を登録すると表示されます。</p>';
+    refs.progressProjectList.innerHTML = '<p class="subtitle-mini">工程データがありません。「＋ 業務を追加」から登録してください。</p>';
     return;
   }
 
@@ -1186,7 +1186,7 @@ function renderProgressSection() {
               <div class="progress-bar-fill" style="width:${avgProgress}%"></div>
             </div>
           </div>
-          ${state.isAdmin ? `
+          ${currentFirebaseUser ? `
             <div class="progress-project-actions no-print">
               <button class="btn btn-secondary" type="button" data-progress-action="add-item" data-project-id="${escapeHtml(project.id)}">＋ 工種追加</button>
               <button class="btn btn-ghost" type="button" data-progress-action="edit-project" data-project-id="${escapeHtml(project.id)}">編集</button>
@@ -1203,7 +1203,7 @@ function renderProgressSection() {
                 <th>状態</th>
                 <th class="no-print">備考</th>
                 <th class="no-print">更新者</th>
-                ${state.isAdmin ? '<th class="no-print"></th>' : ""}
+                ${currentFirebaseUser ? '<th class="no-print"></th>' : ""}
               </tr>
             </thead>
             <tbody>
@@ -1229,7 +1229,7 @@ function renderProgressSection() {
                     <td><span class="progress-badge progress-badge-${status}">${status}</span></td>
                     <td class="no-print progress-note-cell">${item.note ? escapeHtml(item.note) : ""}</td>
                     <td class="no-print progress-meta-cell">${item.updatedByName ? escapeHtml(item.updatedByName) : ""}</td>
-                    ${state.isAdmin ? `
+                    ${currentFirebaseUser ? `
                       <td class="no-print progress-action-cell">
                         <button class="btn btn-ghost" type="button" data-progress-action="edit-item" data-project-id="${escapeHtml(project.id)}" data-item-id="${escapeHtml(item.id)}">編集</button>
                         <button class="btn btn-ghost" type="button" data-progress-action="delete-item" data-project-id="${escapeHtml(project.id)}" data-item-id="${escapeHtml(item.id)}">削除</button>
@@ -1240,7 +1240,7 @@ function renderProgressSection() {
               }).join("")}
             </tbody>
           </table>
-        ` : `<p class="subtitle-mini no-print">${state.isAdmin ? "「＋ 工種追加」ボタンで工種を登録してください。" : "工種が登録されていません。"}</p>`}
+        ` : `<p class="subtitle-mini no-print">「＋ 工種追加」ボタンで工種を登録してください。</p>`}
       </div>
     `;
   }).join("");
@@ -1279,8 +1279,8 @@ function openProgressProjectDialog(projectId) {
 }
 
 async function saveProgressProject() {
-  if (!canManageAdminSettings()) {
-    setNotice("管理者のみ操作できます。");
+  if (!currentFirebaseUser) {
+    setNotice("ログイン後に操作できます。");
     return;
   }
 
@@ -1353,8 +1353,8 @@ function openProgressItemDialog(projectId, itemId) {
 }
 
 async function saveProgressItem() {
-  if (!canManageAdminSettings()) {
-    setNotice("管理者のみ操作できます。");
+  if (!currentFirebaseUser) {
+    setNotice("ログイン後に操作できます。");
     return;
   }
 
