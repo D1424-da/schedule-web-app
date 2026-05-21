@@ -1992,7 +1992,7 @@ function renderMonthlyCalendar() {
     return;
   }
 
-  const weekDays = ["日", "月", "火", "水", "木", "金", "土"];
+  const weekDays = ["月", "火", "水", "木", "金", "土", "日"];
   const thead = document.createElement("thead");
   const trHead = document.createElement("tr");
   for (const wd of weekDays) {
@@ -2003,7 +2003,8 @@ function renderMonthlyCalendar() {
   thead.appendChild(trHead);
 
   const tbody = document.createElement("tbody");
-  const firstVisible = addDays(monthStart, -monthStart.getDay());
+  const monthStartWeekdayFromMonday = (monthStart.getDay() + 6) % 7;
+  const firstVisible = addDays(monthStart, -monthStartWeekdayFromMonday);
   for (let row = 0; row < 6; row += 1) {
     const tr = document.createElement("tr");
     for (let col = 0; col < 7; col += 1) {
