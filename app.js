@@ -827,7 +827,7 @@ function bindEvents() {
       }
 
       const savedCount = saveManualEntriesWithRepeat(state.editTarget.name, state.editTarget.date, entryData, repeatDays);
-      saveState({ localOnly: isPersonalPage });
+      saveState();
       closeDialog(refs.editDialog);
       setNotice(`予定を保存しました。${savedCount}件反映`);
       await render();
@@ -855,7 +855,7 @@ function bindEvents() {
       const key = entryKey(state.editTarget.name, state.editTarget.date);
       delete state.manualEntries[key];
       markScheduleNeedsFinalize();
-      saveState({ localOnly: isPersonalPage });
+      saveState();
       closeDialog(refs.editDialog);
       setNotice("手動入力を解除しました。");
       await render();
