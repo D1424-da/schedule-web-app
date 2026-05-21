@@ -87,7 +87,7 @@ const state = {
   editTarget: null,
   confirmationRequests: [],
   weeklyBusinessNotes: {},
-  progressProjects: [],
+  progressProjectsByUser: {},
 };
 
 const refs = {
@@ -1151,30 +1151,37 @@ function generateProgressId() {
   return `prog_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function renderProgressSection() {
-  if (!refs.progressSection || !refs.progressProjectList) {
-    return;
+/** 現在ログイン中ユーザーの projects 配列を返す（なければ空配列） */
+function getMyProjects() {
+  const uid = state.currentUserId;
+  if (!uid) return [];
+  const entry = (state.progressProjectsByUser || {})[uid];
+  return Array.isArray(entry?.projects) ? entry.projects : [];
+}
+
+/** 現在ユーザーのエントリを初期化して返す。未ログインなら null */
+function ensureMyProjectsEntry() {
+  const uid = state.currentUserId;
+  if (!uid) return null;
+  if (!state.progressProjectsByUser) state.progressProjectsByUser = {};
+  if (!state.progressProjectsByUser[uid]) {
+    state.progressProjectsByUser[uid] = { userName: state.currentUser || uid, projects: [] };
   }
+  state.progressProjectsByUser[uid].userName = state.currentUser || uid;
+  return state.progressProjectsByUser[uid];
+}
 
-  const projects = Array.isArray(state.progressProjects) ? state.progressProjects : [];
-
-  if (refs.addProgressProjectBtn) {
-    refs.addProgressProjectBtn.classList.toggle("hidden", !currentFirebaseUser);
-  }
-
-  if (projects.length === 0) {
-    refs.progressProjectList.innerHTML = '<p class="subtitle-mini">工程データがありません。「＋ 業務を追加」から登録してください。</p>';
-    return;
-  }
-
-  refs.progressProjectList.innerHTML = projects.map((project) => {
+/** projects 配列を HTML 文字列に変換する。isOwner=true のときのみ編集ボタンを表示 */
+function renderProgressProjectCards(projects, ownerUserId) {
+  const isOwner = !!currentFirebaseUser && ownerUserId === state.currentUserId;
+  return projects.map((project) => {
     const items = Array.isArray(project.items) ? project.items : [];
     const avgProgress = items.length > 0
       ? Math.round(items.reduce((sum, item) => sum + clamp(Number(item.progress || 0), 0, 100), 0) / items.length)
       : 0;
 
     return `
-      <div class="progress-project-card" data-project-id="${escapeHtml(project.id)}">
+      <div class="progress-project-card" data-project-id="${escapeHtml(project.id)}" data-user-id="${escapeHtml(ownerUserId)}">
         <div class="progress-project-header">
           <div class="progress-project-title">
             <span class="progress-project-name">${escapeHtml(project.name)}</span>
@@ -1186,11 +1193,11 @@ function renderProgressSection() {
               <div class="progress-bar-fill" style="width:${avgProgress}%"></div>
             </div>
           </div>
-          ${currentFirebaseUser ? `
+          ${isOwner ? `
             <div class="progress-project-actions no-print">
-              <button class="btn btn-secondary" type="button" data-progress-action="add-item" data-project-id="${escapeHtml(project.id)}">＋ 工種追加</button>
-              <button class="btn btn-ghost" type="button" data-progress-action="edit-project" data-project-id="${escapeHtml(project.id)}">編集</button>
-              <button class="btn btn-ghost" type="button" data-progress-action="delete-project" data-project-id="${escapeHtml(project.id)}">削除</button>
+              <button class="btn btn-secondary" type="button" data-progress-action="add-item" data-project-id="${escapeHtml(project.id)}" data-user-id="${escapeHtml(ownerUserId)}">＋ 工種追加</button>
+              <button class="btn btn-ghost" type="button" data-progress-action="edit-project" data-project-id="${escapeHtml(project.id)}" data-user-id="${escapeHtml(ownerUserId)}">編集</button>
+              <button class="btn btn-ghost" type="button" data-progress-action="delete-project" data-project-id="${escapeHtml(project.id)}" data-user-id="${escapeHtml(ownerUserId)}">削除</button>
             </div>
           ` : ""}
         </div>
@@ -1203,7 +1210,7 @@ function renderProgressSection() {
                 <th>状態</th>
                 <th class="no-print">備考</th>
                 <th class="no-print">更新者</th>
-                ${currentFirebaseUser ? '<th class="no-print"></th>' : ""}
+                ${isOwner ? '<th class="no-print"></th>' : ""}
               </tr>
             </thead>
             <tbody>
@@ -1217,22 +1224,25 @@ function renderProgressSection() {
                       <div class="progress-bar-wrap progress-bar-wrap-wide">
                         <div class="progress-bar-fill" style="width:${progress}%"></div>
                       </div>
-                      <div class="progress-input-row no-print">
-                        <input class="progress-pct-input" type="number" min="0" max="100" value="${progress}"
-                          data-progress-action="update-progress"
-                          data-project-id="${escapeHtml(project.id)}"
-                          data-item-id="${escapeHtml(item.id)}" />
-                        <span>%</span>
-                      </div>
+                      ${isOwner ? `
+                        <div class="progress-input-row no-print">
+                          <input class="progress-pct-input" type="number" min="0" max="100" value="${progress}"
+                            data-progress-action="update-progress"
+                            data-project-id="${escapeHtml(project.id)}"
+                            data-item-id="${escapeHtml(item.id)}"
+                            data-user-id="${escapeHtml(ownerUserId)}" />
+                          <span>%</span>
+                        </div>
+                      ` : `<span class="no-print">${progress}%</span>`}
                       <span class="print-only">${progress}%</span>
                     </td>
                     <td><span class="progress-badge progress-badge-${status}">${status}</span></td>
                     <td class="no-print progress-note-cell">${item.note ? escapeHtml(item.note) : ""}</td>
                     <td class="no-print progress-meta-cell">${item.updatedByName ? escapeHtml(item.updatedByName) : ""}</td>
-                    ${currentFirebaseUser ? `
+                    ${isOwner ? `
                       <td class="no-print progress-action-cell">
-                        <button class="btn btn-ghost" type="button" data-progress-action="edit-item" data-project-id="${escapeHtml(project.id)}" data-item-id="${escapeHtml(item.id)}">編集</button>
-                        <button class="btn btn-ghost" type="button" data-progress-action="delete-item" data-project-id="${escapeHtml(project.id)}" data-item-id="${escapeHtml(item.id)}">削除</button>
+                        <button class="btn btn-ghost" type="button" data-progress-action="edit-item" data-project-id="${escapeHtml(project.id)}" data-item-id="${escapeHtml(item.id)}" data-user-id="${escapeHtml(ownerUserId)}">編集</button>
+                        <button class="btn btn-ghost" type="button" data-progress-action="delete-item" data-project-id="${escapeHtml(project.id)}" data-item-id="${escapeHtml(item.id)}" data-user-id="${escapeHtml(ownerUserId)}">削除</button>
                       </td>
                     ` : ""}
                   </tr>
@@ -1240,10 +1250,55 @@ function renderProgressSection() {
               }).join("")}
             </tbody>
           </table>
-        ` : `<p class="subtitle-mini no-print">「＋ 工種追加」ボタンで工種を登録してください。</p>`}
+        ` : `<p class="subtitle-mini no-print">${isOwner ? "「＋ 工種追加」ボタンで工種を登録してください。" : "工種が登録されていません。"}</p>`}
       </div>
     `;
   }).join("");
+}
+
+function renderProgressSection() {
+  if (!refs.progressSection || !refs.progressProjectList) {
+    return;
+  }
+
+  if (refs.addProgressProjectBtn) {
+    refs.addProgressProjectBtn.classList.toggle("hidden", !currentFirebaseUser);
+  }
+
+  if (isOverallPage) {
+    const byUser = state.progressProjectsByUser || {};
+    const userIds = Object.keys(byUser).filter((uid) => {
+      const entry = byUser[uid];
+      return Array.isArray(entry?.projects) && entry.projects.length > 0;
+    });
+
+    if (userIds.length === 0) {
+      refs.progressProjectList.innerHTML = '<p class="subtitle-mini">工程データがありません。</p>';
+      return;
+    }
+
+    refs.progressProjectList.innerHTML = userIds.map((uid) => {
+      const entry = byUser[uid];
+      const projects = Array.isArray(entry?.projects) ? entry.projects : [];
+      const userName = entry?.userName || uid;
+      return `
+        <div class="progress-user-section">
+          <h3 class="progress-user-heading">${escapeHtml(userName)}</h3>
+          ${renderProgressProjectCards(projects, uid)}
+        </div>
+      `;
+    }).join("");
+    return;
+  }
+
+  // 個人ページ：自分のプロジェクトのみ表示
+  const myUid = state.currentUserId || "";
+  const projects = getMyProjects();
+  if (projects.length === 0) {
+    refs.progressProjectList.innerHTML = '<p class="subtitle-mini">工程データがありません。「＋ 業務を追加」から登録してください。</p>';
+    return;
+  }
+  refs.progressProjectList.innerHTML = renderProgressProjectCards(projects, myUid);
 }
 
 function openProgressProjectDialog(projectId) {
@@ -1254,7 +1309,7 @@ function openProgressProjectDialog(projectId) {
   progressEditProjectId = projectId || null;
 
   if (projectId) {
-    const project = (state.progressProjects || []).find((p) => p.id === projectId);
+    const project = getMyProjects().find((p) => p.id === projectId);
     if (!project) {
       return;
     }
@@ -1290,18 +1345,21 @@ async function saveProgressProject() {
   }
   const location = String(refs.progressProjectLocationInput?.value || "").trim();
 
-  if (!Array.isArray(state.progressProjects)) {
-    state.progressProjects = [];
+  const entry = ensureMyProjectsEntry();
+  if (!entry) {
+    setNotice("ログイン後に操作できます。");
+    return;
   }
+  if (!Array.isArray(entry.projects)) entry.projects = [];
 
   if (progressEditProjectId) {
-    const project = state.progressProjects.find((p) => p.id === progressEditProjectId);
+    const project = entry.projects.find((p) => p.id === progressEditProjectId);
     if (project) {
       project.name = name;
       project.location = location;
     }
   } else {
-    state.progressProjects.push({
+    entry.projects.push({
       id: generateProgressId(),
       name,
       location,
@@ -1327,7 +1385,7 @@ function openProgressItemDialog(projectId, itemId) {
   progressEditItemId = itemId || null;
 
   if (itemId) {
-    const project = (state.progressProjects || []).find((p) => p.id === projectId);
+    const project = getMyProjects().find((p) => p.id === projectId);
     const item = (project?.items || []).find((i) => i.id === itemId);
     if (!item) {
       return;
@@ -1364,10 +1422,12 @@ async function saveProgressItem() {
   }
   const note = String(refs.progressItemNoteInput?.value || "").trim();
 
-  if (!Array.isArray(state.progressProjects)) {
+  const entry = ensureMyProjectsEntry();
+  if (!entry) {
+    setNotice("ログイン後に操作できます。");
     return;
   }
-  const project = state.progressProjects.find((p) => p.id === progressEditItemProjectId);
+  const project = (entry.projects || []).find((p) => p.id === progressEditItemProjectId);
   if (!project) {
     return;
   }
@@ -1399,13 +1459,18 @@ async function saveProgressItem() {
   setNotice(progressEditItemId ? "工種を更新しました。" : "工種を追加しました。");
 }
 
-function updateProgressItemProgress(projectId, itemId, progress) {
+function updateProgressItemProgress(projectId, itemId, progress, ownerUserId) {
   if (!currentFirebaseUser) {
     setNotice("ログイン後に進捗を更新できます。");
     return;
   }
+  if (ownerUserId !== state.currentUserId) {
+    setNotice("他のユーザーのデータは編集できません。");
+    return;
+  }
 
-  const project = (state.progressProjects || []).find((p) => p.id === projectId);
+  const entry = (state.progressProjectsByUser || {})[ownerUserId];
+  const project = (entry?.projects || []).find((p) => p.id === projectId);
   if (!project) {
     return;
   }
@@ -1443,26 +1508,39 @@ async function handleProgressListClick(event) {
   const action = button.dataset.progressAction;
   const projectId = String(button.dataset.projectId || "");
   const itemId = String(button.dataset.itemId || "");
+  const userId = String(button.dataset.userId || "");
 
   if (action === "add-item") {
     openProgressItemDialog(projectId, null);
   } else if (action === "edit-project") {
     openProgressProjectDialog(projectId);
   } else if (action === "delete-project") {
+    if (userId !== state.currentUserId) {
+      setNotice("他のユーザーのデータは編集できません。");
+      return;
+    }
     if (!confirm("この業務を削除しますか？工種データもすべて削除されます。")) {
       return;
     }
-    state.progressProjects = (state.progressProjects || []).filter((p) => p.id !== projectId);
+    const entryD = ensureMyProjectsEntry();
+    if (entryD) {
+      entryD.projects = (entryD.projects || []).filter((p) => p.id !== projectId);
+    }
     renderProgressSection();
     await saveStateImmediately();
     setNotice("業務を削除しました。");
   } else if (action === "edit-item") {
     openProgressItemDialog(projectId, itemId);
   } else if (action === "delete-item") {
+    if (userId !== state.currentUserId) {
+      setNotice("他のユーザーのデータは編集できません。");
+      return;
+    }
     if (!confirm("この工種を削除しますか？")) {
       return;
     }
-    const project = (state.progressProjects || []).find((p) => p.id === projectId);
+    const entryI = ensureMyProjectsEntry();
+    const project = (entryI?.projects || []).find((p) => p.id === projectId);
     if (project) {
       project.items = (project.items || []).filter((i) => i.id !== itemId);
     }
@@ -1483,9 +1561,10 @@ function handleProgressListChange(event) {
 
   const projectId = String(target.dataset.projectId || "");
   const itemId = String(target.dataset.itemId || "");
+  const userId = String(target.dataset.userId || "");
   const progress = Number(target.value);
 
-  updateProgressItemProgress(projectId, itemId, progress);
+  updateProgressItemProgress(projectId, itemId, progress, userId);
 }
 
 // ─────────────────────────────────────────────────────────
@@ -3136,7 +3215,7 @@ function buildLocalPayload() {
     settings: state.settings,
     confirmationRequests: state.confirmationRequests,
     weeklyBusinessNotes: state.weeklyBusinessNotes,
-    progressProjects: state.progressProjects,
+    progressProjectsByUser: state.progressProjectsByUser,
     finalizeRequired: scheduleFinalizeRequired,
   };
 }
@@ -3150,7 +3229,7 @@ function buildCloudPayload(announce = false) {
     settings: state.settings,
     confirmationRequests: state.confirmationRequests,
     weeklyBusinessNotes: state.weeklyBusinessNotes,
-    progressProjects: state.progressProjects,
+    progressProjectsByUser: state.progressProjectsByUser,
     updatedByName: state.currentUser || (isPersonalPage ? "未ログイン利用者" : "管理画面"),
     updatedById: state.currentUserId || "",
     updatedByPage: pageMode,
@@ -3184,8 +3263,8 @@ function applyLoadedData(data, restoreSession = true) {
   if (data.weeklyBusinessNotes && typeof data.weeklyBusinessNotes === "object") {
     state.weeklyBusinessNotes = data.weeklyBusinessNotes;
   }
-  if (Array.isArray(data.progressProjects)) {
-    state.progressProjects = data.progressProjects;
+  if (data.progressProjectsByUser && typeof data.progressProjectsByUser === "object") {
+    state.progressProjectsByUser = data.progressProjectsByUser;
   }
   if (typeof data.finalizeRequired === "boolean") {
     scheduleFinalizeRequired = data.finalizeRequired;

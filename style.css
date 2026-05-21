@@ -1342,6 +1342,21 @@ input[type="password"] {
   gap: 14px;
 }
 
+/* 全体ページ: ユーザーごとのグループ */
+.progress-user-section {
+  display: grid;
+  gap: 10px;
+}
+
+.progress-user-heading {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--accent, #2563eb);
+  border-left: 4px solid var(--accent, #2563eb);
+  padding-left: 10px;
+  margin: 0 0 4px;
+}
+
 .progress-project-card {
   border: 1px solid var(--line);
   border-radius: 10px;
