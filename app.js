@@ -175,6 +175,8 @@ const refs = {
   progressProjectDialogTitle: document.getElementById("progressProjectDialogTitle"),
   progressProjectNameInput: document.getElementById("progressProjectNameInput"),
   progressProjectLocationInput: document.getElementById("progressProjectLocationInput"),
+  progressProjectStartDateInput: document.getElementById("progressProjectStartDateInput"),
+  progressProjectEndDateInput: document.getElementById("progressProjectEndDateInput"),
   cancelProgressProjectBtn: document.getElementById("cancelProgressProjectBtn"),
   progressItemDialog: document.getElementById("progressItemDialog"),
   progressItemForm: document.getElementById("progressItemForm"),
@@ -1171,6 +1173,19 @@ function ensureMyProjectsEntry() {
   return state.progressProjectsByUser[uid];
 }
 
+/** 納品予定日から本日までの残り日数を計算。マイナスなら期限超過 */
+function calculateDaysRemaining(endDateStr) {
+  if (!endDateStr) return null;
+  const endDate = new Date(endDateStr);
+  if (isNaN(endDate.getTime())) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  endDate.setHours(0, 0, 0, 0);
+  const diffTime = endDate.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays;
+}
+
 /** projects 配列を HTML 文字列に変換する。isOwner=true のときのみ編集ボタンを表示 */
 function renderProgressProjectCards(projects, ownerUserId) {
   const isOwner = !!currentFirebaseUser && ownerUserId === state.currentUserId;
@@ -1180,10 +1195,25 @@ function renderProgressProjectCards(projects, ownerUserId) {
       ? Math.round(items.reduce((sum, item) => sum + clamp(Number(item.progress || 0), 0, 100), 0) / items.length)
       : 0;
 
+    const daysRemaining = calculateDaysRemaining(project.endDate);
+    let daysRemainingDisplay = "";
+    if (daysRemaining !== null) {
+      if (daysRemaining < 0) {
+        daysRemainingDisplay = `<span class="progress-deadline-status deadline-overdue">期限超過 ${Math.abs(daysRemaining)}日</span>`;
+      } else if (daysRemaining === 0) {
+        daysRemainingDisplay = `<span class="progress-deadline-status deadline-today">本日納品</span>`;
+      } else if (daysRemaining <= 7) {
+        daysRemainingDisplay = `<span class="progress-deadline-status deadline-urgent">あと ${daysRemaining}日</span>`;
+      } else {
+        daysRemainingDisplay = `<span class="progress-deadline-status deadline-normal">あと ${daysRemaining}日</span>`;
+      }
+    }
+
     return `
-      <div class="progress-project-card" data-project-id="${escapeHtml(project.id)}" data-user-id="${escapeHtml(ownerUserId)}">
-        <div class="progress-project-header">
+      <div class="progress-project-card" data-project-id="${escapeHtml(project.id)}" data-user-id="${escapeHtml(ownerUserId)}" data-expanded="false">
+        <div class="progress-project-header" data-progress-action="toggle-items" data-project-id="${escapeHtml(project.id)}" role="button" tabindex="0">
           <div class="progress-project-title">
+            <span class="progress-project-toggle">▶</span>
             <span class="progress-project-name">${escapeHtml(project.name)}</span>
             ${project.location ? `<span class="progress-project-location">${escapeHtml(project.location)}</span>` : ""}
           </div>
@@ -1192,65 +1222,69 @@ function renderProgressProjectCards(projects, ownerUserId) {
             <div class="progress-bar-wrap">
               <div class="progress-bar-fill" style="width:${avgProgress}%"></div>
             </div>
+            ${daysRemainingDisplay}
+            ${project.endDate ? `<span class="progress-deadline-date">${project.endDate} 納品</span>` : ""}
           </div>
           ${isOwner ? `
             <div class="progress-project-actions no-print">
-              <button class="btn btn-secondary" type="button" data-progress-action="add-item" data-project-id="${escapeHtml(project.id)}" data-user-id="${escapeHtml(ownerUserId)}">＋ 工種追加</button>
-              <button class="btn btn-ghost" type="button" data-progress-action="edit-project" data-project-id="${escapeHtml(project.id)}" data-user-id="${escapeHtml(ownerUserId)}">編集</button>
-              <button class="btn btn-ghost" type="button" data-progress-action="delete-project" data-project-id="${escapeHtml(project.id)}" data-user-id="${escapeHtml(ownerUserId)}">削除</button>
+              <button class="btn btn-secondary" type="button" data-progress-action="add-item" data-project-id="${escapeHtml(project.id)}" data-user-id="${escapeHtml(ownerUserId)}" onclick="event.stopPropagation()">＋ 工種追加</button>
+              <button class="btn btn-ghost" type="button" data-progress-action="edit-project" data-project-id="${escapeHtml(project.id)}" data-user-id="${escapeHtml(ownerUserId)}" onclick="event.stopPropagation()">編集</button>
+              <button class="btn btn-ghost" type="button" data-progress-action="delete-project" data-project-id="${escapeHtml(project.id)}" data-user-id="${escapeHtml(ownerUserId)}" onclick="event.stopPropagation()">削除</button>
             </div>
           ` : ""}
         </div>
         ${items.length > 0 ? `
-          <table class="progress-item-table">
-            <thead>
-              <tr>
-                <th>工種名</th>
-                <th>進捗</th>
-                <th>状態</th>
-                <th class="no-print">備考</th>
-                <th class="no-print">更新者</th>
-                ${isOwner ? '<th class="no-print"></th>' : ""}
-              </tr>
-            </thead>
-            <tbody>
-              ${items.map((item) => {
-                const progress = clamp(Number(item.progress || 0), 0, 100);
-                const status = progress <= 0 ? "未着手" : progress >= 100 ? "完了" : "進行中";
-                return `
-                  <tr>
-                    <td class="progress-item-name-cell">${escapeHtml(item.name)}</td>
-                    <td class="progress-item-cell">
-                      <div class="progress-bar-wrap progress-bar-wrap-wide">
-                        <div class="progress-bar-fill" style="width:${progress}%"></div>
-                      </div>
-                      ${isOwner ? `
-                        <div class="progress-input-row no-print">
-                          <input class="progress-pct-input" type="number" min="0" max="100" value="${progress}"
-                            data-progress-action="update-progress"
-                            data-project-id="${escapeHtml(project.id)}"
-                            data-item-id="${escapeHtml(item.id)}"
-                            data-user-id="${escapeHtml(ownerUserId)}" />
-                          <span>%</span>
+          <div class="progress-items-container" style="display: none;">
+            <table class="progress-item-table">
+              <thead>
+                <tr>
+                  <th>工種名</th>
+                  <th>進捗</th>
+                  <th>状態</th>
+                  <th class="no-print">備考</th>
+                  <th class="no-print">更新者</th>
+                  ${isOwner ? '<th class="no-print"></th>' : ""}
+                </tr>
+              </thead>
+              <tbody>
+                ${items.map((item) => {
+                  const progress = clamp(Number(item.progress || 0), 0, 100);
+                  const status = progress <= 0 ? "未着手" : progress >= 100 ? "完了" : "進行中";
+                  return `
+                    <tr>
+                      <td class="progress-item-name-cell">${escapeHtml(item.name)}</td>
+                      <td class="progress-item-cell">
+                        <div class="progress-bar-wrap progress-bar-wrap-wide">
+                          <div class="progress-bar-fill" style="width:${progress}%"></div>
                         </div>
-                      ` : `<span class="no-print">${progress}%</span>`}
-                      <span class="print-only">${progress}%</span>
-                    </td>
-                    <td><span class="progress-badge progress-badge-${status}">${status}</span></td>
-                    <td class="no-print progress-note-cell">${item.note ? escapeHtml(item.note) : ""}</td>
-                    <td class="no-print progress-meta-cell">${item.updatedByName ? escapeHtml(item.updatedByName) : ""}</td>
-                    ${isOwner ? `
-                      <td class="no-print progress-action-cell">
-                        <button class="btn btn-ghost" type="button" data-progress-action="edit-item" data-project-id="${escapeHtml(project.id)}" data-item-id="${escapeHtml(item.id)}" data-user-id="${escapeHtml(ownerUserId)}">編集</button>
-                        <button class="btn btn-ghost" type="button" data-progress-action="delete-item" data-project-id="${escapeHtml(project.id)}" data-item-id="${escapeHtml(item.id)}" data-user-id="${escapeHtml(ownerUserId)}">削除</button>
+                        ${isOwner ? `
+                          <div class="progress-input-row no-print">
+                            <input class="progress-pct-input" type="number" min="0" max="100" value="${progress}"
+                              data-progress-action="update-progress"
+                              data-project-id="${escapeHtml(project.id)}"
+                              data-item-id="${escapeHtml(item.id)}"
+                              data-user-id="${escapeHtml(ownerUserId)}" />
+                            <span>%</span>
+                          </div>
+                        ` : `<span class="no-print">${progress}%</span>`}
+                        <span class="print-only">${progress}%</span>
                       </td>
-                    ` : ""}
-                  </tr>
-                `;
-              }).join("")}
-            </tbody>
-          </table>
-        ` : `<p class="subtitle-mini no-print">${isOwner ? "「＋ 工種追加」ボタンで工種を登録してください。" : "工種が登録されていません。"}</p>`}
+                      <td><span class="progress-badge progress-badge-${status}">${status}</span></td>
+                      <td class="no-print progress-note-cell">${item.note ? escapeHtml(item.note) : ""}</td>
+                      <td class="no-print progress-meta-cell">${item.updatedByName ? escapeHtml(item.updatedByName) : ""}</td>
+                      ${isOwner ? `
+                        <td class="no-print progress-action-cell">
+                          <button class="btn btn-ghost" type="button" data-progress-action="edit-item" data-project-id="${escapeHtml(project.id)}" data-item-id="${escapeHtml(item.id)}" data-user-id="${escapeHtml(ownerUserId)}" onclick="event.stopPropagation()">編集</button>
+                          <button class="btn btn-ghost" type="button" data-progress-action="delete-item" data-project-id="${escapeHtml(project.id)}" data-item-id="${escapeHtml(item.id)}" data-user-id="${escapeHtml(ownerUserId)}" onclick="event.stopPropagation()">削除</button>
+                        </td>
+                      ` : ""}
+                    </tr>
+                  `;
+                }).join("")}
+              </tbody>
+            </table>
+          </div>
+        ` : `<p class="subtitle-mini no-print" style="display: none;">${isOwner ? "「＋ 工種追加」ボタンで工種を登録してください。" : "工種が登録されていません。"}</p>`}
       </div>
     `;
   }).join("");
@@ -1284,7 +1318,7 @@ function renderProgressSection() {
       return `
         <div class="progress-user-section">
           <h3 class="progress-user-heading">${escapeHtml(userName)}</h3>
-          ${renderProgressProjectCards(projects, uid)}
+          ${renderProgressProjectCards(projects, null)}
         </div>
       `;
     }).join("");
@@ -1320,6 +1354,12 @@ function openProgressProjectDialog(projectId) {
     if (refs.progressProjectLocationInput) {
       refs.progressProjectLocationInput.value = project.location || "";
     }
+    if (refs.progressProjectStartDateInput) {
+      refs.progressProjectStartDateInput.value = project.startDate || "";
+    }
+    if (refs.progressProjectEndDateInput) {
+      refs.progressProjectEndDateInput.value = project.endDate || "";
+    }
   } else {
     if (refs.progressProjectDialogTitle) {
       refs.progressProjectDialogTitle.textContent = "業務を追加";
@@ -1327,6 +1367,12 @@ function openProgressProjectDialog(projectId) {
     refs.progressProjectNameInput.value = "";
     if (refs.progressProjectLocationInput) {
       refs.progressProjectLocationInput.value = "";
+    }
+    if (refs.progressProjectStartDateInput) {
+      refs.progressProjectStartDateInput.value = "";
+    }
+    if (refs.progressProjectEndDateInput) {
+      refs.progressProjectEndDateInput.value = "";
     }
   }
 
@@ -1344,6 +1390,8 @@ async function saveProgressProject() {
     return;
   }
   const location = String(refs.progressProjectLocationInput?.value || "").trim();
+  const startDate = String(refs.progressProjectStartDateInput?.value || "").trim();
+  const endDate = String(refs.progressProjectEndDateInput?.value || "").trim();
 
   const entry = ensureMyProjectsEntry();
   if (!entry) {
@@ -1357,12 +1405,16 @@ async function saveProgressProject() {
     if (project) {
       project.name = name;
       project.location = location;
+      project.startDate = startDate || null;
+      project.endDate = endDate || null;
     }
   } else {
     entry.projects.push({
       id: generateProgressId(),
       name,
       location,
+      startDate: startDate || null,
+      endDate: endDate || null,
       items: [],
       createdAt: new Date().toISOString(),
       createdByName: state.currentUser || "",
@@ -1497,6 +1549,32 @@ function updateProgressItemProgress(projectId, itemId, progress, ownerUserId) {
 async function handleProgressListClick(event) {
   const target = event.target;
   if (!(target instanceof HTMLElement)) {
+    return;
+  }
+
+  // toggle-items アクション（ヘッダー全体をクリック）
+  const headerWithToggle = target.closest("[data-progress-action='toggle-items']");
+  if (headerWithToggle) {
+    const projectId = String(headerWithToggle.dataset.projectId || "");
+    const card = headerWithToggle.closest(".progress-project-card");
+    if (card) {
+      const isExpanded = card.dataset.expanded === "true";
+      const container = card.querySelector(".progress-items-container");
+      const emptyMsg = card.querySelector(".progress-items-container ~ .subtitle-mini");
+      const toggle = card.querySelector(".progress-project-toggle");
+      
+      if (isExpanded) {
+        card.dataset.expanded = "false";
+        if (container) container.style.display = "none";
+        if (emptyMsg && emptyMsg.parentElement === card) emptyMsg.style.display = "none";
+        if (toggle) toggle.textContent = "▶";
+      } else {
+        card.dataset.expanded = "true";
+        if (container) container.style.display = "block";
+        if (emptyMsg && emptyMsg.parentElement === card) emptyMsg.style.display = "block";
+        if (toggle) toggle.textContent = "▼";
+      }
+    }
     return;
   }
 

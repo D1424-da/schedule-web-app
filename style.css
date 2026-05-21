@@ -1370,11 +1370,32 @@ input[type="password"] {
   gap: 12px;
   margin-bottom: 12px;
   flex-wrap: wrap;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+}
+
+.progress-project-header:hover {
+  background-color: rgba(37, 99, 235, 0.05);
 }
 
 .progress-project-title {
   flex: 1;
   min-width: 180px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.progress-project-toggle {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: bold;
+  color: var(--accent, #2563eb);
+  width: 16px;
+  text-align: center;
+  transition: transform 0.2s ease;
 }
 
 .progress-project-name {
@@ -1431,6 +1452,63 @@ input[type="password"] {
   gap: 6px;
   flex-shrink: 0;
   flex-wrap: wrap;
+}
+
+.progress-items-container {
+  animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+  }
+  to {
+    opacity: 1;
+    max-height: 1000px;
+  }
+}
+
+.progress-deadline-status {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  margin: 0 4px;
+}
+
+.deadline-overdue {
+  background-color: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.deadline-today {
+  background-color: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.deadline-urgent {
+  background-color: #fed7aa;
+  color: #9a3412;
+  border: 1px solid #fdba74;
+}
+
+.deadline-normal {
+  background-color: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #93c5fd;
+}
+
+.progress-deadline-date {
+  display: inline-block;
+  font-size: 12px;
+  color: #666;
+  margin-left: 8px;
 }
 
 .progress-item-table {
