@@ -1016,6 +1016,15 @@ function bindEvents() {
   if (refs.progressProjectList) {
     refs.progressProjectList.addEventListener("click", handleProgressListClick);
     refs.progressProjectList.addEventListener("change", handleProgressListChange);
+    
+    // 数字入力フィールドでEnterキーを押すとタブが閉じるのを防ぐ
+    refs.progressProjectList.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && event.target.classList.contains("progress-pct-input")) {
+        event.preventDefault();
+        // Enterで自動保存されるようにchange イベントをディスパッチ
+        event.target.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    });
   }
 
   function bindProgressListEvents() {
@@ -1625,36 +1634,25 @@ async function handleProgressListClick(event) {
       renderProgressSection();
       await saveStateImmediately();
       setNotice("工種を削除しました。");
-    }
-    return;
-  }
-
-  // カスタム進捗ボタン（increment/decrement）の処理
-  if (button?.dataset?.progressAction === "increment") {
-    const projectId = String(button.dataset.projectId || "");
-    const itemId = String(button.dataset.itemId || "");
-    const userId = String(button.dataset.userId || "");
-    const inputField = button.closest(".progress-input-controls")?.querySelector(".progress-pct-input");
-    if (inputField && inputField instanceof HTMLInputElement) {
-      const currentValue = Number(inputField.value);
-      if (currentValue < 100) {
-        const newValue = Math.min(currentValue + 10, 100);
-        inputField.value = String(newValue);
-        updateProgressItemProgress(projectId, itemId, newValue, userId);
+    } else if (action === "increment") {
+      const inputField = button.closest(".progress-input-controls")?.querySelector(".progress-pct-input");
+      if (inputField && inputField instanceof HTMLInputElement) {
+        const currentValue = Number(inputField.value);
+        if (currentValue < 100) {
+          const newValue = Math.min(currentValue + 10, 100);
+          inputField.value = String(newValue);
+          updateProgressItemProgress(projectId, itemId, newValue, userId);
+        }
       }
-    }
-    return;
-  } else if (button?.dataset?.progressAction === "decrement") {
-    const projectId = String(button.dataset.projectId || "");
-    const itemId = String(button.dataset.itemId || "");
-    const userId = String(button.dataset.userId || "");
-    const inputField = button.closest(".progress-input-controls")?.querySelector(".progress-pct-input");
-    if (inputField && inputField instanceof HTMLInputElement) {
-      const currentValue = Number(inputField.value);
-      if (currentValue > 0) {
-        const newValue = Math.max(currentValue - 10, 0);
-        inputField.value = String(newValue);
-        updateProgressItemProgress(projectId, itemId, newValue, userId);
+    } else if (action === "decrement") {
+      const inputField = button.closest(".progress-input-controls")?.querySelector(".progress-pct-input");
+      if (inputField && inputField instanceof HTMLInputElement) {
+        const currentValue = Number(inputField.value);
+        if (currentValue > 0) {
+          const newValue = Math.max(currentValue - 10, 0);
+          inputField.value = String(newValue);
+          updateProgressItemProgress(projectId, itemId, newValue, userId);
+        }
       }
     }
     return;
