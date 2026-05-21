@@ -1563,9 +1563,63 @@ input[type="password"] {
   background: #fff;
 }
 
+/* ブラウザネイティブなスピナーボタンを非表示 */
+.progress-pct-input::-webkit-outer-spin-button,
+.progress-pct-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.progress-pct-input[type="number"] {
+  -moz-appearance: textfield;
+}
+
 .progress-pct-input:focus {
   outline: 2px solid var(--primary);
   border-color: var(--primary);
+}
+
+/* カスタム上下ボタン */
+.progress-input-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.progress-increment-btn,
+.progress-decrement-btn {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  color: #666;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.progress-increment-btn:hover,
+.progress-decrement-btn:hover {
+  background: var(--hover);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.progress-increment-btn:active,
+.progress-decrement-btn:active {
+  background: #e0e0e0;
+}
+
+.progress-increment-btn:disabled,
+.progress-decrement-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .progress-badge {

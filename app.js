@@ -1281,11 +1281,15 @@ function renderProgressProjectCards(projects, ownerUserId) {
                         </div>
                         ${isOwner && !isOverallPage ? `
                           <div class="progress-input-row no-print">
-                            <input class="progress-pct-input" type="number" min="0" max="100" value="${progress}"
-                              data-progress-action="update-progress"
-                              data-project-id="${escapeHtml(project.id)}"
-                              data-item-id="${escapeHtml(item.id)}"
-                              data-user-id="${escapeHtml(ownerUserId)}" />
+                            <div class="progress-input-controls">
+                              <button type="button" class="progress-decrement-btn" data-progress-action="decrement" data-project-id="${escapeHtml(project.id)}" data-item-id="${escapeHtml(item.id)}" data-user-id="${escapeHtml(ownerUserId)}" aria-label="進捗を減らす">−</button>
+                              <input class="progress-pct-input" type="number" min="0" max="100" value="${progress}"
+                                data-progress-action="update-progress"
+                                data-project-id="${escapeHtml(project.id)}"
+                                data-item-id="${escapeHtml(item.id)}"
+                                data-user-id="${escapeHtml(ownerUserId)}" />
+                              <button type="button" class="progress-increment-btn" data-progress-action="increment" data-project-id="${escapeHtml(project.id)}" data-item-id="${escapeHtml(item.id)}" data-user-id="${escapeHtml(ownerUserId)}" aria-label="進捗を増やす">＋</button>
+                            </div>
                             <span>%</span>
                           </div>
                         ` : `<span class="no-print">${progress}%</span>`}
@@ -1625,15 +1629,35 @@ async function handleProgressListClick(event) {
     return;
   }
 
-  // 上下カーソルの処理
-  if (target.classList.contains("up-cursor")) {
-    event.stopPropagation();
-    console.log("Up cursor clicked");
-    // 上カーソルの処理をここに追加
-  } else if (target.classList.contains("down-cursor")) {
-    event.stopPropagation();
-    console.log("Down cursor clicked");
-    // 下カーソルの処理をここに追加
+  // カスタム進捗ボタン（increment/decrement）の処理
+  if (button?.dataset?.progressAction === "increment") {
+    const projectId = String(button.dataset.projectId || "");
+    const itemId = String(button.dataset.itemId || "");
+    const userId = String(button.dataset.userId || "");
+    const inputField = button.closest(".progress-input-controls")?.querySelector(".progress-pct-input");
+    if (inputField && inputField instanceof HTMLInputElement) {
+      const currentValue = Number(inputField.value);
+      if (currentValue < 100) {
+        const newValue = Math.min(currentValue + 10, 100);
+        inputField.value = String(newValue);
+        updateProgressItemProgress(projectId, itemId, newValue, userId);
+      }
+    }
+    return;
+  } else if (button?.dataset?.progressAction === "decrement") {
+    const projectId = String(button.dataset.projectId || "");
+    const itemId = String(button.dataset.itemId || "");
+    const userId = String(button.dataset.userId || "");
+    const inputField = button.closest(".progress-input-controls")?.querySelector(".progress-pct-input");
+    if (inputField && inputField instanceof HTMLInputElement) {
+      const currentValue = Number(inputField.value);
+      if (currentValue > 0) {
+        const newValue = Math.max(currentValue - 10, 0);
+        inputField.value = String(newValue);
+        updateProgressItemProgress(projectId, itemId, newValue, userId);
+      }
+    }
+    return;
   }
 
   // toggle-items アクション（ヘッダー全体をクリック）
