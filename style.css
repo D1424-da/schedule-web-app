@@ -439,6 +439,23 @@ body[data-page="admin"] .schedule-table {
   min-width: clamp(740px, 90vw, 940px);
 }
 
+body[data-page="overall"] .schedule-table th.name-col,
+body[data-page="admin"] .schedule-table th.name-col {
+  min-width: 112px;
+}
+
+body[data-page="overall"] .schedule-table th:first-child,
+body[data-page="overall"] .schedule-table td:first-child,
+body[data-page="admin"] .schedule-table th:first-child,
+body[data-page="admin"] .schedule-table td:first-child {
+  width: 112px;
+}
+
+body[data-page="overall"] .schedule-table td,
+body[data-page="admin"] .schedule-table td {
+  min-width: 106px;
+}
+
 .schedule-table th,
 .schedule-table td {
   border: 1px solid var(--line);
@@ -892,6 +909,23 @@ input[type="password"] {
 
   .schedule-table td {
     min-width: 120px;
+  }
+
+  body[data-page="overall"] .schedule-table th.name-col,
+  body[data-page="admin"] .schedule-table th.name-col {
+    min-width: 102px;
+  }
+
+  body[data-page="overall"] .schedule-table th:first-child,
+  body[data-page="overall"] .schedule-table td:first-child,
+  body[data-page="admin"] .schedule-table th:first-child,
+  body[data-page="admin"] .schedule-table td:first-child {
+    width: 102px;
+  }
+
+  body[data-page="overall"] .schedule-table td,
+  body[data-page="admin"] .schedule-table td {
+    min-width: 98px;
   }
 }
 
@@ -1749,6 +1783,19 @@ input[type="password"] {
   body[data-page="overall"] .schedule-table td,
   body[data-page="admin"] .schedule-table td {
     height: 70px;
+    min-width: 94px;
+  }
+
+  body[data-page="overall"] .schedule-table th.name-col,
+  body[data-page="admin"] .schedule-table th.name-col {
+    min-width: 98px;
+  }
+
+  body[data-page="overall"] .schedule-table th:first-child,
+  body[data-page="overall"] .schedule-table td:first-child,
+  body[data-page="admin"] .schedule-table th:first-child,
+  body[data-page="admin"] .schedule-table td:first-child {
+    width: 98px;
   }
 
   .cell-btn {
