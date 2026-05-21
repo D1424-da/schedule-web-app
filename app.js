@@ -63,6 +63,7 @@ let progressEditProjectId = null;
 let progressEditItemProjectId = null;
 let progressEditItemId = null;
 let progressSaveTimer = null;
+let lifecycleEventsBound = false;
 
 const LOGIN_BLOCK_MS_AFTER_TOO_MANY_REQUESTS = 60 * 1000;
 
@@ -273,6 +274,7 @@ async function init() {
   syncSettingsToForm();
   syncNotificationUi();
   bindEvents();
+  bindLifecycleEvents();
   bindPrintFitEvents();
   ensureDesktopRequestPanel();
   bindTableScrollbarSync();
@@ -552,6 +554,14 @@ function bindEvents() {
       if (!firebaseAuth) {
         return;
       }
+
+      // ログアウト直前に即時保存し、遅延キュー未送信による取りこぼしを防ぐ
+      try {
+        await saveStateImmediately();
+      } catch (error) {
+        // 保存失敗時もログアウト操作は継続する
+      }
+
       await firebaseAuth.signOut();
     });
   }
@@ -1026,6 +1036,34 @@ function bindEvents() {
         event.target.dispatchEvent(new Event("change", { bubbles: true }));
       }
     }, true);
+  }
+}
+
+function bindLifecycleEvents() {
+  if (lifecycleEventsBound || typeof window === "undefined") {
+    return;
+  }
+
+  lifecycleEventsBound = true;
+
+  const flushOnLeave = () => {
+    if (!currentFirebaseUser) {
+      return;
+    }
+
+    saveStateImmediately().catch(() => {
+      // ページ離脱時の失敗は UI 通知できないため無視
+    });
+  };
+
+  window.addEventListener("pagehide", flushOnLeave);
+
+  if (typeof document !== "undefined") {
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") {
+        flushOnLeave();
+      }
+    });
   }
 }
 
