@@ -2791,11 +2791,37 @@ function mergeCloudDataWithPersonalDraft(cloudData, draftData = null) {
     }
   }
 
+  // 個人ページの下書きを優先しつつ、承認済み反映(approvedByRequest)はクラウドを優先する。
+  const personalKeys = new Set();
+  for (const key of Object.keys(cloudEntries)) {
+    if (key.startsWith(prefix)) {
+      personalKeys.add(key);
+    }
+  }
   if (draftEntriesSource && typeof draftEntriesSource === "object") {
-    for (const [key, value] of Object.entries(draftEntriesSource)) {
+    for (const key of Object.keys(draftEntriesSource)) {
       if (key.startsWith(prefix)) {
-        mergedEntries[key] = value;
+        personalKeys.add(key);
       }
+    }
+  }
+
+  for (const key of personalKeys) {
+    const cloudEntry = cloudEntries[key];
+    const draftEntry = draftEntriesSource?.[key];
+
+    if (cloudEntry?.approvedByRequest === true) {
+      mergedEntries[key] = cloudEntry;
+      continue;
+    }
+
+    if (draftEntry !== undefined) {
+      mergedEntries[key] = draftEntry;
+      continue;
+    }
+
+    if (cloudEntry !== undefined) {
+      mergedEntries[key] = cloudEntry;
     }
   }
 
