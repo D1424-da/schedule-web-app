@@ -826,6 +826,14 @@ function bindEvents() {
         return;
       }
 
+      const existingEntry = state.manualEntries[entryKey(state.editTarget.name, state.editTarget.date)];
+      if (existingEntry?.approvedByRequest) {
+        const ok = confirm("確認変更済みの予定です。変更しますか？");
+        if (!ok) {
+          return;
+        }
+      }
+
       const savedCount = saveManualEntriesWithRepeat(state.editTarget.name, state.editTarget.date, entryData, repeatDays);
       saveState();
       closeDialog(refs.editDialog);
@@ -853,6 +861,13 @@ function bindEvents() {
       }
 
       const key = entryKey(state.editTarget.name, state.editTarget.date);
+      if (state.manualEntries[key]?.approvedByRequest) {
+        const ok = confirm("確認変更済みの予定です。変更しますか？");
+        if (!ok) {
+          return;
+        }
+      }
+
       delete state.manualEntries[key];
       markScheduleNeedsFinalize();
       saveState();
@@ -2287,6 +2302,7 @@ function buildApprovedEntryData(currentEntry, requestedEntry, allowHalfDayOverwr
     return {
       ...requestedEntry,
       source: "manual",
+      approvedByRequest: true,
       updatedAt: new Date().toISOString(),
     };
   }
@@ -2300,6 +2316,7 @@ function buildApprovedEntryData(currentEntry, requestedEntry, allowHalfDayOverwr
     return {
       ...requestedEntry,
       source: "manual",
+      approvedByRequest: true,
       updatedAt: new Date().toISOString(),
     };
   }
@@ -2322,6 +2339,7 @@ function buildApprovedEntryData(currentEntry, requestedEntry, allowHalfDayOverwr
     status: currentStatus,
     secondaryStatus: nextSecondaryStatus,
     source: "manual",
+    approvedByRequest: true,
     updatedAt: new Date().toISOString(),
   };
 }
