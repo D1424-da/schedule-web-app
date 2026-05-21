@@ -2565,7 +2565,7 @@ async function handleConfirmationRequestAction(requestId, action) {
   }
 
   if (action === "halfday-allow" || action === "halfday-deny") {
-    if (normalizeLoginId(request.targetId
+    if (normalizeLoginId(request.targetId)) {
       setNotice("半日休み案件は通知画面の「可能/不可」ボタンで処理してください。");
       return;
     }
