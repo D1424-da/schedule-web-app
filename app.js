@@ -1433,7 +1433,7 @@ function renderProgressSection() {
 
   const expandedKeys = collectExpandedProgressCardKeys(refs.progressProjectList);
 
-  // 全体ページでは「業務を追加」ボタンを表示しない
+  // 全体ページでは「現場を追加」ボタンを表示しない
   if (refs.addProgressProjectBtn) {
     refs.addProgressProjectBtn.classList.toggle("hidden", !currentFirebaseUser || isOverallPage);
   }
@@ -1469,7 +1469,7 @@ function renderProgressSection() {
   const myUid = state.currentUserId || "";
   const projects = getMyProjects();
   if (projects.length === 0) {
-    refs.progressProjectList.innerHTML = '<p class="subtitle-mini">工程データがありません。「＋ 業務を追加」から登録してください。</p>';
+    refs.progressProjectList.innerHTML = '<p class="subtitle-mini">工程データがありません。「＋ 現場を追加」から登録してください。</p>';
     return;
   }
   refs.progressProjectList.innerHTML = renderProgressProjectCards(projects, myUid);
@@ -1489,7 +1489,7 @@ function openProgressProjectDialog(projectId) {
       return;
     }
     if (refs.progressProjectDialogTitle) {
-      refs.progressProjectDialogTitle.textContent = "業務を編集";
+      refs.progressProjectDialogTitle.textContent = "現場を編集";
     }
     refs.progressProjectNameInput.value = project.name || "";
     if (refs.progressProjectLocationInput) {
@@ -1503,7 +1503,7 @@ function openProgressProjectDialog(projectId) {
     }
   } else {
     if (refs.progressProjectDialogTitle) {
-      refs.progressProjectDialogTitle.textContent = "業務を追加";
+      refs.progressProjectDialogTitle.textContent = "現場を追加";
     }
     refs.progressProjectNameInput.value = "";
     if (refs.progressProjectLocationInput) {
@@ -1567,7 +1567,7 @@ async function saveProgressProject() {
   renderProgressSection();
   renderMonthlyCalendar();
   await saveStateImmediately();
-  setNotice(progressEditProjectId ? "業務を更新しました。" : "業務を追加しました。");
+  setNotice(progressEditProjectId ? "現場を更新しました。" : "現場を追加しました。");
 }
 
 function openProgressItemDialog(projectId, itemId) {
@@ -2113,6 +2113,22 @@ function renderProjectMonthlyTable({ tableEl, monthStart, mode, targetName }) {
       listEl.className = "monthly-entry-list";
 
       let hasAnyEntry = false;
+      if (mode === "overall") {
+        const overallOffLabel = getOverallCalendarDayOffLabel(date, dateStr);
+        if (overallOffLabel) {
+          hasAnyEntry = true;
+          const offLineEl = document.createElement("div");
+          offLineEl.className = "monthly-entry-line";
+
+          const offTextEl = document.createElement("span");
+          offTextEl.className = "monthly-entry-main monthly-entry-off";
+          offTextEl.textContent = overallOffLabel;
+
+          offLineEl.appendChild(offTextEl);
+          listEl.appendChild(offLineEl);
+        }
+      }
+
       for (const owner of owners) {
         const entry = resolveEntry(owner.displayName, dateStr);
         if (isEngineeringCalendarOffEntry(entry) && shouldRenderEngineeringOffEntry(entry, mode)) {
@@ -2175,6 +2191,19 @@ function renderProjectMonthlyTable({ tableEl, monthStart, mode, targetName }) {
   tableEl.appendChild(tbody);
 }
 
+function getOverallCalendarDayOffLabel(date, dateStr) {
+  const holidayName = String(getHolidayName(dateStr) || "").trim();
+  if (holidayName) {
+    return `（祝日）${holidayName}`;
+  }
+
+  if (date.getDay() === 0 || date.getDay() === 6) {
+    return "休み";
+  }
+
+  return "";
+}
+
 function getActiveProjectsForUserOnDate(userId, dateStr) {
   const normalizedUserId = normalizeLoginId(userId);
   if (!normalizedUserId || !dateStr) {
@@ -2210,7 +2239,7 @@ function shouldShowProjectTimelineLabel(dateStr, project) {
 function buildEngineeringProjectLabel(project, options = {}) {
   const includeOwner = options.includeOwner === true;
   const ownerName = String(options.ownerName || "").trim();
-  const siteName = String(project?.name || "").trim() || "未設定";
+  const siteName = String(project?.location || "").trim() || "未設定";
   const body = `現場: ${siteName}`;
   return includeOwner && ownerName ? `${ownerName}: ${body}` : body;
 }
