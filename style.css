@@ -931,6 +931,11 @@ input[type="password"] {
 }
 
 @media (max-width: 768px) {
+  html,
+  body {
+    overflow-x: hidden;
+  }
+
   .desktop-request-panel {
     display: none !important;
   }
@@ -950,12 +955,18 @@ input[type="password"] {
   .page-links {
     margin-top: 8px;
     gap: 6px;
+    width: 100%;
   }
 
   .page-links a {
     font-size: 15px;
     padding: 10px 14px;
     min-height: 40px;
+  }
+
+  .page-links .btn,
+  .page-links button.btn {
+    width: 100%;
   }
 
   .auth-bar {
@@ -980,6 +991,8 @@ input[type="password"] {
   .notification-tools {
     width: 100%;
     padding: 6px 10px 0;
+    display: grid;
+    grid-template-columns: 1fr;
   }
 
   .notification-status {
@@ -1035,6 +1048,14 @@ input[type="password"] {
     gap: 6px;
   }
 
+  .week-nav .btn {
+    flex: 1 1 calc(50% - 6px);
+  }
+
+  #finalizeScheduleBtn {
+    flex-basis: 100%;
+  }
+
   .week-label {
     font-size: clamp(16px, 3vw, 20px);
   }
@@ -1073,6 +1094,11 @@ input[type="password"] {
   .schedule-table {
     font-size: 15px;
     min-width: clamp(700px, 96vw, 920px);
+  }
+
+  .table-wrap {
+    margin-inline: -4px;
+    padding-inline: 4px;
   }
 
   .schedule-table th {
@@ -1124,9 +1150,18 @@ input[type="password"] {
     min-height: 36px;
   }
 
+  .page-links .btn,
+  .page-links button.btn,
+  .auth-bar .btn,
+  .notification-tools .btn {
+    width: 100%;
+  }
+
   .auth-bar {
     padding: 6px 8px;
     gap: 4px;
+    display: grid;
+    grid-template-columns: 1fr;
   }
 
   .current-user {
@@ -1144,6 +1179,8 @@ input[type="password"] {
 
   .notification-tools {
     padding: 4px 8px 0;
+    display: grid;
+    grid-template-columns: 1fr;
   }
 
   .notification-status {
@@ -1326,11 +1363,16 @@ input[type="password"] {
   .user-order-item {
     padding: 8px;
     gap: 6px;
+    grid-template-columns: 1fr;
   }
 
   .user-order-meta {
     font-size: 12px;
     gap: 6px;
+  }
+
+  .order-buttons {
+    flex-wrap: wrap;
   }
 
   .schedule-table {
