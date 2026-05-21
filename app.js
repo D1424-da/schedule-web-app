@@ -1017,6 +1017,26 @@ function bindEvents() {
     refs.progressProjectList.addEventListener("click", handleProgressListClick);
     refs.progressProjectList.addEventListener("change", handleProgressListChange);
   }
+
+  function bindProgressListEvents() {
+    const progressList = refs.progressProjectList;
+    if (!progressList) return;
+
+    progressList.addEventListener("click", (event) => {
+      const target = event.target;
+      if (target.classList.contains("up-cursor")) {
+        event.stopPropagation();
+        // 上カーソルの処理
+        console.log("Up cursor clicked");
+      } else if (target.classList.contains("down-cursor")) {
+        event.stopPropagation();
+        // 下カーソルの処理
+        console.log("Down cursor clicked");
+      }
+    });
+  }
+
+  bindProgressListEvents();
 }
 
 function initCloudStore() {
@@ -1605,6 +1625,17 @@ async function handleProgressListClick(event) {
     return;
   }
 
+  // 上下カーソルの処理
+  if (target.classList.contains("up-cursor")) {
+    event.stopPropagation();
+    console.log("Up cursor clicked");
+    // 上カーソルの処理をここに追加
+  } else if (target.classList.contains("down-cursor")) {
+    event.stopPropagation();
+    console.log("Down cursor clicked");
+    // 下カーソルの処理をここに追加
+  }
+
   // toggle-items アクション（ヘッダー全体をクリック）
   const headerWithToggle = target.closest("[data-progress-action='toggle-items']");
   if (headerWithToggle) {
@@ -1615,7 +1646,7 @@ async function handleProgressListClick(event) {
       const container = card.querySelector(".progress-items-container");
       const emptyMsg = card.querySelector(".progress-items-container ~ .subtitle-mini");
       const toggle = card.querySelector(".progress-project-toggle");
-      
+
       if (isExpanded) {
         card.dataset.expanded = "false";
         if (container) container.style.display = "none";
@@ -1628,7 +1659,6 @@ async function handleProgressListClick(event) {
         if (toggle) toggle.textContent = "▼";
       }
     }
-    return;
   }
 }
 
@@ -2535,27 +2565,7 @@ async function handleConfirmationRequestAction(requestId, action) {
   }
 
   if (action === "halfday-allow" || action === "halfday-deny") {
-    if (normalizeLoginId(request.targetId) !== currentId) {
-      setNotice("この依頼は操作できません。");
-      return;
-    }
-    if (!hasHalfDayOnApproverSide(request)) {
-      setNotice("この依頼は半日休みの特別処理対象ではありません。");
-      return;
-    }
-
-    const allowHalfDayOverwrite = action === "halfday-allow";
-    await applyApprovalRequest(request, requestId, currentId, allowHalfDayOverwrite);
-    return;
-  }
-
-  if (action === "approve") {
-    if (normalizeLoginId(request.targetId) !== currentId) {
-      setNotice("この依頼は承認できません。");
-      return;
-    }
-    const allowHalfDayOverwrite = true;
-    if (hasHalfDayOnApproverSide(request)) {
+    if (normalizeLoginId(request.targetId
       setNotice("半日休み案件は通知画面の「可能/不可」ボタンで処理してください。");
       return;
     }
