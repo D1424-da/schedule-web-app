@@ -7,7 +7,7 @@
     <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet" />
     <title>個人入力ページ | 週間予定表管理システム</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-    <link rel="stylesheet" href="style.css?v=20260521b" />
+    <link rel="stylesheet" href="style.css?v=20260521c" />
   </head>
   <body data-page="personal" class="auth-locked">
     <header class="topbar">
@@ -51,32 +51,38 @@
         <p class="scroll-hint">左右にスクロールして全日程を表示できます。</p>
       </section>
 
-      <section id="personalBusinessNoteSection" class="card" aria-label="業務欄">
-        <div class="settings-header">
-          <h2>今週の業務欄</h2>
-          <button id="saveBusinessNoteBtn" class="btn btn-secondary" type="button">業務欄を保存</button>
-        </div>
-        <textarea id="businessNoteInput" class="business-note-input" rows="4" placeholder="今週の連絡事項・業務・残務などを入力してください"></textarea>
-        <p id="businessNoteMeta" class="subtitle-mini">保存すると全体ページへ即時反映されます。</p>
-      </section>
+      <div class="page-main-grid" aria-label="主要表示">
+        <div class="page-main-primary">
+          <section id="personalBusinessNoteSection" class="card" aria-label="業務欄">
+            <div class="settings-header">
+              <h2>今週の業務欄</h2>
+              <button id="saveBusinessNoteBtn" class="btn btn-secondary" type="button">業務欄を保存</button>
+            </div>
+            <textarea id="businessNoteInput" class="business-note-input" rows="4" placeholder="今週の連絡事項・業務・残務などを入力してください"></textarea>
+            <p id="businessNoteMeta" class="subtitle-mini">保存すると全体ページへ即時反映されます。</p>
+          </section>
 
-      <section id="progressSection" class="card" aria-label="工程管理">
-        <div class="settings-header">
-          <h2>工程管理</h2>
-          <button id="addProgressProjectBtn" class="btn btn-secondary no-print hidden" type="button">＋ 業務を追加</button>
+          <section id="progressSection" class="card" aria-label="工程管理">
+            <div class="settings-header">
+              <h2>工程管理</h2>
+              <button id="addProgressProjectBtn" class="btn btn-secondary no-print hidden" type="button">＋ 業務を追加</button>
+            </div>
+            <div id="progressProjectList" class="progress-project-list"></div>
+          </section>
         </div>
-        <div id="progressProjectList" class="progress-project-list"></div>
-      </section>
 
-      <section class="card monthly-card" aria-label="月間予定表">
-        <div class="month-nav">
-          <button id="prevMonthBtn" class="btn btn-secondary" type="button">前月</button>
-          <button id="currentMonthBtn" class="btn btn-ghost" type="button">当月</button>
-          <button id="nextMonthBtn" class="btn btn-secondary" type="button">次月</button>
-        </div>
-        <div id="monthLabel" class="month-label"></div>
-        <table id="monthlyScheduleTable" class="monthly-table"></table>
-      </section>
+        <aside class="page-main-secondary" aria-label="補助表示">
+          <section class="card monthly-card" aria-label="月間予定表">
+            <div class="month-nav">
+              <button id="prevMonthBtn" class="btn btn-secondary" type="button">前月</button>
+              <button id="currentMonthBtn" class="btn btn-ghost" type="button">当月</button>
+              <button id="nextMonthBtn" class="btn btn-secondary" type="button">次月</button>
+            </div>
+            <div id="monthLabel" class="month-label"></div>
+            <table id="monthlyScheduleTable" class="monthly-table"></table>
+          </section>
+        </aside>
+      </div>
 
       <p id="syncAlert" class="sync-alert hidden" aria-live="polite"></p>
       <section id="requestInboxSection" class="card request-inbox hidden" aria-label="確認依頼">

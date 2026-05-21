@@ -102,8 +102,10 @@ const refs = {
   weekLabel: document.getElementById("weekLabel"),
   printDateRange: document.getElementById("printDateRange"),
   monthLabel: document.getElementById("monthLabel"),
+  personalMonthLabel: document.getElementById("personalMonthLabel"),
   scheduleTable: document.getElementById("scheduleTable"),
   monthlyScheduleTable: document.getElementById("monthlyScheduleTable"),
+  personalMonthlyScheduleTable: document.getElementById("personalMonthlyScheduleTable"),
   scheduleScrollbar: document.getElementById("scheduleScrollbar"),
   scheduleScrollbarInner: document.getElementById("scheduleScrollbarInner"),
   notice: document.getElementById("notice"),
@@ -1986,12 +1988,43 @@ function renderMonthlyCalendar() {
   state.currentMonthStart = monthStart;
   refs.monthLabel.textContent = `${monthStart.getFullYear()}年${monthStart.getMonth() + 1}月`;
 
-  const targetName = isPersonalPage ? getLoggedInScheduleTargetName() : "";
-  if (isPersonalPage && !targetName) {
-    refs.monthlyScheduleTable.innerHTML = "<tbody><tr><td class=\"monthly-empty\">ログイン中ユーザーの予定表示対象が見つかりません。</td></tr></tbody>";
+  if (isPersonalPage) {
+    const targetName = getLoggedInScheduleTargetName();
+    if (!targetName) {
+      refs.monthlyScheduleTable.innerHTML = "<tbody><tr><td class=\"monthly-empty\">ログイン中ユーザーの予定表示対象が見つかりません。</td></tr></tbody>";
+      return;
+    }
+
+    renderSingleMonthlyTable({
+      tableEl: refs.monthlyScheduleTable,
+      monthStart,
+      targetName,
+    });
     return;
   }
 
+  renderOverallMonthlyTable({
+    tableEl: refs.monthlyScheduleTable,
+    monthStart,
+  });
+
+  if (isOverallPage && refs.personalMonthlyScheduleTable && refs.personalMonthLabel) {
+    refs.personalMonthLabel.textContent = refs.monthLabel.textContent;
+    const targetName = getLoggedInScheduleTargetName();
+    if (!targetName) {
+      refs.personalMonthlyScheduleTable.innerHTML = "<tbody><tr><td class=\"monthly-empty\">個人表示の対象ユーザーが見つかりません。</td></tr></tbody>";
+      return;
+    }
+
+    renderSingleMonthlyTable({
+      tableEl: refs.personalMonthlyScheduleTable,
+      monthStart,
+      targetName,
+    });
+  }
+}
+
+function createMonthlyTableHeader() {
   const weekDays = ["月", "火", "水", "木", "金", "土", "日"];
   const thead = document.createElement("thead");
   const trHead = document.createElement("tr");
@@ -2001,6 +2034,11 @@ function renderMonthlyCalendar() {
     trHead.appendChild(th);
   }
   thead.appendChild(trHead);
+  return thead;
+}
+
+function renderOverallMonthlyTable({ tableEl, monthStart }) {
+  const thead = createMonthlyTableHeader();
 
   const tbody = document.createElement("tbody");
   const monthStartWeekdayFromMonday = (monthStart.getDay() + 6) % 7;
@@ -2025,48 +2063,81 @@ function renderMonthlyCalendar() {
 
       td.appendChild(dayNo);
 
-      if (isOverallPage) {
-        td.classList.add("monthly-overall-cell");
-        const listEl = document.createElement("div");
-        listEl.className = "monthly-entry-list";
+      td.classList.add("monthly-overall-cell");
+      const listEl = document.createElement("div");
+      listEl.className = "monthly-entry-list";
 
-        let hasAnyEntry = false;
-        for (const name of state.staff) {
-          const entry = resolveEntry(name, dateStr);
-          if (!entry) {
-            continue;
-          }
-          hasAnyEntry = true;
-          const lineEl = document.createElement("div");
-          lineEl.className = "monthly-entry-line";
-          lineEl.textContent = `${name}: ${buildMonthlyEntryText(entry)}`;
-          listEl.appendChild(lineEl);
+      let hasAnyEntry = false;
+      for (const name of state.staff) {
+        const entry = resolveEntry(name, dateStr);
+        if (!entry) {
+          continue;
         }
-
-        if (!hasAnyEntry) {
-          const emptyEl = document.createElement("div");
-          emptyEl.className = "monthly-empty";
-          emptyEl.textContent = "-";
-          listEl.appendChild(emptyEl);
-        }
-
-        td.appendChild(listEl);
-      } else {
-        const entryEl = document.createElement("div");
-        entryEl.className = "monthly-entry";
-        const entry = resolveEntry(targetName, dateStr);
-        entryEl.textContent = entry ? buildMonthlyEntryText(entry) : "-";
-        td.appendChild(entryEl);
+        hasAnyEntry = true;
+        const lineEl = document.createElement("div");
+        lineEl.className = "monthly-entry-line";
+        lineEl.textContent = `${name}: ${buildMonthlyEntryText(entry)}`;
+        listEl.appendChild(lineEl);
       }
+
+      if (!hasAnyEntry) {
+        const emptyEl = document.createElement("div");
+        emptyEl.className = "monthly-empty";
+        emptyEl.textContent = "-";
+        listEl.appendChild(emptyEl);
+      }
+
+      td.appendChild(listEl);
 
       tr.appendChild(td);
     }
     tbody.appendChild(tr);
   }
 
-  refs.monthlyScheduleTable.innerHTML = "";
-  refs.monthlyScheduleTable.appendChild(thead);
-  refs.monthlyScheduleTable.appendChild(tbody);
+  tableEl.innerHTML = "";
+  tableEl.appendChild(thead);
+  tableEl.appendChild(tbody);
+}
+
+function renderSingleMonthlyTable({ tableEl, monthStart, targetName }) {
+  const thead = createMonthlyTableHeader();
+
+  const tbody = document.createElement("tbody");
+  const monthStartWeekdayFromMonday = (monthStart.getDay() + 6) % 7;
+  const firstVisible = addDays(monthStart, -monthStartWeekdayFromMonday);
+  for (let row = 0; row < 6; row += 1) {
+    const tr = document.createElement("tr");
+    for (let col = 0; col < 7; col += 1) {
+      const date = addDays(firstVisible, row * 7 + col);
+      const dateStr = toISODate(date);
+      const td = document.createElement("td");
+      const inCurrentMonth = date.getMonth() === monthStart.getMonth();
+      if (!inCurrentMonth) {
+        td.classList.add("monthly-muted");
+      }
+      if (date.getDay() === 0) {
+        td.classList.add("monthly-sunday");
+      }
+
+      const dayNo = document.createElement("div");
+      dayNo.className = "monthly-day-no";
+      dayNo.textContent = String(date.getDate());
+      td.appendChild(dayNo);
+
+      const entryEl = document.createElement("div");
+      entryEl.className = "monthly-entry";
+      const entry = resolveEntry(targetName, dateStr);
+      entryEl.textContent = entry ? buildMonthlyEntryText(entry) : "-";
+      td.appendChild(entryEl);
+
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+
+  tableEl.innerHTML = "";
+  tableEl.appendChild(thead);
+  tableEl.appendChild(tbody);
 }
 
 function buildMonthlyEntryText(entry) {
