@@ -1021,31 +1021,12 @@ function bindEvents() {
     refs.progressProjectList.addEventListener("keydown", (event) => {
       if (event.key === "Enter" && event.target.classList.contains("progress-pct-input")) {
         event.preventDefault();
+        event.stopPropagation();
         // Enterで自動保存されるようにchange イベントをディスパッチ
         event.target.dispatchEvent(new Event("change", { bubbles: true }));
       }
-    });
+    }, true);
   }
-
-  function bindProgressListEvents() {
-    const progressList = refs.progressProjectList;
-    if (!progressList) return;
-
-    progressList.addEventListener("click", (event) => {
-      const target = event.target;
-      if (target.classList.contains("up-cursor")) {
-        event.stopPropagation();
-        // 上カーソルの処理
-        console.log("Up cursor clicked");
-      } else if (target.classList.contains("down-cursor")) {
-        event.stopPropagation();
-        // 下カーソルの処理
-        console.log("Down cursor clicked");
-      }
-    });
-  }
-
-  bindProgressListEvents();
 }
 
 function initCloudStore() {
@@ -1594,6 +1575,10 @@ async function handleProgressListClick(event) {
   // ボタンクリックを最優先で処理
   const button = target.closest("button[data-progress-action]");
   if (button) {
+    // イベント伝播を停止
+    event.preventDefault();
+    event.stopPropagation();
+    
     const action = button.dataset.progressAction;
     const projectId = String(button.dataset.projectId || "");
     const itemId = String(button.dataset.itemId || "");
