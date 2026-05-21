@@ -1189,6 +1189,8 @@ function calculateDaysRemaining(endDateStr) {
 /** projects 配列を HTML 文字列に変換する。isOwner=true のときのみ編集ボタンを表示 */
 function renderProgressProjectCards(projects, ownerUserId) {
   const isOwner = !!currentFirebaseUser && ownerUserId === state.currentUserId;
+  const isOverallPage = document.body.dataset.page === "overall"; // 全体ページ判定
+
   return projects.map((project) => {
     const items = Array.isArray(project.items) ? project.items : [];
     const avgProgress = items.length > 0
@@ -1225,7 +1227,7 @@ function renderProgressProjectCards(projects, ownerUserId) {
             ${daysRemainingDisplay}
             ${project.endDate ? `<span class="progress-deadline-date">${project.endDate} 納品</span>` : ""}
           </div>
-          ${isOwner ? `
+          ${isOwner && !isOverallPage ? `
             <div class="progress-project-actions no-print">
               <button class="btn btn-secondary" type="button" data-progress-action="add-item" data-project-id="${escapeHtml(project.id)}" data-user-id="${escapeHtml(ownerUserId)}">＋ 工種追加</button>
               <button class="btn btn-ghost" type="button" data-progress-action="edit-project" data-project-id="${escapeHtml(project.id)}" data-user-id="${escapeHtml(ownerUserId)}">編集</button>
@@ -1243,7 +1245,7 @@ function renderProgressProjectCards(projects, ownerUserId) {
                   <th>状態</th>
                   <th class="no-print">備考</th>
                   <th class="no-print">更新者</th>
-                  ${isOwner ? '<th class="no-print"></th>' : ""}
+                  ${isOwner && !isOverallPage ? '<th class="no-print"></th>' : ""}
                 </tr>
               </thead>
               <tbody>
@@ -1257,7 +1259,7 @@ function renderProgressProjectCards(projects, ownerUserId) {
                         <div class="progress-bar-wrap progress-bar-wrap-wide">
                           <div class="progress-bar-fill" style="width:${progress}%"></div>
                         </div>
-                        ${isOwner ? `
+                        ${isOwner && !isOverallPage ? `
                           <div class="progress-input-row no-print">
                             <input class="progress-pct-input" type="number" min="0" max="100" value="${progress}"
                               data-progress-action="update-progress"
@@ -1272,7 +1274,7 @@ function renderProgressProjectCards(projects, ownerUserId) {
                       <td><span class="progress-badge progress-badge-${status}">${status}</span></td>
                       <td class="no-print progress-note-cell">${item.note ? escapeHtml(item.note) : ""}</td>
                       <td class="no-print progress-meta-cell">${item.updatedByName ? escapeHtml(item.updatedByName) : ""}</td>
-                      ${isOwner ? `
+                      ${isOwner && !isOverallPage ? `
                         <td class="no-print progress-action-cell">
                           <button class="btn btn-ghost" type="button" data-progress-action="edit-item" data-project-id="${escapeHtml(project.id)}" data-item-id="${escapeHtml(item.id)}" data-user-id="${escapeHtml(ownerUserId)}">編集</button>
                           <button class="btn btn-ghost" type="button" data-progress-action="delete-item" data-project-id="${escapeHtml(project.id)}" data-item-id="${escapeHtml(item.id)}" data-user-id="${escapeHtml(ownerUserId)}">削除</button>
@@ -2284,7 +2286,7 @@ function renderRequestInbox() {
         ` : ""}
         ${needsHalfDayDecision ? "" : `
           <div class="request-item-buttons">
-            <button class="btn" type="button" data-request-action="approve" data-request-id="${escapeHtml(request.id)}">承認して反映</button>
+            <button class="btn" type="button" data-request-action="approve" data-request-id="${escapeHtml(request.id)}">承認</button>
             <button class="btn btn-secondary" type="button" data-request-action="reject" data-request-id="${escapeHtml(request.id)}">却下</button>
           </div>
         `}
