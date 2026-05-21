@@ -851,6 +851,10 @@ input[type="password"] {
   flex-wrap: wrap;
 }
 
+.print-only {
+  display: none;
+}
+
 @media (max-width: 900px) {
   .btn {
     font-size: 17px;
@@ -1347,11 +1351,16 @@ input[type="password"] {
     -webkit-print-color-adjust: exact;
   }
 
+  body {
+    --print-fit-scale: 1;
+  }
+
   body.auth-locked main {
     visibility: visible;
   }
 
   .no-print,
+  .topbar,
   .auth-bar,
   .notification-tools,
   #syncAlert,
@@ -1364,23 +1373,41 @@ input[type="password"] {
   #monthlyScheduleTable,
   #scheduleScrollbar,
   .scroll-hint,
-  .week-nav {
+  .week-nav,
+  .controls,
+  .monthly-card,
+  #notice,
+  dialog {
     display: none !important;
   }
 
-  body[data-page="overall"] .topbar {
-    padding: 0 0 4mm;
-    text-align: left;
+  body[data-page="overall"] .print-only {
+    display: block;
   }
 
-  body[data-page="overall"] .topbar .subtitle {
+  body[data-page="overall"] .container > * {
     display: none;
+  }
+
+  body[data-page="overall"] #printHeaderSection,
+  body[data-page="overall"] #overallWeeklySection,
+  body[data-page="overall"] #overallBusinessNoteSection {
+    display: block;
   }
 
   body[data-page="overall"] .container {
     width: 100%;
     margin: 0;
     gap: 3mm;
+    transform: scale(var(--print-fit-scale));
+    transform-origin: top left;
+    width: calc(100% / var(--print-fit-scale));
+  }
+
+  body[data-page="overall"] #printHeaderSection {
+    border: none;
+    padding: 0;
+    margin: 0 0 1.5mm;
   }
 
   body[data-page="overall"] .card {
@@ -1402,6 +1429,12 @@ input[type="password"] {
     font-size: 12pt;
     font-weight: 700;
     margin: 0 0 1mm;
+  }
+
+  body[data-page="overall"] #printDateRange {
+    font-size: 12pt;
+    font-weight: 700;
+    margin: 0;
   }
 
   body[data-page="overall"] .settings-header {
@@ -1476,6 +1509,8 @@ input[type="password"] {
     grid-template-columns: 1fr 1fr;
     gap: 1.5mm;
     margin-top: 0;
+    max-height: 56mm;
+    overflow: hidden;
   }
 
   body[data-page="overall"] .business-note-item {
@@ -1495,10 +1530,7 @@ input[type="password"] {
   body[data-page="overall"] .request-item-meta {
     font-size: 7.2pt;
     line-height: 1.25;
+    overflow: hidden;
   }
 
-  body[data-page="overall"] #notice,
-  body[data-page="overall"] dialog {
-    display: none !important;
-  }
 }

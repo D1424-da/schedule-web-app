@@ -94,6 +94,7 @@ const refs = {
   finalizeScheduleBtn: document.getElementById("finalizeScheduleBtn"),
   todayBtn: document.getElementById("todayBtn"),
   weekLabel: document.getElementById("weekLabel"),
+  printDateRange: document.getElementById("printDateRange"),
   monthLabel: document.getElementById("monthLabel"),
   scheduleTable: document.getElementById("scheduleTable"),
   monthlyScheduleTable: document.getElementById("monthlyScheduleTable"),
@@ -250,6 +251,7 @@ async function init() {
   syncSettingsToForm();
   syncNotificationUi();
   bindEvents();
+  bindPrintFitEvents();
   ensureDesktopRequestPanel();
   bindTableScrollbarSync();
   updatePageLock();
@@ -267,6 +269,46 @@ async function init() {
   if (requiresAuth && !currentFirebaseUser && refs.loginDialog) {
     openDialog(refs.loginDialog);
   }
+}
+
+function bindPrintFitEvents() {
+  if (!isOverallPage || typeof window === "undefined") {
+    return;
+  }
+
+  window.addEventListener("beforeprint", applyOverallPrintFitScale);
+  window.addEventListener("afterprint", resetOverallPrintFitScale);
+}
+
+function applyOverallPrintFitScale() {
+  const body = document.body;
+  const container = document.querySelector("main.container");
+  if (!body || !container || !isOverallPage) {
+    return;
+  }
+
+  // A4横(297x210mm) / 余白8mm前提の印刷領域をCSS pxへ換算
+  const pxPerMm = 3.7795;
+  const printableWidthPx = (297 - 16) * pxPerMm;
+  const printableHeightPx = (210 - 16) * pxPerMm;
+
+  const rect = container.getBoundingClientRect();
+  if (!rect.width || !rect.height) {
+    body.style.setProperty("--print-fit-scale", "1");
+    return;
+  }
+
+  const widthScale = printableWidthPx / rect.width;
+  const heightScale = printableHeightPx / rect.height;
+  const nextScale = Math.max(0.58, Math.min(1, widthScale, heightScale));
+  body.style.setProperty("--print-fit-scale", String(nextScale));
+}
+
+function resetOverallPrintFitScale() {
+  if (!isOverallPage || !document.body) {
+    return;
+  }
+  document.body.style.removeProperty("--print-fit-scale");
 }
 
 function bindEvents() {
@@ -1102,6 +1144,10 @@ function renderWeekLabel(weekDates) {
   const start = weekDates[0];
   const end = weekDates[6];
   refs.weekLabel.textContent = `${formatDateJP(start)} 〜 ${formatDateJP(end)}`;
+
+  if (refs.printDateRange) {
+    refs.printDateRange.textContent = `${start.getFullYear()}年${start.getMonth() + 1}月${start.getDate()}日 〜 ${end.getFullYear()}年${end.getMonth() + 1}月${end.getDate()}日`;
+  }
 }
 
 function renderTable(weekDates) {
