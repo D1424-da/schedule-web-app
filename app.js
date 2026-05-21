@@ -59,6 +59,10 @@ let desktopRequestListEl = null;
 let scheduleFinalizeRequired = false;
 let finalizeInFlight = false;
 let currentPushToken = "";
+let progressEditProjectId = null;
+let progressEditItemProjectId = null;
+let progressEditItemId = null;
+let progressSaveTimer = null;
 
 const LOGIN_BLOCK_MS_AFTER_TOO_MANY_REQUESTS = 60 * 1000;
 
@@ -83,6 +87,7 @@ const state = {
   editTarget: null,
   confirmationRequests: [],
   weeklyBusinessNotes: {},
+  progressProjects: [],
 };
 
 const refs = {
@@ -162,6 +167,21 @@ const refs = {
   businessNoteMeta: document.getElementById("businessNoteMeta"),
   overallBusinessNoteSection: document.getElementById("overallBusinessNoteSection"),
   overallBusinessNoteList: document.getElementById("overallBusinessNoteList"),
+  progressSection: document.getElementById("progressSection"),
+  progressProjectList: document.getElementById("progressProjectList"),
+  addProgressProjectBtn: document.getElementById("addProgressProjectBtn"),
+  progressProjectDialog: document.getElementById("progressProjectDialog"),
+  progressProjectForm: document.getElementById("progressProjectForm"),
+  progressProjectDialogTitle: document.getElementById("progressProjectDialogTitle"),
+  progressProjectNameInput: document.getElementById("progressProjectNameInput"),
+  progressProjectLocationInput: document.getElementById("progressProjectLocationInput"),
+  cancelProgressProjectBtn: document.getElementById("cancelProgressProjectBtn"),
+  progressItemDialog: document.getElementById("progressItemDialog"),
+  progressItemForm: document.getElementById("progressItemForm"),
+  progressItemDialogTitle: document.getElementById("progressItemDialogTitle"),
+  progressItemNameInput: document.getElementById("progressItemNameInput"),
+  progressItemNoteInput: document.getElementById("progressItemNoteInput"),
+  cancelProgressItemBtn: document.getElementById("cancelProgressItemBtn"),
 };
 
 function openDialog(dialog) {
@@ -958,6 +978,43 @@ function bindEvents() {
       await handleConfirmationRequestAction(requestId, action);
     });
   }
+
+  if (refs.addProgressProjectBtn) {
+    refs.addProgressProjectBtn.addEventListener("click", () => {
+      openProgressProjectDialog(null);
+    });
+  }
+
+  if (refs.cancelProgressProjectBtn) {
+    refs.cancelProgressProjectBtn.addEventListener("click", () => {
+      closeDialog(refs.progressProjectDialog);
+    });
+  }
+
+  if (refs.progressProjectForm) {
+    refs.progressProjectForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      saveProgressProject();
+    });
+  }
+
+  if (refs.cancelProgressItemBtn) {
+    refs.cancelProgressItemBtn.addEventListener("click", () => {
+      closeDialog(refs.progressItemDialog);
+    });
+  }
+
+  if (refs.progressItemForm) {
+    refs.progressItemForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      saveProgressItem();
+    });
+  }
+
+  if (refs.progressProjectList) {
+    refs.progressProjectList.addEventListener("click", handleProgressListClick);
+    refs.progressProjectList.addEventListener("change", handleProgressListChange);
+  }
 }
 
 function initCloudStore() {
@@ -1019,6 +1076,7 @@ async function render() {
   renderWeekLabel(weekDates);
   renderTable(weekDates);
   renderWeeklyBusinessNotes();
+  renderProgressSection();
   renderMonthlyCalendar();
   renderUserOrderList();
   renderPasswordChangeUserOptions();
@@ -1086,6 +1144,351 @@ function renderWeeklyBusinessNotes() {
 function getWeeklyBusinessNoteKey(loginId, weekStartIso) {
   return `${normalizeLoginId(loginId)}::${weekStartIso}`;
 }
+
+// ─── 工程管理 ────────────────────────────────────────────
+
+function generateProgressId() {
+  return `prog_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function renderProgressSection() {
+  if (!refs.progressSection || !refs.progressProjectList) {
+    return;
+  }
+
+  const projects = Array.isArray(state.progressProjects) ? state.progressProjects : [];
+
+  if (refs.addProgressProjectBtn) {
+    refs.addProgressProjectBtn.classList.toggle("hidden", !state.isAdmin);
+  }
+
+  if (projects.length === 0) {
+    refs.progressProjectList.innerHTML = '<p class="subtitle-mini">工程データがありません。管理者が業務を登録すると表示されます。</p>';
+    return;
+  }
+
+  refs.progressProjectList.innerHTML = projects.map((project) => {
+    const items = Array.isArray(project.items) ? project.items : [];
+    const avgProgress = items.length > 0
+      ? Math.round(items.reduce((sum, item) => sum + clamp(Number(item.progress || 0), 0, 100), 0) / items.length)
+      : 0;
+
+    return `
+      <div class="progress-project-card" data-project-id="${escapeHtml(project.id)}">
+        <div class="progress-project-header">
+          <div class="progress-project-title">
+            <span class="progress-project-name">${escapeHtml(project.name)}</span>
+            ${project.location ? `<span class="progress-project-location">${escapeHtml(project.location)}</span>` : ""}
+          </div>
+          <div class="progress-project-summary">
+            <span class="progress-overall-label">全体進捗 ${avgProgress}%</span>
+            <div class="progress-bar-wrap">
+              <div class="progress-bar-fill" style="width:${avgProgress}%"></div>
+            </div>
+          </div>
+          ${state.isAdmin ? `
+            <div class="progress-project-actions no-print">
+              <button class="btn btn-secondary" type="button" data-progress-action="add-item" data-project-id="${escapeHtml(project.id)}">＋ 工種追加</button>
+              <button class="btn btn-ghost" type="button" data-progress-action="edit-project" data-project-id="${escapeHtml(project.id)}">編集</button>
+              <button class="btn btn-ghost" type="button" data-progress-action="delete-project" data-project-id="${escapeHtml(project.id)}">削除</button>
+            </div>
+          ` : ""}
+        </div>
+        ${items.length > 0 ? `
+          <table class="progress-item-table">
+            <thead>
+              <tr>
+                <th>工種名</th>
+                <th>進捗</th>
+                <th>状態</th>
+                <th class="no-print">備考</th>
+                <th class="no-print">更新者</th>
+                ${state.isAdmin ? '<th class="no-print"></th>' : ""}
+              </tr>
+            </thead>
+            <tbody>
+              ${items.map((item) => {
+                const progress = clamp(Number(item.progress || 0), 0, 100);
+                const status = progress <= 0 ? "未着手" : progress >= 100 ? "完了" : "進行中";
+                return `
+                  <tr>
+                    <td class="progress-item-name-cell">${escapeHtml(item.name)}</td>
+                    <td class="progress-item-cell">
+                      <div class="progress-bar-wrap progress-bar-wrap-wide">
+                        <div class="progress-bar-fill" style="width:${progress}%"></div>
+                      </div>
+                      <div class="progress-input-row no-print">
+                        <input class="progress-pct-input" type="number" min="0" max="100" value="${progress}"
+                          data-progress-action="update-progress"
+                          data-project-id="${escapeHtml(project.id)}"
+                          data-item-id="${escapeHtml(item.id)}" />
+                        <span>%</span>
+                      </div>
+                      <span class="print-only">${progress}%</span>
+                    </td>
+                    <td><span class="progress-badge progress-badge-${status}">${status}</span></td>
+                    <td class="no-print progress-note-cell">${item.note ? escapeHtml(item.note) : ""}</td>
+                    <td class="no-print progress-meta-cell">${item.updatedByName ? escapeHtml(item.updatedByName) : ""}</td>
+                    ${state.isAdmin ? `
+                      <td class="no-print progress-action-cell">
+                        <button class="btn btn-ghost" type="button" data-progress-action="edit-item" data-project-id="${escapeHtml(project.id)}" data-item-id="${escapeHtml(item.id)}">編集</button>
+                        <button class="btn btn-ghost" type="button" data-progress-action="delete-item" data-project-id="${escapeHtml(project.id)}" data-item-id="${escapeHtml(item.id)}">削除</button>
+                      </td>
+                    ` : ""}
+                  </tr>
+                `;
+              }).join("")}
+            </tbody>
+          </table>
+        ` : `<p class="subtitle-mini no-print">${state.isAdmin ? "「＋ 工種追加」ボタンで工種を登録してください。" : "工種が登録されていません。"}</p>`}
+      </div>
+    `;
+  }).join("");
+}
+
+function openProgressProjectDialog(projectId) {
+  if (!refs.progressProjectDialog || !refs.progressProjectNameInput) {
+    return;
+  }
+
+  progressEditProjectId = projectId || null;
+
+  if (projectId) {
+    const project = (state.progressProjects || []).find((p) => p.id === projectId);
+    if (!project) {
+      return;
+    }
+    if (refs.progressProjectDialogTitle) {
+      refs.progressProjectDialogTitle.textContent = "業務を編集";
+    }
+    refs.progressProjectNameInput.value = project.name || "";
+    if (refs.progressProjectLocationInput) {
+      refs.progressProjectLocationInput.value = project.location || "";
+    }
+  } else {
+    if (refs.progressProjectDialogTitle) {
+      refs.progressProjectDialogTitle.textContent = "業務を追加";
+    }
+    refs.progressProjectNameInput.value = "";
+    if (refs.progressProjectLocationInput) {
+      refs.progressProjectLocationInput.value = "";
+    }
+  }
+
+  openDialog(refs.progressProjectDialog);
+}
+
+async function saveProgressProject() {
+  if (!canManageAdminSettings()) {
+    setNotice("管理者のみ操作できます。");
+    return;
+  }
+
+  const name = String(refs.progressProjectNameInput?.value || "").trim();
+  if (!name) {
+    return;
+  }
+  const location = String(refs.progressProjectLocationInput?.value || "").trim();
+
+  if (!Array.isArray(state.progressProjects)) {
+    state.progressProjects = [];
+  }
+
+  if (progressEditProjectId) {
+    const project = state.progressProjects.find((p) => p.id === progressEditProjectId);
+    if (project) {
+      project.name = name;
+      project.location = location;
+    }
+  } else {
+    state.progressProjects.push({
+      id: generateProgressId(),
+      name,
+      location,
+      items: [],
+      createdAt: new Date().toISOString(),
+      createdByName: state.currentUser || "",
+      createdById: state.currentUserId || "",
+    });
+  }
+
+  closeDialog(refs.progressProjectDialog);
+  renderProgressSection();
+  await saveStateImmediately();
+  setNotice(progressEditProjectId ? "業務を更新しました。" : "業務を追加しました。");
+}
+
+function openProgressItemDialog(projectId, itemId) {
+  if (!refs.progressItemDialog || !refs.progressItemNameInput) {
+    return;
+  }
+
+  progressEditItemProjectId = projectId;
+  progressEditItemId = itemId || null;
+
+  if (itemId) {
+    const project = (state.progressProjects || []).find((p) => p.id === projectId);
+    const item = (project?.items || []).find((i) => i.id === itemId);
+    if (!item) {
+      return;
+    }
+    if (refs.progressItemDialogTitle) {
+      refs.progressItemDialogTitle.textContent = "工種を編集";
+    }
+    refs.progressItemNameInput.value = item.name || "";
+    if (refs.progressItemNoteInput) {
+      refs.progressItemNoteInput.value = item.note || "";
+    }
+  } else {
+    if (refs.progressItemDialogTitle) {
+      refs.progressItemDialogTitle.textContent = "工種を追加";
+    }
+    refs.progressItemNameInput.value = "";
+    if (refs.progressItemNoteInput) {
+      refs.progressItemNoteInput.value = "";
+    }
+  }
+
+  openDialog(refs.progressItemDialog);
+}
+
+async function saveProgressItem() {
+  if (!canManageAdminSettings()) {
+    setNotice("管理者のみ操作できます。");
+    return;
+  }
+
+  const name = String(refs.progressItemNameInput?.value || "").trim();
+  if (!name) {
+    return;
+  }
+  const note = String(refs.progressItemNoteInput?.value || "").trim();
+
+  if (!Array.isArray(state.progressProjects)) {
+    return;
+  }
+  const project = state.progressProjects.find((p) => p.id === progressEditItemProjectId);
+  if (!project) {
+    return;
+  }
+  if (!Array.isArray(project.items)) {
+    project.items = [];
+  }
+
+  if (progressEditItemId) {
+    const item = project.items.find((i) => i.id === progressEditItemId);
+    if (item) {
+      item.name = name;
+      item.note = note;
+    }
+  } else {
+    project.items.push({
+      id: generateProgressId(),
+      name,
+      progress: 0,
+      note,
+      updatedAt: "",
+      updatedByName: "",
+      updatedById: "",
+    });
+  }
+
+  closeDialog(refs.progressItemDialog);
+  renderProgressSection();
+  await saveStateImmediately();
+  setNotice(progressEditItemId ? "工種を更新しました。" : "工種を追加しました。");
+}
+
+function updateProgressItemProgress(projectId, itemId, progress) {
+  if (!currentFirebaseUser) {
+    setNotice("ログイン後に進捗を更新できます。");
+    return;
+  }
+
+  const project = (state.progressProjects || []).find((p) => p.id === projectId);
+  if (!project) {
+    return;
+  }
+  const item = (project.items || []).find((i) => i.id === itemId);
+  if (!item) {
+    return;
+  }
+
+  item.progress = clamp(Number(progress), 0, 100);
+  item.updatedAt = new Date().toISOString();
+  item.updatedByName = state.currentUser || state.currentUserId || "";
+  item.updatedById = state.currentUserId || "";
+
+  renderProgressSection();
+
+  if (progressSaveTimer) {
+    clearTimeout(progressSaveTimer);
+  }
+  progressSaveTimer = setTimeout(async () => {
+    await saveStateImmediately();
+  }, 800);
+}
+
+async function handleProgressListClick(event) {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+
+  const button = target.closest("button[data-progress-action]");
+  if (!button) {
+    return;
+  }
+
+  const action = button.dataset.progressAction;
+  const projectId = String(button.dataset.projectId || "");
+  const itemId = String(button.dataset.itemId || "");
+
+  if (action === "add-item") {
+    openProgressItemDialog(projectId, null);
+  } else if (action === "edit-project") {
+    openProgressProjectDialog(projectId);
+  } else if (action === "delete-project") {
+    if (!confirm("この業務を削除しますか？工種データもすべて削除されます。")) {
+      return;
+    }
+    state.progressProjects = (state.progressProjects || []).filter((p) => p.id !== projectId);
+    renderProgressSection();
+    await saveStateImmediately();
+    setNotice("業務を削除しました。");
+  } else if (action === "edit-item") {
+    openProgressItemDialog(projectId, itemId);
+  } else if (action === "delete-item") {
+    if (!confirm("この工種を削除しますか？")) {
+      return;
+    }
+    const project = (state.progressProjects || []).find((p) => p.id === projectId);
+    if (project) {
+      project.items = (project.items || []).filter((i) => i.id !== itemId);
+    }
+    renderProgressSection();
+    await saveStateImmediately();
+    setNotice("工種を削除しました。");
+  }
+}
+
+function handleProgressListChange(event) {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+  if (target.dataset.progressAction !== "update-progress") {
+    return;
+  }
+
+  const projectId = String(target.dataset.projectId || "");
+  const itemId = String(target.dataset.itemId || "");
+  const progress = Number(target.value);
+
+  updateProgressItemProgress(projectId, itemId, progress);
+}
+
+// ─────────────────────────────────────────────────────────
 
 function startCloudListener() {
   if (!cloudSyncEnabled || !currentFirebaseUser || cloudUnsubscribe) {
@@ -2733,6 +3136,7 @@ function buildLocalPayload() {
     settings: state.settings,
     confirmationRequests: state.confirmationRequests,
     weeklyBusinessNotes: state.weeklyBusinessNotes,
+    progressProjects: state.progressProjects,
     finalizeRequired: scheduleFinalizeRequired,
   };
 }
@@ -2746,6 +3150,7 @@ function buildCloudPayload(announce = false) {
     settings: state.settings,
     confirmationRequests: state.confirmationRequests,
     weeklyBusinessNotes: state.weeklyBusinessNotes,
+    progressProjects: state.progressProjects,
     updatedByName: state.currentUser || (isPersonalPage ? "未ログイン利用者" : "管理画面"),
     updatedById: state.currentUserId || "",
     updatedByPage: pageMode,
@@ -2778,6 +3183,9 @@ function applyLoadedData(data, restoreSession = true) {
   }
   if (data.weeklyBusinessNotes && typeof data.weeklyBusinessNotes === "object") {
     state.weeklyBusinessNotes = data.weeklyBusinessNotes;
+  }
+  if (Array.isArray(data.progressProjects)) {
+    state.progressProjects = data.progressProjects;
   }
   if (typeof data.finalizeRequired === "boolean") {
     scheduleFinalizeRequired = data.finalizeRequired;

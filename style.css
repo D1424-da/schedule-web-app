@@ -1335,6 +1335,188 @@ input[type="password"] {
   }
 }
 
+/* ─── 工程管理 ─────────────────────────────────────────── */
+
+.progress-project-list {
+  display: grid;
+  gap: 14px;
+}
+
+.progress-project-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px;
+  background: #fafaf8;
+}
+
+.progress-project-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.progress-project-title {
+  flex: 1;
+  min-width: 180px;
+}
+
+.progress-project-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.progress-project-location {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+.progress-project-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.progress-overall-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+  white-space: nowrap;
+}
+
+.progress-bar-wrap {
+  width: 120px;
+  height: 8px;
+  background: #e0ddd8;
+  border-radius: 4px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.progress-bar-wrap-wide {
+  width: 100%;
+  max-width: 160px;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary) 0%, #4db8ff 100%);
+  border-radius: 4px;
+  transition: width 0.4s ease;
+  min-width: 0;
+}
+
+.progress-project-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.progress-item-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.progress-item-table th {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 2px solid var(--line);
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.progress-item-table td {
+  padding: 10px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+
+.progress-item-table tr:last-child td {
+  border-bottom: none;
+}
+
+.progress-item-name-cell {
+  font-weight: 600;
+  min-width: 120px;
+}
+
+.progress-item-cell {
+  min-width: 180px;
+}
+
+.progress-input-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 5px;
+}
+
+.progress-pct-input {
+  width: 64px;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 13px;
+  text-align: center;
+  background: #fff;
+}
+
+.progress-pct-input:focus {
+  outline: 2px solid var(--primary);
+  border-color: var(--primary);
+}
+
+.progress-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.progress-badge-未着手 {
+  background: #e8e6e2;
+  color: #555;
+}
+
+.progress-badge-進行中 {
+  background: #ddf0ff;
+  color: #0a5c8a;
+}
+
+.progress-badge-完了 {
+  background: #d4f5d4;
+  color: #2a7a2a;
+}
+
+.progress-note-cell {
+  font-size: 12px;
+  color: var(--muted);
+  min-width: 100px;
+}
+
+.progress-meta-cell {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.progress-action-cell {
+  white-space: nowrap;
+}
+
+/* ─────────────────────────────────────────────────────── */
+
 @media print {
   @page {
     size: A4 landscape;
