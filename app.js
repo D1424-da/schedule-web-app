@@ -102,10 +102,8 @@ const refs = {
   weekLabel: document.getElementById("weekLabel"),
   printDateRange: document.getElementById("printDateRange"),
   monthLabel: document.getElementById("monthLabel"),
-  personalMonthLabel: document.getElementById("personalMonthLabel"),
   scheduleTable: document.getElementById("scheduleTable"),
   monthlyScheduleTable: document.getElementById("monthlyScheduleTable"),
-  personalMonthlyScheduleTable: document.getElementById("personalMonthlyScheduleTable"),
   scheduleScrollbar: document.getElementById("scheduleScrollbar"),
   scheduleScrollbarInner: document.getElementById("scheduleScrollbarInner"),
   notice: document.getElementById("notice"),
@@ -1993,7 +1991,7 @@ function renderMonthlyCalendar() {
   if (isPersonalPage) {
     const targetName = getLoggedInScheduleTargetName();
     if (!targetName) {
-      refs.monthlyScheduleTable.innerHTML = "<tbody><tr><td class=\"monthly-empty\">ログイン中ユーザーの予定表示対象が見つかりません。</td></tr></tbody>";
+      refs.monthlyScheduleTable.innerHTML = "<tbody><tr><td class=\"monthly-empty\">ログイン中ユーザーの工程表示対象が見つかりません。</td></tr></tbody>";
       return;
     }
 
@@ -2009,21 +2007,6 @@ function renderMonthlyCalendar() {
     tableEl: refs.monthlyScheduleTable,
     monthStart,
   });
-
-  if (isOverallPage && refs.personalMonthlyScheduleTable && refs.personalMonthLabel) {
-    refs.personalMonthLabel.textContent = refs.monthLabel.textContent;
-    const targetName = getLoggedInScheduleTargetName();
-    if (!targetName) {
-      refs.personalMonthlyScheduleTable.innerHTML = "<tbody><tr><td class=\"monthly-empty\">個人表示の対象ユーザーが見つかりません。</td></tr></tbody>";
-      return;
-    }
-
-    renderSingleMonthlyTable({
-      tableEl: refs.personalMonthlyScheduleTable,
-      monthStart,
-      targetName,
-    });
-  }
 }
 
 function createMonthlyTableHeader() {
@@ -2040,7 +2023,67 @@ function createMonthlyTableHeader() {
 }
 
 function renderOverallMonthlyTable({ tableEl, monthStart }) {
+  renderProjectMonthlyTable({
+    tableEl,
+    monthStart,
+    mode: "overall",
+  });
+}
+
+function renderSingleMonthlyTable({ tableEl, monthStart, targetName }) {
+  renderProjectMonthlyTable({
+    tableEl,
+    monthStart,
+    mode: "personal",
+    targetName,
+  });
+}
+
+function getOverallProjectOwners() {
+  const owners = [];
+  const seenIds = new Set();
+
+  for (const name of state.staff || []) {
+    const loginId = findLoginIdByUserName(name) || name;
+    const normalizedLoginId = normalizeLoginId(loginId);
+    if (!normalizedLoginId || seenIds.has(normalizedLoginId)) {
+      continue;
+    }
+    seenIds.add(normalizedLoginId);
+    owners.push({
+      loginId: normalizedLoginId,
+      displayName: name,
+    });
+  }
+
+  for (const [loginId, entry] of Object.entries(state.progressProjectsByUser || {})) {
+    const normalizedLoginId = normalizeLoginId(loginId);
+    if (!normalizedLoginId || seenIds.has(normalizedLoginId)) {
+      continue;
+    }
+    seenIds.add(normalizedLoginId);
+    owners.push({
+      loginId: normalizedLoginId,
+      displayName: entry?.userName || resolveRowNameByLoginId(normalizedLoginId, normalizedLoginId) || normalizedLoginId,
+    });
+  }
+
+  return owners;
+}
+
+function getPersonalProjectOwner(targetName) {
+  const loginId = findLoginIdByUserName(targetName) || targetName;
+  return [{
+    loginId: normalizeLoginId(loginId),
+    displayName: targetName,
+  }];
+}
+
+function renderProjectMonthlyTable({ tableEl, monthStart, mode, targetName }) {
   const thead = createMonthlyTableHeader();
+  const owners = mode === "personal"
+    ? getPersonalProjectOwner(targetName)
+    : getOverallProjectOwners();
 
   const tbody = document.createElement("tbody");
   const monthStartWeekdayFromMonday = (monthStart.getDay() + 6) % 7;
@@ -2070,39 +2113,32 @@ function renderOverallMonthlyTable({ tableEl, monthStart }) {
       listEl.className = "monthly-entry-list";
 
       let hasAnyEntry = false;
-      for (const name of state.staff) {
-        const entry = resolveEntry(name, dateStr);
-        const loginId = findLoginIdByUserName(name) || name;
-        const activeProjects = getActiveProjectsForUserOnDate(loginId, dateStr);
-        if (!entry && activeProjects.length === 0) {
+      for (const owner of owners) {
+        const activeProjects = getActiveProjectsForUserOnDate(owner.loginId, dateStr);
+        if (activeProjects.length === 0) {
           continue;
         }
-        hasAnyEntry = true;
-        const lineEl = document.createElement("div");
-        lineEl.className = "monthly-entry-line";
-
-        const mainTextEl = document.createElement("span");
-        mainTextEl.className = "monthly-entry-main";
-        mainTextEl.textContent = `${name}: ${entry ? buildMonthlyEntryText(entry) : "-"}`;
-        lineEl.appendChild(mainTextEl);
-
-        if (activeProjects.length > 0) {
-          const projectListEl = document.createElement("span");
-          projectListEl.className = "monthly-project-inline-track";
-          activeProjects.forEach((project) => {
-            if (!shouldSkipProjectTimeline(dateStr, name, loginId)) {
-              projectListEl.appendChild(createProjectTimelineSegment(project, dateStr, {
-                compact: true,
-                showLabel: shouldShowProjectTimelineLabel(dateStr, project),
-              }));
-            }
-          });
-          if (projectListEl.childElementCount > 0) {
-            lineEl.appendChild(projectListEl);
+        for (const project of activeProjects) {
+          if (shouldSkipProjectTimeline(dateStr, owner.displayName, owner.loginId)) {
+            continue;
           }
-        }
 
-        listEl.appendChild(lineEl);
+          hasAnyEntry = true;
+          const lineEl = document.createElement("div");
+          lineEl.className = "monthly-entry-line";
+
+          const labelText = mode === "overall"
+            ? `${owner.displayName}: ${String(project?.name || "").trim() || "名称未設定"}`
+            : String(project?.name || "").trim() || "名称未設定";
+
+          lineEl.appendChild(createProjectTimelineSegment(project, dateStr, {
+            compact: mode !== "personal",
+            showLabel: shouldShowProjectTimelineLabel(dateStr, project),
+            labelText,
+          }));
+
+          listEl.appendChild(lineEl);
+        }
       }
 
       if (!hasAnyEntry) {
@@ -2122,74 +2158,6 @@ function renderOverallMonthlyTable({ tableEl, monthStart }) {
   tableEl.innerHTML = "";
   tableEl.appendChild(thead);
   tableEl.appendChild(tbody);
-}
-
-function renderSingleMonthlyTable({ tableEl, monthStart, targetName }) {
-  const thead = createMonthlyTableHeader();
-  const targetLoginId = findLoginIdByUserName(targetName) || targetName;
-
-  const tbody = document.createElement("tbody");
-  const monthStartWeekdayFromMonday = (monthStart.getDay() + 6) % 7;
-  const firstVisible = addDays(monthStart, -monthStartWeekdayFromMonday);
-  for (let row = 0; row < 6; row += 1) {
-    const tr = document.createElement("tr");
-    for (let col = 0; col < 7; col += 1) {
-      const date = addDays(firstVisible, row * 7 + col);
-      const dateStr = toISODate(date);
-      const td = document.createElement("td");
-      const inCurrentMonth = date.getMonth() === monthStart.getMonth();
-      if (!inCurrentMonth) {
-        td.classList.add("monthly-muted");
-      }
-      if (date.getDay() === 0) {
-        td.classList.add("monthly-sunday");
-      }
-
-      const dayNo = document.createElement("div");
-      dayNo.className = "monthly-day-no";
-      dayNo.textContent = String(date.getDate());
-      td.appendChild(dayNo);
-
-      const entryEl = document.createElement("div");
-      entryEl.className = "monthly-entry";
-      const entry = resolveEntry(targetName, dateStr);
-
-      const activeProjects = getActiveProjectsForUserOnDate(targetLoginId, dateStr);
-      if (activeProjects.length > 0) {
-        const projectListEl = document.createElement("div");
-        projectListEl.className = "monthly-project-timeline";
-        activeProjects.forEach((project) => {
-          if (!shouldSkipProjectTimeline(dateStr, targetName, targetLoginId)) {
-            projectListEl.appendChild(createProjectTimelineSegment(project, dateStr, {
-              showLabel: shouldShowProjectTimelineLabel(dateStr, project),
-            }));
-          }
-        });
-        if (projectListEl.childElementCount > 0) {
-          td.appendChild(projectListEl);
-        }
-      }
-
-      entryEl.textContent = entry ? buildMonthlyEntryText(entry) : "-";
-      td.appendChild(entryEl);
-
-      tr.appendChild(td);
-    }
-    tbody.appendChild(tr);
-  }
-
-  tableEl.innerHTML = "";
-  tableEl.appendChild(thead);
-  tableEl.appendChild(tbody);
-}
-
-function buildMonthlyEntryText(entry) {
-  const parts = [formatEntryStatusText(entry)];
-  const work = formatEntryWorkText(entry);
-  if (work) {
-    parts.push(work);
-  }
-  return parts.filter((v) => Boolean(v)).join(" / ");
 }
 
 function getActiveProjectsForUserOnDate(userId, dateStr) {

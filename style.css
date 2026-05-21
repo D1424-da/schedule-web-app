@@ -210,27 +210,6 @@ body.auth-locked main {
   gap: 14px;
 }
 
-.page-main-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 14px;
-}
-
-.page-main-primary,
-.page-main-secondary {
-  min-width: 0;
-  display: grid;
-  gap: 14px;
-}
-
-@media (min-width: 901px) {
-  body[data-page="personal"] .page-main-grid,
-  body[data-page="overall"] .page-main-grid {
-    grid-template-columns: minmax(0, 1.75fr) minmax(320px, 1fr);
-    align-items: start;
-  }
-}
-
 .card {
   background: var(--card);
   border: 1px solid var(--line);
