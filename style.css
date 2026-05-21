@@ -962,7 +962,17 @@ input[type="password"] {
     scrollbar-gutter: stable;
     scrollbar-width: auto;
     scrollbar-color: #5f7b8b #dbe5ec;
-    touch-action: pan-x;
+  }
+
+  body[data-page="personal"] #personalWeeklySection,
+  body[data-page="overall"] #overallWeeklySection {
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
+    scrollbar-width: auto;
+    scrollbar-color: #5f7b8b #dbe5ec;
+    touch-action: auto;
   }
 
   body[data-page="personal"] .controls::-webkit-scrollbar,
@@ -1017,6 +1027,36 @@ input[type="password"] {
   body[data-page="personal"] .monthly-card .month-nav,
   body[data-page="overall"] .monthly-card .month-nav {
     flex-wrap: nowrap;
+  }
+
+  body[data-page="personal"] #personalWeeklySection .table-wrap,
+  body[data-page="overall"] #overallWeeklySection .table-wrap {
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
+    touch-action: auto;
+  }
+
+  body[data-page="personal"] .week-label,
+  body[data-page="overall"] .week-label,
+  body[data-page="personal"] .month-label,
+  body[data-page="overall"] .month-label,
+  body[data-page="personal"] #printDateRange,
+  body[data-page="overall"] #printDateRange {
+    font-size: clamp(14px, 4.2vw, 18px);
+    line-height: 1.25;
+    word-break: keep-all;
+  }
+
+  body[data-page="personal"] .controls .week-nav,
+  body[data-page="overall"] .controls .week-nav {
+    flex-direction: column;
+  }
+
+  body[data-page="personal"] .controls .week-nav .btn,
+  body[data-page="overall"] .controls .week-nav .btn {
+    width: 100%;
   }
 
   body[data-page="personal"] #progressSection .settings-header,
