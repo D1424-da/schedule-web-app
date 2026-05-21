@@ -33,6 +33,10 @@
     </header>
 
     <main class="container">
+      <section id="printHeaderSection" class="print-only" aria-label="印刷ヘッダー">
+        <div id="printDateRange" class="week-label"></div>
+      </section>
+
       <section class="card controls" aria-label="週移動">
         <div class="week-nav">
           <button id="prevWeekBtn" class="btn">前の週</button>
@@ -43,7 +47,7 @@
         <div id="weekLabel" class="week-label"></div>
       </section>
 
-      <section class="card" aria-label="週間作業予定表">
+      <section id="overallWeeklySection" class="card" aria-label="週間作業予定表">
         <div class="settings-header">
           <h2>週間作業予定表</h2>
         </div>
@@ -58,7 +62,7 @@
 
       <section id="overallBusinessNoteSection" class="card" aria-label="業務欄一覧">
         <div class="settings-header">
-          <h2>今週の業務欄（全体）</h2>
+          <h2>今週の業務欄</h2>
         </div>
         <ul id="overallBusinessNoteList" class="request-list"></ul>
       </section>
