@@ -378,20 +378,23 @@ a.btn {
   scrollbar-gutter: stable;
   overscroll-behavior-x: contain;
   touch-action: pan-x;
+  scrollbar-width: auto;
+  scrollbar-color: #6f8795 #dde6ec;
 }
 
 .table-wrap::-webkit-scrollbar {
-  height: 10px;
+  height: 14px;
 }
 
 .table-wrap::-webkit-scrollbar-track {
-  background: #e8edf1;
+  background: #dde6ec;
   border-radius: 999px;
 }
 
 .table-wrap::-webkit-scrollbar-thumb {
-  background: #94a7b3;
+  background: #6f8795;
   border-radius: 999px;
+  border: 2px solid #dde6ec;
 }
 
 .scroll-hint {
@@ -404,10 +407,12 @@ a.btn {
   margin-top: 6px;
   overflow-x: auto;
   overflow-y: hidden;
-  height: 14px;
+  height: 16px;
   -webkit-overflow-scrolling: touch;
   border-radius: 999px;
-  background: #e8edf1;
+  background: #dde6ec;
+  scrollbar-width: auto;
+  scrollbar-color: #667e8d #dde6ec;
 }
 
 .table-scrollbar-inner {
@@ -415,17 +420,18 @@ a.btn {
 }
 
 .table-scrollbar::-webkit-scrollbar {
-  height: 12px;
+  height: 14px;
 }
 
 .table-scrollbar::-webkit-scrollbar-track {
-  background: #e8edf1;
+  background: #dde6ec;
   border-radius: 999px;
 }
 
 .table-scrollbar::-webkit-scrollbar-thumb {
-  background: #7f96a3;
+  background: #667e8d;
   border-radius: 999px;
+  border: 2px solid #dde6ec;
 }
 
 .schedule-table {
@@ -956,6 +962,50 @@ input[type="password"] {
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
     scrollbar-gutter: stable;
+    scrollbar-width: auto;
+    scrollbar-color: #5f7b8b #dbe5ec;
+  }
+
+  body[data-page="personal"] .controls::-webkit-scrollbar,
+  body[data-page="overall"] .controls::-webkit-scrollbar,
+  body[data-page="personal"] #personalWeeklySection::-webkit-scrollbar,
+  body[data-page="overall"] #overallWeeklySection::-webkit-scrollbar,
+  body[data-page="personal"] #personalBusinessNoteSection::-webkit-scrollbar,
+  body[data-page="overall"] #overallBusinessNoteSection::-webkit-scrollbar,
+  body[data-page="personal"] #progressSection::-webkit-scrollbar,
+  body[data-page="overall"] #progressSection::-webkit-scrollbar,
+  body[data-page="personal"] .monthly-card::-webkit-scrollbar,
+  body[data-page="overall"] .monthly-card::-webkit-scrollbar {
+    height: 16px;
+  }
+
+  body[data-page="personal"] .controls::-webkit-scrollbar-track,
+  body[data-page="overall"] .controls::-webkit-scrollbar-track,
+  body[data-page="personal"] #personalWeeklySection::-webkit-scrollbar-track,
+  body[data-page="overall"] #overallWeeklySection::-webkit-scrollbar-track,
+  body[data-page="personal"] #personalBusinessNoteSection::-webkit-scrollbar-track,
+  body[data-page="overall"] #overallBusinessNoteSection::-webkit-scrollbar-track,
+  body[data-page="personal"] #progressSection::-webkit-scrollbar-track,
+  body[data-page="overall"] #progressSection::-webkit-scrollbar-track,
+  body[data-page="personal"] .monthly-card::-webkit-scrollbar-track,
+  body[data-page="overall"] .monthly-card::-webkit-scrollbar-track {
+    background: #dbe5ec;
+    border-radius: 999px;
+  }
+
+  body[data-page="personal"] .controls::-webkit-scrollbar-thumb,
+  body[data-page="overall"] .controls::-webkit-scrollbar-thumb,
+  body[data-page="personal"] #personalWeeklySection::-webkit-scrollbar-thumb,
+  body[data-page="overall"] #overallWeeklySection::-webkit-scrollbar-thumb,
+  body[data-page="personal"] #personalBusinessNoteSection::-webkit-scrollbar-thumb,
+  body[data-page="overall"] #overallBusinessNoteSection::-webkit-scrollbar-thumb,
+  body[data-page="personal"] #progressSection::-webkit-scrollbar-thumb,
+  body[data-page="overall"] #progressSection::-webkit-scrollbar-thumb,
+  body[data-page="personal"] .monthly-card::-webkit-scrollbar-thumb,
+  body[data-page="overall"] .monthly-card::-webkit-scrollbar-thumb {
+    background: #5f7b8b;
+    border-radius: 999px;
+    border: 2px solid #dbe5ec;
   }
 
   body[data-page="personal"] .controls > *,
