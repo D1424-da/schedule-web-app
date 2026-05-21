@@ -1567,6 +1567,7 @@ async function saveProgressProject() {
 
   closeDialog(refs.progressProjectDialog);
   renderProgressSection();
+  renderMonthlyCalendar();
   await saveStateImmediately();
   setNotice(progressEditProjectId ? "業務を更新しました。" : "業務を追加しました。");
 }
@@ -1728,6 +1729,7 @@ async function handleProgressListClick(event) {
         entryD.projects = (entryD.projects || []).filter((p) => p.id !== projectId);
       }
       renderProgressSection();
+      renderMonthlyCalendar();
       await saveStateImmediately();
       setNotice("業務を削除しました。");
     } else if (action === "edit-item") {
@@ -2070,13 +2072,29 @@ function renderOverallMonthlyTable({ tableEl, monthStart }) {
       let hasAnyEntry = false;
       for (const name of state.staff) {
         const entry = resolveEntry(name, dateStr);
-        if (!entry) {
+        const loginId = findLoginIdByUserName(name) || name;
+        const activeProjects = getActiveProjectsForUserOnDate(loginId, dateStr);
+        if (!entry && activeProjects.length === 0) {
           continue;
         }
         hasAnyEntry = true;
         const lineEl = document.createElement("div");
         lineEl.className = "monthly-entry-line";
-        lineEl.textContent = `${name}: ${buildMonthlyEntryText(entry)}`;
+
+        const mainTextEl = document.createElement("span");
+        mainTextEl.className = "monthly-entry-main";
+        mainTextEl.textContent = `${name}: ${entry ? buildMonthlyEntryText(entry) : "-"}`;
+        lineEl.appendChild(mainTextEl);
+
+        if (activeProjects.length > 0) {
+          const projectListEl = document.createElement("span");
+          projectListEl.className = "monthly-project-list";
+          activeProjects.forEach((project) => {
+            projectListEl.appendChild(createProjectChipElement(project));
+          });
+          lineEl.appendChild(projectListEl);
+        }
+
         listEl.appendChild(lineEl);
       }
 
@@ -2101,6 +2119,7 @@ function renderOverallMonthlyTable({ tableEl, monthStart }) {
 
 function renderSingleMonthlyTable({ tableEl, monthStart, targetName }) {
   const thead = createMonthlyTableHeader();
+  const targetLoginId = findLoginIdByUserName(targetName) || targetName;
 
   const tbody = document.createElement("tbody");
   const monthStartWeekdayFromMonday = (monthStart.getDay() + 6) % 7;
@@ -2130,6 +2149,16 @@ function renderSingleMonthlyTable({ tableEl, monthStart, targetName }) {
       entryEl.textContent = entry ? buildMonthlyEntryText(entry) : "-";
       td.appendChild(entryEl);
 
+      const activeProjects = getActiveProjectsForUserOnDate(targetLoginId, dateStr);
+      if (activeProjects.length > 0) {
+        const projectListEl = document.createElement("div");
+        projectListEl.className = "monthly-project-list";
+        activeProjects.forEach((project) => {
+          projectListEl.appendChild(createProjectChipElement(project));
+        });
+        td.appendChild(projectListEl);
+      }
+
       tr.appendChild(td);
     }
     tbody.appendChild(tr);
@@ -2147,6 +2176,63 @@ function buildMonthlyEntryText(entry) {
     parts.push(work);
   }
   return parts.filter((v) => Boolean(v)).join(" / ");
+}
+
+function getActiveProjectsForUserOnDate(userId, dateStr) {
+  const normalizedUserId = normalizeLoginId(userId);
+  if (!normalizedUserId || !dateStr) {
+    return [];
+  }
+
+  const userEntry = (state.progressProjectsByUser || {})[normalizedUserId];
+  const projects = Array.isArray(userEntry?.projects) ? userEntry.projects : [];
+  return projects.filter((project) => isDateWithinProjectRange(dateStr, project?.startDate, project?.endDate));
+}
+
+function isDateWithinProjectRange(dateStr, startDate, endDate) {
+  const date = String(dateStr || "");
+  const start = String(startDate || "").trim();
+  const end = String(endDate || "").trim();
+
+  if (!start && !end) {
+    return false;
+  }
+  if (start && end && start > end) {
+    return false;
+  }
+  if (start && date < start) {
+    return false;
+  }
+  if (end && date > end) {
+    return false;
+  }
+  return true;
+}
+
+function getProjectColorById(projectId) {
+  const text = String(projectId || "");
+  let hash = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    hash = ((hash << 5) - hash + text.charCodeAt(i)) | 0;
+  }
+  const hue = Math.abs(hash) % 360;
+  return {
+    background: `hsl(${hue} 85% 92%)`,
+    border: `hsl(${hue} 62% 52%)`,
+    text: `hsl(${hue} 62% 28%)`,
+  };
+}
+
+function createProjectChipElement(project) {
+  const chipEl = document.createElement("span");
+  chipEl.className = "monthly-project-chip";
+  chipEl.textContent = `工程:${String(project?.name || "").trim() || "名称未設定"}`;
+
+  const color = getProjectColorById(project?.id || project?.name || "project");
+  chipEl.style.backgroundColor = color.background;
+  chipEl.style.borderColor = color.border;
+  chipEl.style.color = color.text;
+  return chipEl;
 }
 
 function getLoggedInScheduleTargetName() {

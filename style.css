@@ -323,6 +323,10 @@ body.auth-locked main {
   word-break: break-word;
 }
 
+.monthly-entry-main {
+  display: inline;
+}
+
 .monthly-overall-cell {
   padding: 4px !important;
 }
@@ -339,6 +343,28 @@ body.auth-locked main {
   line-height: 1.25;
   color: #25323a;
   word-break: break-word;
+}
+
+.monthly-project-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 2px;
+}
+
+.monthly-project-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 1px 6px;
+  border: 1px solid;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .monthly-muted {
