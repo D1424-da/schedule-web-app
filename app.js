@@ -142,6 +142,7 @@ const refs = {
   loginForm: document.getElementById("loginForm"),
   loginIdInput: document.getElementById("loginIdInput"),
   loginPasswordInput: document.getElementById("loginPasswordInput"),
+  loginSubmitBtn: document.getElementById("loginSubmitBtn"),
   loginCancelBtn: document.getElementById("loginCancelBtn"),
   registerNameInput: document.getElementById("registerNameInput"),
   registerBirthdayInput: document.getElementById("registerBirthdayInput"),
@@ -496,15 +497,22 @@ function bindEvents() {
       const loginId = normalizeLoginId(refs.loginIdInput.value);
       const loginPassword = normalizeLoginPassword(refs.loginPasswordInput.value);
       if (!loginId) {
+        setNotice("IDを入力してください。");
+        refs.loginIdInput.focus();
+        return;
+      }
+      if (!loginPassword) {
+        setNotice("パスワードを入力してください。");
+        refs.loginPasswordInput.focus();
         return;
       }
       if (!firebaseAuth) {
-        setNotice("Firebase Authentication の設定が未完了です。");
+        handleLoginFailure("Firebase Authentication の設定が未完了です。");
         return;
       }
 
       if (isAdminLoginId(loginId) && !isAdminCredential(loginId, loginPassword)) {
-        setNotice("管理者IDのパスワードが正しくありません。");
+        handleLoginFailure("管理者IDのパスワードが正しくありません。");
         return;
       }
 
@@ -521,11 +529,12 @@ function bindEvents() {
 
       state.currentUser = normalizeDisplayName(refs.loginIdInput.value);
       state.currentUserId = loginId;
-  pendingLoginId = loginId;
-  pendingLoginDisplayName = state.currentUser;
-  pendingLoginPassword = loginPassword;
+      pendingLoginId = loginId;
+      pendingLoginDisplayName = state.currentUser;
+      pendingLoginPassword = loginPassword;
 
       loginInFlight = true;
+      setLoginUiBusy(true);
       try {
         await ensureAdminAccount(loginId, loginPassword);
         await signInWithLoginId(loginId, loginPassword);
@@ -536,15 +545,15 @@ function bindEvents() {
 
         const migrated = await migrateLegacyAccountOnLogin(loginId, loginPassword, error);
         if (!migrated) {
-          pendingLoginPassword = "";
           console.warn("signInWithEmailAndPassword failed", {
             code: error?.code || "",
             message: error?.message || "",
           });
-          setNotice(convertFirebaseAuthError(error));
+          handleLoginFailure(convertFirebaseAuthError(error));
         }
       } finally {
         loginInFlight = false;
+        setLoginUiBusy(false);
       }
     });
   }
@@ -1794,6 +1803,8 @@ async function handleProgressListClick(event) {
         if (emptyMsg && emptyMsg.parentElement === card) emptyMsg.style.display = "block";
         if (toggle) toggle.textContent = "▼";
       }
+
+      refreshProgressLayoutAfterToggle();
     }
   }
 }
@@ -1814,6 +1825,27 @@ function handleProgressListChange(event) {
   const progress = Number(target.value);
 
   updateProgressItemProgress(projectId, itemId, progress, userId);
+}
+
+function refreshProgressLayoutAfterToggle() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const containers = refs.progressProjectList?.querySelectorAll(".progress-items-container") || [];
+      containers.forEach((container) => {
+        if (!(container instanceof HTMLElement)) {
+          return;
+        }
+        container.style.maxWidth = "100%";
+      });
+
+      window.dispatchEvent(new Event("resize"));
+      syncTableScrollbar();
+    });
+  });
 }
 
 // ─────────────────────────────────────────────────────────
@@ -3526,6 +3558,24 @@ function syncLoginForm() {
   }
   refs.loginIdInput.value = state.currentUserId || "";
   refs.loginPasswordInput.value = "";
+}
+
+function setLoginUiBusy(isBusy) {
+  if (refs.loginSubmitBtn) {
+    refs.loginSubmitBtn.disabled = Boolean(isBusy);
+    refs.loginSubmitBtn.textContent = isBusy ? "ログイン中..." : "ログイン";
+  }
+}
+
+function handleLoginFailure(message) {
+  pendingLoginId = "";
+  pendingLoginDisplayName = "";
+  pendingLoginPassword = "";
+  setNotice(message);
+  if (refs.loginPasswordInput) {
+    refs.loginPasswordInput.value = "";
+    refs.loginPasswordInput.focus();
+  }
 }
 
 function syncAuthUi() {

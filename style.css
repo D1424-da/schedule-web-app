@@ -1890,6 +1890,8 @@ input[type="date"] {
   border-radius: 10px;
   padding: 14px;
   background: #fafaf8;
+  width: 100%;
+  min-width: 0;
 }
 
 .progress-project-header {
@@ -1902,6 +1904,7 @@ input[type="date"] {
   padding: 4px;
   border-radius: 6px;
   transition: background-color 0.2s ease;
+  min-width: 0;
 }
 
 .progress-project-header:hover {
@@ -1944,6 +1947,7 @@ input[type="date"] {
   align-items: center;
   gap: 10px;
   flex-shrink: 0;
+  min-width: 0;
 }
 
 .progress-overall-label {
@@ -1984,6 +1988,11 @@ input[type="date"] {
 
 .progress-items-container {
   animation: none;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
 }
 
 @keyframes slideDown {
@@ -2044,6 +2053,7 @@ input[type="date"] {
   border-collapse: collapse;
   font-size: 13px;
   margin-top: 4px;
+  min-width: 420px;
 }
 
 .progress-item-table th {
