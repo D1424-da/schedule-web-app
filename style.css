@@ -431,7 +431,7 @@ a.btn {
 .schedule-table {
   width: max-content;
   border-collapse: collapse;
-  min-width: 970px;
+  min-width: clamp(760px, 92vw, 970px);
 }
 
 .schedule-table th,
@@ -788,8 +788,8 @@ input[type="password"] {
   position: fixed;
   right: 14px;
   bottom: 14px;
-  width: min(360px, 36vw);
-  max-height: 60vh;
+  width: min(340px, 34vw);
+  max-height: 52vh;
   overflow: auto;
   z-index: 60;
   border: 1px solid #b7d3f5;
@@ -882,7 +882,7 @@ input[type="password"] {
   }
 
   .schedule-table {
-    min-width: 920px;
+    min-width: clamp(740px, 95vw, 920px);
   }
 
   .schedule-table td {
@@ -1032,7 +1032,7 @@ input[type="password"] {
 
   .schedule-table {
     font-size: 15px;
-    min-width: 920px;
+    min-width: clamp(700px, 96vw, 920px);
   }
 
   .schedule-table th {
@@ -1295,7 +1295,7 @@ input[type="password"] {
 
   .schedule-table {
     font-size: 14px;
-    min-width: 920px;
+    min-width: clamp(680px, 96vw, 920px);
   }
 
   .schedule-table th {
@@ -1660,6 +1660,108 @@ input[type="password"] {
 
 .progress-action-cell {
   white-space: nowrap;
+}
+
+/* 低い画面高のPC向け: 余白と固定UIを圧縮して可視領域を確保 */
+@media (max-height: 860px) and (min-width: 901px) {
+  .topbar {
+    padding: 14px 14px 8px;
+  }
+
+  .container {
+    margin-bottom: 14px;
+    gap: 10px;
+  }
+
+  .card {
+    padding: 12px;
+  }
+
+  .auth-bar,
+  .notification-tools {
+    margin-top: 8px;
+  }
+
+  .schedule-table td {
+    height: 84px;
+  }
+
+  .edit-dialog {
+    max-height: 86dvh;
+  }
+
+  .desktop-request-panel {
+    max-height: 44vh;
+    width: min(320px, 32vw);
+  }
+}
+
+@media (max-height: 760px) and (min-width: 901px) {
+  .topbar {
+    padding: 10px 12px 6px;
+  }
+
+  .topbar h1 {
+    font-size: clamp(24px, 3.4vw, 32px);
+  }
+
+  .subtitle {
+    margin-top: 4px;
+    font-size: 14px;
+  }
+
+  .auth-bar,
+  .notification-tools {
+    padding-top: 6px;
+  }
+
+  .auth-bar .btn,
+  .notification-tools .btn,
+  .btn {
+    min-height: 40px;
+    font-size: 15px;
+    padding: 8px 12px;
+  }
+
+  .container {
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .card {
+    padding: 10px;
+  }
+
+  .schedule-table td {
+    height: 76px;
+  }
+
+  .cell-btn {
+    padding: 6px;
+    font-size: 14px;
+  }
+
+  .cell-work,
+  .cell-place {
+    font-size: 12px;
+  }
+
+  .edit-dialog {
+    max-height: 82dvh;
+  }
+
+  .edit-dialog form {
+    padding: 12px;
+    gap: 6px;
+  }
+
+  .desktop-request-panel {
+    max-height: 38vh;
+    width: min(300px, 30vw);
+    right: 10px;
+    bottom: 10px;
+    padding: 8px;
+  }
 }
 
 /* ─────────────────────────────────────────────────────── */
