@@ -2115,7 +2115,7 @@ function renderProjectMonthlyTable({ tableEl, monthStart, mode, targetName }) {
       let hasAnyEntry = false;
       for (const owner of owners) {
         const entry = resolveEntry(owner.displayName, dateStr);
-        if (isEngineeringCalendarOffEntry(entry)) {
+        if (isEngineeringCalendarOffEntry(entry) && shouldRenderEngineeringOffEntry(entry, mode)) {
           hasAnyEntry = true;
           const offLineEl = document.createElement("div");
           offLineEl.className = "monthly-entry-line";
@@ -2211,8 +2211,7 @@ function buildEngineeringProjectLabel(project, options = {}) {
   const includeOwner = options.includeOwner === true;
   const ownerName = String(options.ownerName || "").trim();
   const siteName = String(project?.name || "").trim() || "未設定";
-  const location = String(project?.location || "").trim() || "未設定";
-  const body = `現場: ${siteName} / 場所: ${location}`;
+  const body = `現場: ${siteName}`;
   return includeOwner && ownerName ? `${ownerName}: ${body}` : body;
 }
 
@@ -2228,6 +2227,15 @@ function isEngineeringCalendarOffEntry(entry) {
 
   const status = String(entry.status || "").trim();
   return status === "休み" || status === "有給";
+}
+
+function shouldRenderEngineeringOffEntry(entry, mode) {
+  if (mode !== "overall") {
+    return true;
+  }
+
+  const source = String(entry?.source || "");
+  return source !== "holiday" && source !== "sunday" && source !== "company";
 }
 
 function buildEngineeringOffLabel(entry) {
