@@ -1470,13 +1470,13 @@ input[type="password"] {
   body[data-page="overall"] .schedule-table th:first-child,
   body[data-page="overall"] .schedule-table td:first-child,
   body[data-page="overall"] .schedule-table th.name-col {
-    width: 18mm;
-    min-width: 18mm;
-    max-width: 18mm;
+    width: 15mm;
+    min-width: 15mm;
+    max-width: 15mm;
   }
 
   body[data-page="overall"] .schedule-table td {
-    height: 18mm;
+    height: 16mm;
     min-width: 0;
     padding: 0;
   }
@@ -1501,7 +1501,7 @@ input[type="password"] {
   }
 
   body[data-page="overall"] #overallBusinessNoteSection {
-    margin-top: 1mm;
+    margin-top: 0.5mm;
   }
 
   body[data-page="overall"] #overallBusinessNoteList {
@@ -1509,7 +1509,7 @@ input[type="password"] {
     grid-template-columns: 1fr 1fr;
     gap: 1.5mm;
     margin-top: 0;
-    max-height: 56mm;
+    max-height: none;
     overflow: hidden;
   }
 
@@ -1522,7 +1522,7 @@ input[type="password"] {
   }
 
   body[data-page="overall"] .business-note-name {
-    font-size: 8pt;
+    font-size: 10pt;
     font-weight: 700;
   }
 
