@@ -1022,6 +1022,17 @@ input[type="password"] {
     min-width: var(--mobile-fixed-panel-min-width);
   }
 
+  body[data-page="personal"] .controls,
+  body[data-page="overall"] .controls {
+    overflow-x: visible;
+    overflow-y: visible;
+  }
+
+  body[data-page="personal"] .controls > *,
+  body[data-page="overall"] .controls > * {
+    min-width: 0;
+  }
+
   body[data-page="personal"] #personalBusinessNoteSection,
   body[data-page="overall"] #overallBusinessNoteSection,
   body[data-page="personal"] #progressSection,
@@ -1066,6 +1077,7 @@ input[type="password"] {
   body[data-page="personal"] .controls .week-nav,
   body[data-page="overall"] .controls .week-nav {
     flex-direction: column;
+    width: 100%;
   }
 
   body[data-page="personal"] .controls .week-nav .btn,
