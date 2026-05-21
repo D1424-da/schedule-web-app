@@ -2226,8 +2226,8 @@ function isEngineeringCalendarOffEntry(entry) {
     return true;
   }
 
-  const status = String(entry.status || "");
-  return status.includes("休") || status.includes("有給") || status.includes("有休");
+  const status = String(entry.status || "").trim();
+  return status === "休み" || status === "有給";
 }
 
 function buildEngineeringOffLabel(entry) {

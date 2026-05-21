@@ -318,8 +318,8 @@ body.auth-locked main {
 .monthly-entry-list {
   display: grid;
   gap: 2px;
-  max-height: 72px;
-  overflow: auto;
+  max-height: none;
+  overflow: visible;
 }
 
 .monthly-entry-line {
@@ -1058,9 +1058,7 @@ input[type="date"] {
   body[data-page="personal"] #personalBusinessNoteSection,
   body[data-page="overall"] #overallBusinessNoteSection,
   body[data-page="personal"] #progressSection,
-  body[data-page="overall"] #progressSection,
-  body[data-page="personal"] .monthly-card,
-  body[data-page="overall"] .monthly-card {
+  body[data-page="overall"] #progressSection {
     overflow-x: auto;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
@@ -1085,9 +1083,7 @@ input[type="date"] {
   body[data-page="personal"] #personalBusinessNoteSection::-webkit-scrollbar,
   body[data-page="overall"] #overallBusinessNoteSection::-webkit-scrollbar,
   body[data-page="personal"] #progressSection::-webkit-scrollbar,
-  body[data-page="overall"] #progressSection::-webkit-scrollbar,
-  body[data-page="personal"] .monthly-card::-webkit-scrollbar,
-  body[data-page="overall"] .monthly-card::-webkit-scrollbar {
+  body[data-page="overall"] #progressSection::-webkit-scrollbar {
     height: 16px;
   }
 
@@ -1096,9 +1092,7 @@ input[type="date"] {
   body[data-page="personal"] #personalBusinessNoteSection::-webkit-scrollbar-track,
   body[data-page="overall"] #overallBusinessNoteSection::-webkit-scrollbar-track,
   body[data-page="personal"] #progressSection::-webkit-scrollbar-track,
-  body[data-page="overall"] #progressSection::-webkit-scrollbar-track,
-  body[data-page="personal"] .monthly-card::-webkit-scrollbar-track,
-  body[data-page="overall"] .monthly-card::-webkit-scrollbar-track {
+  body[data-page="overall"] #progressSection::-webkit-scrollbar-track {
     background: #dbe5ec;
     border-radius: 999px;
   }
@@ -1108,9 +1102,7 @@ input[type="date"] {
   body[data-page="personal"] #personalBusinessNoteSection::-webkit-scrollbar-thumb,
   body[data-page="overall"] #overallBusinessNoteSection::-webkit-scrollbar-thumb,
   body[data-page="personal"] #progressSection::-webkit-scrollbar-thumb,
-  body[data-page="overall"] #progressSection::-webkit-scrollbar-thumb,
-  body[data-page="personal"] .monthly-card::-webkit-scrollbar-thumb,
-  body[data-page="overall"] .monthly-card::-webkit-scrollbar-thumb {
+  body[data-page="overall"] #progressSection::-webkit-scrollbar-thumb {
     background: #5f7b8b;
     border-radius: 999px;
     border: 2px solid #dbe5ec;
@@ -1121,9 +1113,7 @@ input[type="date"] {
   body[data-page="personal"] #personalBusinessNoteSection > *,
   body[data-page="overall"] #overallBusinessNoteSection > *,
   body[data-page="personal"] #progressSection > *,
-  body[data-page="overall"] #progressSection > *,
-  body[data-page="personal"] .monthly-card > *,
-  body[data-page="overall"] .monthly-card > * {
+  body[data-page="overall"] #progressSection > * {
     min-width: var(--mobile-fixed-panel-min-width);
   }
 
