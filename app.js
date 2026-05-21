@@ -1295,8 +1295,9 @@ function renderProgressSection() {
     return;
   }
 
+  // 全体ページでは「業務を追加」ボタンを表示しない
   if (refs.addProgressProjectBtn) {
-    refs.addProgressProjectBtn.classList.toggle("hidden", !currentFirebaseUser);
+    refs.addProgressProjectBtn.classList.toggle("hidden", !currentFirebaseUser || isOverallPage);
   }
 
   if (isOverallPage) {
@@ -1552,6 +1553,55 @@ async function handleProgressListClick(event) {
     return;
   }
 
+  // ボタンクリックを最優先で処理
+  const button = target.closest("button[data-progress-action]");
+  if (button) {
+    const action = button.dataset.progressAction;
+    const projectId = String(button.dataset.projectId || "");
+    const itemId = String(button.dataset.itemId || "");
+    const userId = String(button.dataset.userId || "");
+
+    if (action === "add-item") {
+      openProgressItemDialog(projectId, null);
+    } else if (action === "edit-project") {
+      openProgressProjectDialog(projectId);
+    } else if (action === "delete-project") {
+      if (userId !== state.currentUserId) {
+        setNotice("他のユーザーのデータは編集できません。");
+        return;
+      }
+      if (!confirm("この業務を削除しますか？工種データもすべて削除されます。")) {
+        return;
+      }
+      const entryD = ensureMyProjectsEntry();
+      if (entryD) {
+        entryD.projects = (entryD.projects || []).filter((p) => p.id !== projectId);
+      }
+      renderProgressSection();
+      await saveStateImmediately();
+      setNotice("業務を削除しました。");
+    } else if (action === "edit-item") {
+      openProgressItemDialog(projectId, itemId);
+    } else if (action === "delete-item") {
+      if (userId !== state.currentUserId) {
+        setNotice("他のユーザーのデータは編集できません。");
+        return;
+      }
+      if (!confirm("この工種を削除しますか？")) {
+        return;
+      }
+      const entryI = ensureMyProjectsEntry();
+      const project = (entryI?.projects || []).find((p) => p.id === projectId);
+      if (project) {
+        project.items = (project.items || []).filter((i) => i.id !== itemId);
+      }
+      renderProgressSection();
+      await saveStateImmediately();
+      setNotice("工種を削除しました。");
+    }
+    return;
+  }
+
   // toggle-items アクション（ヘッダー全体をクリック）
   const headerWithToggle = target.closest("[data-progress-action='toggle-items']");
   if (headerWithToggle) {
@@ -1576,55 +1626,6 @@ async function handleProgressListClick(event) {
       }
     }
     return;
-  }
-
-  const button = target.closest("button[data-progress-action]");
-  if (!button) {
-    return;
-  }
-
-  const action = button.dataset.progressAction;
-  const projectId = String(button.dataset.projectId || "");
-  const itemId = String(button.dataset.itemId || "");
-  const userId = String(button.dataset.userId || "");
-
-  if (action === "add-item") {
-    openProgressItemDialog(projectId, null);
-  } else if (action === "edit-project") {
-    openProgressProjectDialog(projectId);
-  } else if (action === "delete-project") {
-    if (userId !== state.currentUserId) {
-      setNotice("他のユーザーのデータは編集できません。");
-      return;
-    }
-    if (!confirm("この業務を削除しますか？工種データもすべて削除されます。")) {
-      return;
-    }
-    const entryD = ensureMyProjectsEntry();
-    if (entryD) {
-      entryD.projects = (entryD.projects || []).filter((p) => p.id !== projectId);
-    }
-    renderProgressSection();
-    await saveStateImmediately();
-    setNotice("業務を削除しました。");
-  } else if (action === "edit-item") {
-    openProgressItemDialog(projectId, itemId);
-  } else if (action === "delete-item") {
-    if (userId !== state.currentUserId) {
-      setNotice("他のユーザーのデータは編集できません。");
-      return;
-    }
-    if (!confirm("この工種を削除しますか？")) {
-      return;
-    }
-    const entryI = ensureMyProjectsEntry();
-    const project = (entryI?.projects || []).find((p) => p.id === projectId);
-    if (project) {
-      project.items = (project.items || []).filter((i) => i.id !== itemId);
-    }
-    renderProgressSection();
-    await saveStateImmediately();
-    setNotice("工種を削除しました。");
   }
 }
 
