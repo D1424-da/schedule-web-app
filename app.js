@@ -1227,9 +1227,9 @@ function renderProgressProjectCards(projects, ownerUserId) {
           </div>
           ${isOwner ? `
             <div class="progress-project-actions no-print">
-              <button class="btn btn-secondary" type="button" data-progress-action="add-item" data-project-id="${escapeHtml(project.id)}" data-user-id="${escapeHtml(ownerUserId)}" onclick="event.stopPropagation()">＋ 工種追加</button>
-              <button class="btn btn-ghost" type="button" data-progress-action="edit-project" data-project-id="${escapeHtml(project.id)}" data-user-id="${escapeHtml(ownerUserId)}" onclick="event.stopPropagation()">編集</button>
-              <button class="btn btn-ghost" type="button" data-progress-action="delete-project" data-project-id="${escapeHtml(project.id)}" data-user-id="${escapeHtml(ownerUserId)}" onclick="event.stopPropagation()">削除</button>
+              <button class="btn btn-secondary" type="button" data-progress-action="add-item" data-project-id="${escapeHtml(project.id)}" data-user-id="${escapeHtml(ownerUserId)}">＋ 工種追加</button>
+              <button class="btn btn-ghost" type="button" data-progress-action="edit-project" data-project-id="${escapeHtml(project.id)}" data-user-id="${escapeHtml(ownerUserId)}">編集</button>
+              <button class="btn btn-ghost" type="button" data-progress-action="delete-project" data-project-id="${escapeHtml(project.id)}" data-user-id="${escapeHtml(ownerUserId)}">削除</button>
             </div>
           ` : ""}
         </div>
@@ -1274,8 +1274,8 @@ function renderProgressProjectCards(projects, ownerUserId) {
                       <td class="no-print progress-meta-cell">${item.updatedByName ? escapeHtml(item.updatedByName) : ""}</td>
                       ${isOwner ? `
                         <td class="no-print progress-action-cell">
-                          <button class="btn btn-ghost" type="button" data-progress-action="edit-item" data-project-id="${escapeHtml(project.id)}" data-item-id="${escapeHtml(item.id)}" data-user-id="${escapeHtml(ownerUserId)}" onclick="event.stopPropagation()">編集</button>
-                          <button class="btn btn-ghost" type="button" data-progress-action="delete-item" data-project-id="${escapeHtml(project.id)}" data-item-id="${escapeHtml(item.id)}" data-user-id="${escapeHtml(ownerUserId)}" onclick="event.stopPropagation()">削除</button>
+                          <button class="btn btn-ghost" type="button" data-progress-action="edit-item" data-project-id="${escapeHtml(project.id)}" data-item-id="${escapeHtml(item.id)}" data-user-id="${escapeHtml(ownerUserId)}">編集</button>
+                          <button class="btn btn-ghost" type="button" data-progress-action="delete-item" data-project-id="${escapeHtml(project.id)}" data-item-id="${escapeHtml(item.id)}" data-user-id="${escapeHtml(ownerUserId)}">削除</button>
                         </td>
                       ` : ""}
                     </tr>
@@ -1319,7 +1319,7 @@ function renderProgressSection() {
       return `
         <div class="progress-user-section">
           <h3 class="progress-user-heading">${escapeHtml(userName)}</h3>
-          ${renderProgressProjectCards(projects, null)}
+          ${renderProgressProjectCards(projects, uid)}
         </div>
       `;
     }).join("");
@@ -1548,8 +1548,9 @@ function updateProgressItemProgress(projectId, itemId, progress, ownerUserId) {
 }
 
 async function handleProgressListClick(event) {
-  const target = event.target;
-  if (!(target instanceof HTMLElement)) {
+  const rawTarget = event.target;
+  const target = rawTarget instanceof Element ? rawTarget : rawTarget?.parentElement;
+  if (!(target instanceof Element)) {
     return;
   }
 
@@ -1630,8 +1631,9 @@ async function handleProgressListClick(event) {
 }
 
 function handleProgressListChange(event) {
-  const target = event.target;
-  if (!(target instanceof HTMLElement)) {
+  const rawTarget = event.target;
+  const target = rawTarget instanceof Element ? rawTarget : rawTarget?.parentElement;
+  if (!(target instanceof HTMLInputElement)) {
     return;
   }
   if (target.dataset.progressAction !== "update-progress") {
