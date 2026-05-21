@@ -1330,3 +1330,175 @@ input[type="password"] {
     margin-top: 4px;
   }
 }
+
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 8mm;
+  }
+
+  html,
+  body {
+    width: 100%;
+    margin: 0;
+    background: #fff !important;
+    color: #000;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  body.auth-locked main {
+    visibility: visible;
+  }
+
+  .no-print,
+  .auth-bar,
+  .notification-tools,
+  #syncAlert,
+  #requestInboxSection,
+  #adminSettingsSection,
+  #adminRegisterSection,
+  .desktop-request-panel,
+  .month-nav,
+  #monthLabel,
+  #monthlyScheduleTable,
+  #scheduleScrollbar,
+  .scroll-hint,
+  .week-nav {
+    display: none !important;
+  }
+
+  body[data-page="overall"] .topbar {
+    padding: 0 0 4mm;
+    text-align: left;
+  }
+
+  body[data-page="overall"] .topbar .subtitle {
+    display: none;
+  }
+
+  body[data-page="overall"] .container {
+    width: 100%;
+    margin: 0;
+    gap: 3mm;
+  }
+
+  body[data-page="overall"] .card {
+    border: 1px solid #666;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 2.5mm;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  body[data-page="overall"] .controls {
+    padding: 0;
+    border: none;
+    box-shadow: none;
+  }
+
+  body[data-page="overall"] #weekLabel {
+    font-size: 12pt;
+    font-weight: 700;
+    margin: 0 0 1mm;
+  }
+
+  body[data-page="overall"] .settings-header {
+    margin-bottom: 1.5mm;
+  }
+
+  body[data-page="overall"] .settings-header h2 {
+    font-size: 11pt;
+  }
+
+  body[data-page="overall"] .table-wrap {
+    overflow: visible !important;
+  }
+
+  body[data-page="overall"] .schedule-table {
+    width: 100% !important;
+    min-width: 0 !important;
+    table-layout: fixed;
+    font-size: 8pt;
+  }
+
+  body[data-page="overall"] .schedule-table th,
+  body[data-page="overall"] .schedule-table td {
+    border: 1px solid #666;
+    padding: 1mm;
+  }
+
+  body[data-page="overall"] .schedule-table th {
+    font-size: 8pt;
+    background: #efefef !important;
+  }
+
+  body[data-page="overall"] .schedule-table th:first-child,
+  body[data-page="overall"] .schedule-table td:first-child,
+  body[data-page="overall"] .schedule-table th.name-col {
+    width: 18mm;
+    min-width: 18mm;
+    max-width: 18mm;
+  }
+
+  body[data-page="overall"] .schedule-table td {
+    height: 18mm;
+    min-width: 0;
+    padding: 0;
+  }
+
+  body[data-page="overall"] .cell-btn {
+    font-size: 7.5pt;
+    padding: 1mm;
+    background: transparent !important;
+  }
+
+  body[data-page="overall"] .cell-status {
+    margin-bottom: 0.5mm;
+    font-size: 7.5pt;
+    font-weight: 700;
+  }
+
+  body[data-page="overall"] .cell-work,
+  body[data-page="overall"] .cell-place,
+  body[data-page="overall"] .day-label,
+  body[data-page="overall"] .day-holiday {
+    font-size: 7pt;
+  }
+
+  body[data-page="overall"] #overallBusinessNoteSection {
+    margin-top: 1mm;
+  }
+
+  body[data-page="overall"] #overallBusinessNoteList {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5mm;
+    margin-top: 0;
+  }
+
+  body[data-page="overall"] .business-note-item {
+    border: 1px solid #666;
+    border-radius: 0;
+    padding: 1.5mm;
+    gap: 1mm;
+    background: #fff;
+  }
+
+  body[data-page="overall"] .business-note-name {
+    font-size: 8pt;
+    font-weight: 700;
+  }
+
+  body[data-page="overall"] .business-note-text,
+  body[data-page="overall"] .request-item-meta {
+    font-size: 7.2pt;
+    line-height: 1.25;
+  }
+
+  body[data-page="overall"] #notice,
+  body[data-page="overall"] dialog {
+    display: none !important;
+  }
+}
