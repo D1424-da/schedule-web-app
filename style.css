@@ -1219,7 +1219,7 @@ input[type="date"] {
   body[data-page="overall"] #overallBusinessNoteSection,
   body[data-page="personal"] #progressSection,
   body[data-page="overall"] #progressSection {
-    overflow-x: visible;
+    overflow-x: hidden;
   }
 
   body[data-page="personal"] #personalBusinessNoteSection > *,
@@ -1478,6 +1478,18 @@ input[type="date"] {
     width: 100%;
   }
 
+  .progress-project-actions .btn {
+    min-width: 0;
+    flex: 1 1 calc(50% - 4px);
+  }
+
+  .progress-overall-label,
+  .progress-deadline-status,
+  .progress-deadline-date {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
   .progress-items-container {
     overflow-x: auto;
     overflow-y: visible;
@@ -1485,10 +1497,12 @@ input[type="date"] {
     scrollbar-gutter: stable;
     margin-inline: -3px;
     padding-inline: 3px;
+    max-width: 100%;
   }
 
   .progress-item-table {
     min-width: 420px;
+    width: 100%;
     font-size: 11px;
   }
 
@@ -1817,6 +1831,18 @@ input[type="date"] {
     width: 100%;
   }
 
+  .progress-project-actions .btn {
+    min-width: 0;
+    flex: 1 1 calc(50% - 3px);
+  }
+
+  .progress-overall-label,
+  .progress-deadline-status,
+  .progress-deadline-date {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
   .progress-items-container {
     overflow-x: auto;
     overflow-y: visible;
@@ -1824,10 +1850,12 @@ input[type="date"] {
     scrollbar-gutter: stable;
     margin-inline: -2px;
     padding-inline: 2px;
+    max-width: 100%;
   }
 
   .progress-item-table {
     min-width: 360px;
+    width: 100%;
     font-size: 9px;
   }
 
