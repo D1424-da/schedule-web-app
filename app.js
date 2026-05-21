@@ -2114,10 +2114,24 @@ function renderProjectMonthlyTable({ tableEl, monthStart, mode, targetName }) {
 
       let hasAnyEntry = false;
       for (const owner of owners) {
-        const activeProjects = getActiveProjectsForUserOnDate(owner.loginId, dateStr);
-        if (activeProjects.length === 0) {
-          continue;
+        const entry = resolveEntry(owner.displayName, dateStr);
+        if (isEngineeringCalendarOffEntry(entry)) {
+          hasAnyEntry = true;
+          const offLineEl = document.createElement("div");
+          offLineEl.className = "monthly-entry-line";
+
+          const offTextEl = document.createElement("span");
+          offTextEl.className = "monthly-entry-main monthly-entry-off";
+          const offLabel = buildEngineeringOffLabel(entry);
+          offTextEl.textContent = mode === "overall"
+            ? `${owner.displayName}: ${offLabel}`
+            : offLabel;
+
+          offLineEl.appendChild(offTextEl);
+          listEl.appendChild(offLineEl);
         }
+
+        const activeProjects = getActiveProjectsForUserOnDate(owner.loginId, dateStr);
         for (const project of activeProjects) {
           if (shouldSkipProjectTimeline(dateStr, owner.displayName, owner.loginId)) {
             continue;
@@ -2127,9 +2141,10 @@ function renderProjectMonthlyTable({ tableEl, monthStart, mode, targetName }) {
           const lineEl = document.createElement("div");
           lineEl.className = "monthly-entry-line";
 
-          const labelText = mode === "overall"
-            ? `${owner.displayName}: ${String(project?.name || "").trim() || "名称未設定"}`
-            : String(project?.name || "").trim() || "名称未設定";
+          const labelText = buildEngineeringProjectLabel(project, {
+            includeOwner: mode === "overall",
+            ownerName: owner.displayName,
+          });
 
           lineEl.appendChild(createProjectTimelineSegment(project, dateStr, {
             compact: mode !== "personal",
@@ -2192,6 +2207,35 @@ function shouldShowProjectTimelineLabel(dateStr, project) {
   return date.getDate() === 1;
 }
 
+function buildEngineeringProjectLabel(project, options = {}) {
+  const includeOwner = options.includeOwner === true;
+  const ownerName = String(options.ownerName || "").trim();
+  const siteName = String(project?.name || "").trim() || "未設定";
+  const location = String(project?.location || "").trim() || "未設定";
+  const body = `現場: ${siteName} / 場所: ${location}`;
+  return includeOwner && ownerName ? `${ownerName}: ${body}` : body;
+}
+
+function isEngineeringCalendarOffEntry(entry) {
+  if (!entry) {
+    return false;
+  }
+
+  const source = String(entry.source || "");
+  if (source === "holiday" || source === "sunday" || source === "company") {
+    return true;
+  }
+
+  const status = String(entry.status || "");
+  return status.includes("休") || status.includes("有給") || status.includes("有休");
+}
+
+function buildEngineeringOffLabel(entry) {
+  const status = String(formatEntryStatusText(entry) || "").trim() || "休み";
+  const work = String(formatEntryWorkText(entry) || "").trim();
+  return work ? `${status} / ${work}` : status;
+}
+
 function isDateWithinProjectRange(dateStr, startDate, endDate) {
   const date = String(dateStr || "");
   const start = String(startDate || "").trim();
@@ -2229,12 +2273,12 @@ function getProjectColorById(projectId) {
 function createProjectTimelineSegment(project, dateStr, options = {}) {
   const isCompact = options.compact === true;
   const showLabel = options.showLabel === true;
+  const customLabelText = String(options.labelText || "").trim();
   const segmentEl = document.createElement("span");
   segmentEl.className = isCompact
     ? "monthly-project-segment monthly-project-segment-compact"
     : "monthly-project-segment";
 
-  const projectName = String(project?.name || "").trim() || "名称未設定";
   const start = String(project?.startDate || "").trim();
   const end = String(project?.endDate || "").trim();
   const isStart = Boolean(start && start === dateStr);
@@ -2248,8 +2292,9 @@ function createProjectTimelineSegment(project, dateStr, options = {}) {
   }
 
   const color = getProjectColorById(project?.id || project?.name || "project");
+  const displayLabel = customLabelText || buildEngineeringProjectLabel(project);
   segmentEl.style.color = color.text;
-  segmentEl.title = `${projectName}${start ? ` / 開始:${start}` : ""}${end ? ` / 終了:${end}` : ""}`;
+  segmentEl.title = `${displayLabel}${start ? ` / 開始:${start}` : ""}${end ? ` / 終了:${end}` : ""}`;
   segmentEl.setAttribute("aria-label", segmentEl.title);
 
   const barEl = document.createElement("span");
@@ -2261,12 +2306,8 @@ function createProjectTimelineSegment(project, dateStr, options = {}) {
   if (showLabel) {
     const labelEl = document.createElement("span");
     labelEl.className = "monthly-project-segment-label";
-    labelEl.textContent = projectName;
+    labelEl.textContent = displayLabel;
     segmentEl.insertBefore(labelEl, barEl);
-  }
-
-  if (isStart) {
-    segmentEl.classList.add("is-start");
   }
 
   return segmentEl;

@@ -306,6 +306,11 @@ body.auth-locked main {
   display: inline;
 }
 
+.monthly-entry-off {
+  color: #7f1d1d;
+  font-weight: 700;
+}
+
 .monthly-overall-cell {
   padding: 4px !important;
 }
