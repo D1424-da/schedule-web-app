@@ -3001,7 +3001,7 @@ function resolveEntry(name, dateStr) {
   if (date.getDay() === 0) {
     return {
       status: "休み",
-      work: "（日曜休み）",
+      work: "",
       place: "",
       source: "sunday",
     };
@@ -3010,7 +3010,7 @@ function resolveEntry(name, dateStr) {
   if (isCompanyHoliday(date)) {
     return {
       status: "休み",
-      work: "（土曜休日）",
+      work: "",
       place: "",
       source: "company",
     };

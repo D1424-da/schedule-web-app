@@ -429,7 +429,7 @@ a.btn {
 }
 
 .schedule-table {
-  width: max-content;
+  width: max(100%, max-content);
   border-collapse: collapse;
   min-width: clamp(760px, 92vw, 970px);
 }
