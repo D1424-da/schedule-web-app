@@ -1777,6 +1777,27 @@ function hasHalfDayOnApproverSide(request) {
   return false;
 }
 
+function hasScheduleConflict(rowName, startDate, repeatDays = 1) {
+  if (!rowName || !startDate) {
+    return false;
+  }
+
+  const repeatDaysNum = clamp(Number(repeatDays || 1), 1, 12);
+  const startDateObj = fromISODate(startDate);
+
+  for (let i = 0; i < repeatDaysNum; i += 1) {
+    const targetDate = addDays(startDateObj, i);
+    const dateStr = toISODate(targetDate);
+    const entry = resolveEntry(rowName, dateStr);
+
+    if (entry && entry.status) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function ensureDesktopRequestPanel() {
   if (desktopRequestPanelEl || typeof document === "undefined") {
     return;
@@ -1972,6 +1993,17 @@ async function handleConfirmationRequestAction(requestId, action) {
     if (hasHalfDayOnApproverSide(request)) {
       setNotice("半日休み案件は通知画面の「可能/不可」ボタンで処理してください。");
       return;
+    }
+
+    const targetRowName = resolveRowNameByLoginId(
+      currentId,
+      request.targetName || state.currentUser || currentId,
+    );
+
+    if (hasScheduleConflict(targetRowName, request.startDate, request.repeatDays)) {
+      if (!confirm("当初から予定が入っています。変更してもいいですか？")) {
+        return;
+      }
     }
 
     await applyApprovalRequest(request, requestId, currentId, allowHalfDayOverwrite);
