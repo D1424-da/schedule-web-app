@@ -2164,14 +2164,25 @@ function renderCellHtml(entry) {
   }
 
   const statusText = formatEntryStatusText(entry);
+  const statusHtml = formatCellStatusHtml(statusText);
   const work = formatEntryWorkText(entry);
   const place = formatEntryPlaceText(entry);
 
   return `
-    <div class="cell-status">${escapeHtml(statusText)}</div>
+    <div class="cell-status">${statusHtml}</div>
     <div class="cell-work">${escapeHtml(work)}</div>
     <div class="cell-place">${escapeHtml(place)}</div>
   `;
+}
+
+function formatCellStatusHtml(statusText) {
+  const text = String(statusText || "");
+  if (!text.includes("/")) {
+    return escapeHtml(text);
+  }
+
+  // 半日休みなどで " / " を含む状態は、スラッシュ区切りで改行して横伸びを防ぐ
+  return escapeHtml(text).replace(/\s*\/\s*/g, "<br>/ ");
 }
 
 function renderUserOrderList() {

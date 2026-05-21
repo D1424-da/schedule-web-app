@@ -543,9 +543,10 @@ body[data-page="admin"] .schedule-table td {
 .cell-status {
   font-weight: 700;
   margin-bottom: 4px;
-  white-space: nowrap;
+  white-space: normal;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.25;
 }
 
 .cell-work,
