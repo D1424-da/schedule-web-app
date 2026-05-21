@@ -1,6 +1,8 @@
 const STORAGE_KEY = "weekly-schedule-v1";
 const SCHEDULE_NOTIFICATION_PREFERENCE_KEY = "weekly-notification-schedule-enabled-v1";
 const REQUEST_NOTIFICATION_PREFERENCE_KEY = "weekly-notification-request-enabled-v1";
+const PUSH_TOKEN_STORAGE_KEY = "weekly-push-token-v1";
+const PUSH_TOKEN_COLLECTION = "pushTokens";
 
 const STATUS_OPTIONS = ["現場", "内業", "打合せ", "移動", "営業", "事務", "総務", "休み", "午前休", "午後休", "有給", "午前有休", "午後有休"];
 const HALF_DAY_SECONDARY_STATUS_OPTIONS = ["現場", "内業", "打合せ", "移動", "営業", "事務", "総務"];
@@ -30,6 +32,7 @@ const FIRESTORE_DOCUMENT = "weeklySchedule";
 
 let firestoreDb = null;
 let firebaseAuth = null;
+let firebaseMessaging = null;
 let cloudSyncEnabled = false;
 let cloudSaveTimer = null;
 let cloudLoading = false;
@@ -55,6 +58,7 @@ let desktopRequestPanelEl = null;
 let desktopRequestListEl = null;
 let scheduleFinalizeRequired = false;
 let finalizeInFlight = false;
+let currentPushToken = "";
 
 const LOGIN_BLOCK_MS_AFTER_TOO_MANY_REQUESTS = 60 * 1000;
 
@@ -817,9 +821,11 @@ function bindEvents() {
           entryData,
           message: normalizeDisplayName(refs.requestMessageInput?.value || ""),
         });
+        const createdRequest = state.confirmationRequests[state.confirmationRequests.length - 1] || null;
 
         trimResolvedRequests();
         saveState();
+        triggerServerPushForConfirmationRequest(createdRequest);
         closeDialog(refs.editDialog);
         setNotice(`${targetAccount.name} に確認依頼を送りました。承認後に予定へ反映されます。`);
         await render();
@@ -928,6 +934,13 @@ function initCloudStore() {
 
   firebaseAuth = window.firebase.auth();
   firestoreDb = window.firebase.firestore();
+  if (window.firebase.messaging) {
+    try {
+      firebaseMessaging = window.firebase.messaging();
+    } catch (error) {
+      firebaseMessaging = null;
+    }
+  }
   cloudSyncEnabled = true;
 }
 
@@ -2873,6 +2886,17 @@ function setRequestNotificationEnabled(enabled) {
   requestNotificationEnabled = !!enabled;
   saveNotificationPreferences();
   syncNotificationUi();
+
+  if (requestNotificationEnabled) {
+    ensureBackgroundPushSubscription().catch(() => {
+      // 失敗時も画面内通知は継続
+    });
+    return;
+  }
+
+  removePushTokenRegistration().catch(() => {
+    // 失敗時も画面内通知は継続
+  });
 }
 
 function showSyncAlert(text) {
@@ -2966,11 +2990,117 @@ async function requestBrowserNotificationPermission() {
   if (permission === "granted") {
     setScheduleNotificationEnabled(true);
     setRequestNotificationEnabled(true);
-    setNotice("端末通知を有効にしました。他の利用者の更新時に通知します。");
+    await ensureBackgroundPushSubscription();
+    setNotice("端末通知を有効にしました。他の利用者の更新時に通知します。確認依頼はPush通知でも受信できます。");
     return;
   }
 
   setNotice("端末通知は有効化されませんでした。画面内通知は引き続き表示されます。");
+}
+
+function getPushNotifyEndpoint() {
+  return String(window.__PUSH_NOTIFY_ENDPOINT__ || "").trim();
+}
+
+function getFirebaseVapidKey() {
+  return String(window.__FIREBASE_VAPID_KEY__ || "").trim();
+}
+
+function canUseBackgroundPush() {
+  return Boolean(
+    firebaseMessaging
+    && window.isSecureContext
+    && "serviceWorker" in navigator
+    && "PushManager" in window,
+  );
+}
+
+async function ensureBackgroundPushSubscription() {
+  if (!canUseBackgroundPush() || !cloudSyncEnabled || !currentFirebaseUser || !firestoreDb) {
+    return;
+  }
+
+  const vapidKey = getFirebaseVapidKey();
+  if (!vapidKey) {
+    return;
+  }
+
+  const registration = await navigator.serviceWorker.register("./firebase-messaging-sw.js");
+  await navigator.serviceWorker.ready;
+
+  const token = await firebaseMessaging.getToken({
+    vapidKey,
+    serviceWorkerRegistration: registration,
+  });
+
+  if (!token) {
+    return;
+  }
+
+  currentPushToken = token;
+  localStorage.setItem(PUSH_TOKEN_STORAGE_KEY, token);
+
+  await firestoreDb.collection(PUSH_TOKEN_COLLECTION).doc(token).set({
+    token,
+    loginId: normalizeLoginId(state.currentUserId),
+    userName: normalizeDisplayName(state.currentUser || ""),
+    uid: String(currentFirebaseUser.uid || ""),
+    enabled: Boolean(requestNotificationEnabled),
+    updatedAt: new Date().toISOString(),
+    userAgent: navigator.userAgent,
+  }, { merge: true });
+}
+
+async function removePushTokenRegistration() {
+  if (!firestoreDb || !cloudSyncEnabled) {
+    currentPushToken = "";
+    localStorage.removeItem(PUSH_TOKEN_STORAGE_KEY);
+    return;
+  }
+
+  const token = currentPushToken || String(localStorage.getItem(PUSH_TOKEN_STORAGE_KEY) || "").trim();
+  currentPushToken = "";
+  localStorage.removeItem(PUSH_TOKEN_STORAGE_KEY);
+  if (!token) {
+    return;
+  }
+
+  try {
+    await firestoreDb.collection(PUSH_TOKEN_COLLECTION).doc(token).delete();
+  } catch (error) {
+    // 未登録時は無視
+  }
+}
+
+function triggerServerPushForConfirmationRequest(request) {
+  const endpoint = getPushNotifyEndpoint();
+  if (!endpoint || !request || typeof request !== "object") {
+    return;
+  }
+
+  const payload = {
+    type: "confirmation-request",
+    requestId: String(request.id || ""),
+    targetId: normalizeLoginId(request.targetId || ""),
+    targetName: normalizeDisplayName(request.targetName || ""),
+    requesterId: normalizeLoginId(request.requesterId || ""),
+    requesterName: normalizeDisplayName(request.requesterName || ""),
+    ownerName: normalizeDisplayName(request.ownerName || ""),
+    startDate: String(request.startDate || ""),
+    repeatDays: Number(request.repeatDays || 1),
+    message: normalizeDisplayName(request.message || ""),
+    createdAt: String(request.createdAt || new Date().toISOString()),
+  };
+
+  fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  }).catch(() => {
+    // Push送信失敗時もFirestore上の確認依頼は保持される
+  });
 }
 
 async function handleAuthStateChanged(user) {
@@ -2991,6 +3121,7 @@ async function handleAuthStateChanged(user) {
     pendingLoginId = "";
     pendingLoginDisplayName = "";
     pendingLoginPassword = "";
+    await removePushTokenRegistration();
     updatePageLock();
     syncAuthUi();
     syncAdminUi();
@@ -3052,6 +3183,9 @@ async function handleAuthStateChanged(user) {
     closeDialog(refs.loginDialog);
   }
   startCloudListener();
+  if (requestNotificationEnabled && window.Notification && Notification.permission === "granted") {
+    await ensureBackgroundPushSubscription();
+  }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(buildLocalPayload()));
   if (currentUserAddedToStaff) {
     saveState();

@@ -41,6 +41,14 @@ service cloud.firestore {
       allow write: if signedIn();
     }
 
+    // Web Push用トークン登録
+    match /pushTokens/{tokenId} {
+      allow read: if signedIn();
+      allow create: if signedIn();
+      allow update: if signedIn();
+      allow delete: if signedIn();
+    }
+
     // 明示的に未定義パスは拒否
     match /{document=**} {
       allow read, write: if false;
