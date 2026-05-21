@@ -434,6 +434,11 @@ a.btn {
   min-width: clamp(760px, 92vw, 970px);
 }
 
+body[data-page="overall"] .schedule-table,
+body[data-page="admin"] .schedule-table {
+  min-width: clamp(740px, 90vw, 940px);
+}
+
 .schedule-table th,
 .schedule-table td {
   border: 1px solid var(--line);
@@ -1686,6 +1691,11 @@ input[type="password"] {
     height: 84px;
   }
 
+  body[data-page="overall"] .schedule-table td,
+  body[data-page="admin"] .schedule-table td {
+    height: 78px;
+  }
+
   .edit-dialog {
     max-height: 86dvh;
   }
@@ -1734,6 +1744,11 @@ input[type="password"] {
 
   .schedule-table td {
     height: 76px;
+  }
+
+  body[data-page="overall"] .schedule-table td,
+  body[data-page="admin"] .schedule-table td {
+    height: 70px;
   }
 
   .cell-btn {
