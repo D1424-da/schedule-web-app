@@ -1346,10 +1346,92 @@ function renderProgressProjectCards(projects, ownerUserId) {
   }).join("");
 }
 
+function getProgressCardDomKey(projectId, userId) {
+  return `${String(userId || "")}::${String(projectId || "")}`;
+}
+
+function collectExpandedProgressCardKeys(container) {
+  if (!container) {
+    return new Set();
+  }
+
+  const expandedKeys = new Set();
+  const expandedCards = container.querySelectorAll(".progress-project-card[data-expanded='true']");
+  expandedCards.forEach((card) => {
+    const projectId = String(card.getAttribute("data-project-id") || "");
+    const userId = String(card.getAttribute("data-user-id") || "");
+    if (projectId && userId) {
+      expandedKeys.add(getProgressCardDomKey(projectId, userId));
+    }
+  });
+  return expandedKeys;
+}
+
+function restoreExpandedProgressCards(container, expandedKeys) {
+  if (!container || !expandedKeys || expandedKeys.size === 0) {
+    return;
+  }
+
+  const cards = container.querySelectorAll(".progress-project-card");
+  cards.forEach((card) => {
+    const projectId = String(card.getAttribute("data-project-id") || "");
+    const userId = String(card.getAttribute("data-user-id") || "");
+    const key = getProgressCardDomKey(projectId, userId);
+    if (!expandedKeys.has(key)) {
+      return;
+    }
+
+    card.dataset.expanded = "true";
+    const containerEl = card.querySelector(".progress-items-container");
+    const emptyMsg = card.querySelector(".progress-items-container ~ .subtitle-mini");
+    const toggle = card.querySelector(".progress-project-toggle");
+
+    if (containerEl) {
+      containerEl.style.display = "block";
+    }
+    if (emptyMsg && emptyMsg.parentElement === card) {
+      emptyMsg.style.display = "block";
+    }
+    if (toggle) {
+      toggle.textContent = "▼";
+    }
+  });
+}
+
+function restoreProgressInputFocus(projectId, itemId) {
+  if (!refs.progressProjectList || !projectId || !itemId) {
+    return;
+  }
+
+  const targetInput = Array.from(refs.progressProjectList.querySelectorAll(".progress-pct-input"))
+    .find((el) => el instanceof HTMLInputElement
+      && String(el.dataset.projectId || "") === String(projectId)
+      && String(el.dataset.itemId || "") === String(itemId));
+
+  if (!(targetInput instanceof HTMLInputElement)) {
+    return;
+  }
+
+  const caretPos = targetInput.value.length;
+  try {
+    targetInput.focus({ preventScroll: true });
+  } catch (error) {
+    targetInput.focus();
+  }
+
+  try {
+    targetInput.setSelectionRange(caretPos, caretPos);
+  } catch (error) {
+    // 一部環境では setSelectionRange 非対応
+  }
+}
+
 function renderProgressSection() {
   if (!refs.progressSection || !refs.progressProjectList) {
     return;
   }
+
+  const expandedKeys = collectExpandedProgressCardKeys(refs.progressProjectList);
 
   // 全体ページでは「業務を追加」ボタンを表示しない
   if (refs.addProgressProjectBtn) {
@@ -1379,6 +1461,7 @@ function renderProgressSection() {
         </div>
       `;
     }).join("");
+    restoreExpandedProgressCards(refs.progressProjectList, expandedKeys);
     return;
   }
 
@@ -1390,6 +1473,7 @@ function renderProgressSection() {
     return;
   }
   refs.progressProjectList.innerHTML = renderProgressProjectCards(projects, myUid);
+  restoreExpandedProgressCards(refs.progressProjectList, expandedKeys);
 }
 
 function openProgressProjectDialog(projectId) {
@@ -1593,7 +1677,10 @@ function updateProgressItemProgress(projectId, itemId, progress, ownerUserId) {
   item.updatedByName = state.currentUser || state.currentUserId || "";
   item.updatedById = state.currentUserId || "";
 
+  const viewportY = window.scrollY;
   renderProgressSection();
+  window.scrollTo({ top: viewportY, left: window.scrollX, behavior: "auto" });
+  restoreProgressInputFocus(projectId, itemId);
 
   if (progressSaveTimer) {
     clearTimeout(progressSaveTimer);

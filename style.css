@@ -1455,7 +1455,7 @@ input[type="password"] {
 }
 
 .progress-items-container {
-  animation: slideDown 0.2s ease;
+  animation: none;
 }
 
 @keyframes slideDown {
