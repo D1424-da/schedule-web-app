@@ -1232,21 +1232,23 @@ input[type="password"] {
   }
 
   .business-note-input {
-    min-height: 96px;
-    font-size: 14px;
+    min-height: 84px;
+    font-size: 13px;
+    padding: 8px;
   }
 
   .progress-project-list {
-    gap: 10px;
+    gap: 8px;
   }
 
   .progress-project-card {
-    padding: 10px;
+    padding: 8px;
+    border-radius: 8px;
   }
 
   .progress-project-header {
-    gap: 8px;
-    margin-bottom: 8px;
+    gap: 6px;
+    margin-bottom: 6px;
   }
 
   .progress-project-title {
@@ -1260,6 +1262,16 @@ input[type="password"] {
     width: 100%;
     flex-wrap: wrap;
     gap: 6px;
+  }
+
+  .progress-project-name {
+    font-size: 13px;
+  }
+
+  .progress-overall-label,
+  .progress-deadline-status,
+  .progress-deadline-date {
+    font-size: 10px;
   }
 
   .progress-bar-wrap {
@@ -1276,33 +1288,35 @@ input[type="password"] {
     overflow-y: visible;
     -webkit-overflow-scrolling: touch;
     scrollbar-gutter: stable;
+    margin-inline: -3px;
+    padding-inline: 3px;
   }
 
   .progress-item-table {
-    min-width: 520px;
-    font-size: 12px;
-  }
-
-  .progress-item-table th {
-    padding: 6px 8px;
+    min-width: 420px;
     font-size: 11px;
   }
 
+  .progress-item-table th {
+    padding: 5px 6px;
+    font-size: 10px;
+  }
+
   .progress-item-table td {
-    padding: 8px;
+    padding: 6px;
   }
 
   .progress-item-name-cell {
-    min-width: 88px;
+    min-width: 76px;
   }
 
   .progress-item-cell {
-    min-width: 140px;
+    min-width: 112px;
   }
 
   .progress-note-cell,
   .progress-meta-cell {
-    font-size: 11px;
+    font-size: 10px;
   }
 
   .settings-header h2 {
@@ -1517,22 +1531,23 @@ input[type="password"] {
   }
 
   .business-note-input {
-    min-height: 88px;
-    font-size: 13px;
-    padding: 8px;
+    min-height: 76px;
+    font-size: 12px;
+    padding: 6px;
   }
 
   .progress-project-list {
-    gap: 8px;
+    gap: 6px;
   }
 
   .progress-project-card {
-    padding: 8px;
+    padding: 6px;
+    border-radius: 8px;
   }
 
   .progress-project-header {
-    gap: 6px;
-    margin-bottom: 6px;
+    gap: 4px;
+    margin-bottom: 4px;
   }
 
   .progress-project-title {
@@ -1548,10 +1563,14 @@ input[type="password"] {
     gap: 4px;
   }
 
+  .progress-project-name {
+    font-size: 12px;
+  }
+
   .progress-overall-label,
   .progress-deadline-status,
   .progress-deadline-date {
-    font-size: 10px;
+    font-size: 8px;
   }
 
   .progress-bar-wrap {
@@ -1568,33 +1587,35 @@ input[type="password"] {
     overflow-y: visible;
     -webkit-overflow-scrolling: touch;
     scrollbar-gutter: stable;
+    margin-inline: -2px;
+    padding-inline: 2px;
   }
 
   .progress-item-table {
-    min-width: 480px;
-    font-size: 11px;
+    min-width: 360px;
+    font-size: 9px;
   }
 
   .progress-item-table th {
-    padding: 5px 6px;
-    font-size: 10px;
+    padding: 4px;
+    font-size: 8px;
   }
 
   .progress-item-table td {
-    padding: 6px;
+    padding: 4px;
   }
 
   .progress-item-name-cell {
-    min-width: 80px;
+    min-width: 64px;
   }
 
   .progress-item-cell {
-    min-width: 120px;
+    min-width: 92px;
   }
 
   .progress-note-cell,
   .progress-meta-cell {
-    font-size: 10px;
+    font-size: 8px;
   }
 
   .settings-header {
