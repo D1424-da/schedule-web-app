@@ -339,6 +339,10 @@ body.auth-locked main {
 }
 
 .monthly-entry-line {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
   font-size: 11px;
   line-height: 1.25;
   color: #25323a;
@@ -349,50 +353,64 @@ body.auth-locked main {
   display: flex;
   flex-direction: column;
   flex-wrap: wrap;
-  gap: 3px;
-  margin-top: 2px;
+  gap: 2px;
+  margin-top: 1px;
 }
 
 .monthly-project-inline-track {
-  display: inline-flex;
-  align-items: center;
+  display: flex;
+  align-items: stretch;
   flex-wrap: wrap;
-  gap: 2px;
-  margin-left: 4px;
-  vertical-align: middle;
+  width: 100%;
+  gap: 0;
+  margin-left: 0;
 }
 
 .monthly-project-segment {
-  display: inline-flex;
-  align-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   width: 100%;
-  min-height: 12px;
-  padding: 0 5px;
-  border: 1px solid;
-  border-radius: 2px;
+  gap: 1px;
+  padding: 0;
+  margin: 4px 0 0;
+  border: 0;
+  background: none;
+  font-size: 0;
+  line-height: 0;
+  box-shadow: none;
+}
+
+.monthly-project-segment-compact {
+  margin-top: 0;
+}
+
+.monthly-project-segment-label {
+  display: block;
+  width: 100%;
+  color: currentColor;
   font-size: 10px;
   font-weight: 700;
   line-height: 1.1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  word-break: break-word;
 }
 
-.monthly-project-segment.is-start {
+.monthly-project-segment-bar {
+  display: block;
+  width: calc(100% + 10px);
+  height: 2px;
+  margin: 0 -5px;
+  border-radius: 0;
+}
+
+.monthly-project-segment.is-start .monthly-project-segment-bar {
   border-top-left-radius: 999px;
   border-bottom-left-radius: 999px;
 }
 
-.monthly-project-segment.is-end {
+.monthly-project-segment.is-end .monthly-project-segment-bar {
   border-top-right-radius: 999px;
   border-bottom-right-radius: 999px;
-}
-
-.monthly-project-segment-compact {
-  width: 12px;
-  min-height: 8px;
-  padding: 0;
-  border-width: 1px;
 }
 
 .monthly-muted {

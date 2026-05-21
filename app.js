@@ -933,15 +933,15 @@ function bindEvents() {
   }
 
   if (refs.clearEntryBtn) {
-    refs.clearEntryBtn.addEventListener("click", async () => {
-      if (!state.editTarget) {
-        return;
-      }
-      if (!canEditRow(state.editTarget.name)) {
-        setNotice("本人の行、または管理者として編集できます。");
-        return;
-      }
-
+      refs.clearEntryBtn.addEventListener("click", async () => {
+        if (!state.editTarget) {
+          return;
+        }
+        if (!canEditRow(state.editTarget.name)) {
+          setNotice("本人の行、または管理者として編集できます。");
+          return;
+        }
+  
       const key = entryKey(state.editTarget.name, state.editTarget.date);
       if (state.manualEntries[key]?.approvedByRequest) {
         const ok = confirm("確認変更済みの予定です。変更しますか？");
@@ -2090,9 +2090,16 @@ function renderOverallMonthlyTable({ tableEl, monthStart }) {
           const projectListEl = document.createElement("span");
           projectListEl.className = "monthly-project-inline-track";
           activeProjects.forEach((project) => {
-            projectListEl.appendChild(createProjectTimelineSegment(project, dateStr, { compact: true }));
+            if (!shouldSkipProjectTimeline(dateStr, name, loginId)) {
+              projectListEl.appendChild(createProjectTimelineSegment(project, dateStr, {
+                compact: true,
+                showLabel: shouldShowProjectTimelineLabel(dateStr, project),
+              }));
+            }
           });
-          lineEl.appendChild(projectListEl);
+          if (projectListEl.childElementCount > 0) {
+            lineEl.appendChild(projectListEl);
+          }
         }
 
         listEl.appendChild(lineEl);
@@ -2146,18 +2153,25 @@ function renderSingleMonthlyTable({ tableEl, monthStart, targetName }) {
       const entryEl = document.createElement("div");
       entryEl.className = "monthly-entry";
       const entry = resolveEntry(targetName, dateStr);
-      entryEl.textContent = entry ? buildMonthlyEntryText(entry) : "-";
-      td.appendChild(entryEl);
 
       const activeProjects = getActiveProjectsForUserOnDate(targetLoginId, dateStr);
       if (activeProjects.length > 0) {
         const projectListEl = document.createElement("div");
         projectListEl.className = "monthly-project-timeline";
         activeProjects.forEach((project) => {
-          projectListEl.appendChild(createProjectTimelineSegment(project, dateStr));
+          if (!shouldSkipProjectTimeline(dateStr, targetName, targetLoginId)) {
+            projectListEl.appendChild(createProjectTimelineSegment(project, dateStr, {
+              showLabel: shouldShowProjectTimelineLabel(dateStr, project),
+            }));
+          }
         });
-        td.appendChild(projectListEl);
+        if (projectListEl.childElementCount > 0) {
+          td.appendChild(projectListEl);
+        }
       }
+
+      entryEl.textContent = entry ? buildMonthlyEntryText(entry) : "-";
+      td.appendChild(entryEl);
 
       tr.appendChild(td);
     }
@@ -2187,6 +2201,27 @@ function getActiveProjectsForUserOnDate(userId, dateStr) {
   const userEntry = (state.progressProjectsByUser || {})[normalizedUserId];
   const projects = Array.isArray(userEntry?.projects) ? userEntry.projects : [];
   return projects.filter((project) => isDateWithinProjectRange(dateStr, project?.startDate, project?.endDate));
+}
+
+function shouldSkipProjectTimeline(dateStr, rowName, userId) {
+  const resolvedName = rowName || resolveRowNameByLoginId(userId, userId);
+  const entry = resolveEntry(resolvedName, dateStr);
+  const source = String(entry?.source || "");
+  return source === "holiday" || source === "sunday" || source === "company";
+}
+
+function shouldShowProjectTimelineLabel(dateStr, project) {
+  const start = String(project?.startDate || "").trim();
+  if (!dateStr) {
+    return false;
+  }
+
+  if (start && start === dateStr) {
+    return true;
+  }
+
+  const date = fromISODate(dateStr);
+  return date.getDate() === 1;
 }
 
 function isDateWithinProjectRange(dateStr, startDate, endDate) {
@@ -2225,8 +2260,11 @@ function getProjectColorById(projectId) {
 
 function createProjectTimelineSegment(project, dateStr, options = {}) {
   const isCompact = options.compact === true;
+  const showLabel = options.showLabel === true;
   const segmentEl = document.createElement("span");
-  segmentEl.className = isCompact ? "monthly-project-segment monthly-project-segment-compact" : "monthly-project-segment";
+  segmentEl.className = isCompact
+    ? "monthly-project-segment monthly-project-segment-compact"
+    : "monthly-project-segment";
 
   const projectName = String(project?.name || "").trim() || "名称未設定";
   const start = String(project?.startDate || "").trim();
@@ -2241,16 +2279,27 @@ function createProjectTimelineSegment(project, dateStr, options = {}) {
     segmentEl.classList.add("is-end");
   }
 
-  const labelText = isStart || (isStart && isEnd) ? projectName : "";
-  if (labelText && !isCompact) {
-    segmentEl.textContent = labelText;
-  }
-
   const color = getProjectColorById(project?.id || project?.name || "project");
-  segmentEl.style.backgroundColor = color.background;
-  segmentEl.style.borderColor = color.border;
   segmentEl.style.color = color.text;
   segmentEl.title = `${projectName}${start ? ` / 開始:${start}` : ""}${end ? ` / 終了:${end}` : ""}`;
+  segmentEl.setAttribute("aria-label", segmentEl.title);
+
+  const barEl = document.createElement("span");
+  barEl.className = "monthly-project-segment-bar";
+  barEl.style.backgroundColor = color.background;
+  barEl.style.boxShadow = `0 0 0 1px ${color.border} inset`;
+  segmentEl.appendChild(barEl);
+
+  if (showLabel) {
+    const labelEl = document.createElement("span");
+    labelEl.className = "monthly-project-segment-label";
+    labelEl.textContent = projectName;
+    segmentEl.insertBefore(labelEl, barEl);
+  }
+
+  if (isStart) {
+    segmentEl.classList.add("is-start");
+  }
 
   return segmentEl;
 }
