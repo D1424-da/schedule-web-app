@@ -936,6 +936,53 @@ input[type="password"] {
     overflow-x: hidden;
   }
 
+  /* 個人/全体ページ: 各主要セクションは固定幅で保持し、横スクロールで閲覧 */
+  body[data-page="personal"],
+  body[data-page="overall"] {
+    --mobile-fixed-panel-min-width: 720px;
+  }
+
+  body[data-page="personal"] .controls,
+  body[data-page="overall"] .controls,
+  body[data-page="personal"] #personalWeeklySection,
+  body[data-page="overall"] #overallWeeklySection,
+  body[data-page="personal"] #personalBusinessNoteSection,
+  body[data-page="overall"] #overallBusinessNoteSection,
+  body[data-page="personal"] #progressSection,
+  body[data-page="overall"] #progressSection,
+  body[data-page="personal"] .monthly-card,
+  body[data-page="overall"] .monthly-card {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
+  }
+
+  body[data-page="personal"] .controls > *,
+  body[data-page="overall"] .controls > *,
+  body[data-page="personal"] #personalWeeklySection > *,
+  body[data-page="overall"] #overallWeeklySection > *,
+  body[data-page="personal"] #personalBusinessNoteSection > *,
+  body[data-page="overall"] #overallBusinessNoteSection > *,
+  body[data-page="personal"] #progressSection > *,
+  body[data-page="overall"] #progressSection > *,
+  body[data-page="personal"] .monthly-card > *,
+  body[data-page="overall"] .monthly-card > * {
+    min-width: var(--mobile-fixed-panel-min-width);
+  }
+
+  body[data-page="personal"] .controls .week-nav,
+  body[data-page="overall"] .controls .week-nav,
+  body[data-page="personal"] .monthly-card .month-nav,
+  body[data-page="overall"] .monthly-card .month-nav {
+    flex-wrap: nowrap;
+  }
+
+  body[data-page="personal"] #progressSection .settings-header,
+  body[data-page="overall"] #progressSection .settings-header {
+    flex-wrap: nowrap;
+  }
+
   .desktop-request-panel {
     display: none !important;
   }
@@ -1131,6 +1178,11 @@ input[type="password"] {
 }
 
 @media (max-width: 480px) {
+  body[data-page="personal"],
+  body[data-page="overall"] {
+    --mobile-fixed-panel-min-width: 640px;
+  }
+
   .topbar {
     padding: 12px 10px 8px;
   }
