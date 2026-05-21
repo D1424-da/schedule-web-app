@@ -1253,6 +1253,7 @@ function renderProgressProjectCards(projects, ownerUserId) {
   const isOverallPage = document.body.dataset.page === "overall"; // 全体ページ判定
 
   return projects.map((project) => {
+    const isDelivered = project?.deliveryStatus === "delivered";
     const items = Array.isArray(project.items) ? project.items : [];
     const avgProgress = items.length > 0
       ? Math.round(items.reduce((sum, item) => sum + clamp(Number(item.progress || 0), 0, 100), 0) / items.length)
@@ -1273,7 +1274,7 @@ function renderProgressProjectCards(projects, ownerUserId) {
     }
 
     return `
-      <div class="progress-project-card" data-project-id="${escapeHtml(project.id)}" data-user-id="${escapeHtml(ownerUserId)}" data-expanded="false">
+      <div class="progress-project-card${isDelivered ? " is-delivered" : ""}" data-project-id="${escapeHtml(project.id)}" data-user-id="${escapeHtml(ownerUserId)}" data-expanded="false">
         <div class="progress-project-header" data-progress-action="toggle-items" data-project-id="${escapeHtml(project.id)}" role="button" tabindex="0">
           <div class="progress-project-title">
             <span class="progress-project-toggle">▶</span>
@@ -1285,11 +1286,13 @@ function renderProgressProjectCards(projects, ownerUserId) {
             <div class="progress-bar-wrap">
               <div class="progress-bar-fill" style="width:${avgProgress}%"></div>
             </div>
+            ${isDelivered ? '<span class="progress-deadline-status deadline-delivered">納品済み</span>' : ""}
             ${daysRemainingDisplay}
             ${project.endDate ? `<span class="progress-deadline-date">${project.endDate} 納品</span>` : ""}
           </div>
           ${isOwner && !isOverallPage ? `
             <div class="progress-project-actions no-print">
+              <button class="btn ${isDelivered ? "btn-secondary" : "btn"}" type="button" data-progress-action="toggle-delivered" data-project-id="${escapeHtml(project.id)}" data-user-id="${escapeHtml(ownerUserId)}">${isDelivered ? "納品完了を取り消す" : "納品完了"}</button>
               <button class="btn btn-secondary" type="button" data-progress-action="add-item" data-project-id="${escapeHtml(project.id)}" data-user-id="${escapeHtml(ownerUserId)}">＋ 工種追加</button>
               <button class="btn btn-ghost" type="button" data-progress-action="edit-project" data-project-id="${escapeHtml(project.id)}" data-user-id="${escapeHtml(ownerUserId)}">編集</button>
               <button class="btn btn-ghost" type="button" data-progress-action="delete-project" data-project-id="${escapeHtml(project.id)}" data-user-id="${escapeHtml(ownerUserId)}">削除</button>
@@ -1725,6 +1728,41 @@ async function handleProgressListClick(event) {
 
     if (action === "add-item") {
       openProgressItemDialog(projectId, null);
+    } else if (action === "toggle-delivered") {
+      if (userId !== state.currentUserId) {
+        setNotice("他のユーザーのデータは編集できません。");
+        return;
+      }
+      const entryD = ensureMyProjectsEntry();
+      const project = (entryD?.projects || []).find((p) => p.id === projectId);
+      if (!project) {
+        return;
+      }
+
+      const isDelivered = project?.deliveryStatus === "delivered";
+      if (!isDelivered) {
+        if (!confirm("この現場を納品完了にしますか？\n納品済みは工程カレンダーから非表示になります。")) {
+          return;
+        }
+        project.deliveryStatus = "delivered";
+        project.deliveredAt = new Date().toISOString();
+        project.deliveredByName = state.currentUser || state.currentUserId || "";
+        project.deliveredById = state.currentUserId || "";
+        setNotice("納品完了にしました。誤操作時は「納品完了を取り消す」で戻せます。");
+      } else {
+        if (!confirm("納品完了を取り消しますか？")) {
+          return;
+        }
+        project.deliveryStatus = "";
+        project.deliveredAt = "";
+        project.deliveredByName = "";
+        project.deliveredById = "";
+        setNotice("納品完了を取り消しました。");
+      }
+
+      renderProgressSection();
+      renderMonthlyCalendar();
+      await saveStateImmediately();
     } else if (action === "edit-project") {
       openProgressProjectDialog(projectId);
     } else if (action === "delete-project") {
@@ -2119,10 +2157,7 @@ function getGanttOffLabel(dateStr, entry) {
   if (source === "holiday") {
     return String(getHolidayName(dateStr) || "祝日");
   }
-  if (source === "sunday" || source === "company") {
-    return "休み";
-  }
-  return String(entry?.status || "休み");
+  return "休";
 }
 
 function renderOverallMonthlyGanttTable({ tableEl, monthStart, owners: ownersOverride = null }) {
@@ -2137,7 +2172,7 @@ function renderOverallMonthlyGanttTable({ tableEl, monthStart, owners: ownersOve
 
   const userHead = document.createElement("th");
   userHead.className = "monthly-gantt-user-head";
-  userHead.textContent = "担当";
+  userHead.textContent = "";
   headerRow.appendChild(userHead);
 
   for (const date of monthDates) {
@@ -2190,6 +2225,8 @@ function renderOverallMonthlyGanttTable({ tableEl, monthStart, owners: ownersOve
       if (isOffEntry) {
         const offEl = document.createElement("div");
         offEl.className = "monthly-gantt-off-entry";
+        const offSource = String(entry?.source || "");
+        offEl.classList.add(offSource === "holiday" ? "is-holiday" : "is-off");
         offEl.textContent = getGanttOffLabel(dateStr, entry);
         offEl.title = buildEngineeringOffLabel(entry);
         segmentWrap.appendChild(offEl);
@@ -2373,7 +2410,12 @@ function getActiveProjectsForUserOnDate(userId, dateStr) {
 
   const userEntry = (state.progressProjectsByUser || {})[normalizedUserId];
   const projects = Array.isArray(userEntry?.projects) ? userEntry.projects : [];
-  return projects.filter((project) => isDateWithinProjectRange(dateStr, project?.startDate, project?.endDate));
+  return projects.filter((project) => {
+    if (project?.deliveryStatus === "delivered") {
+      return false;
+    }
+    return isDateWithinProjectRange(dateStr, project?.startDate, project?.endDate);
+  });
 }
 
 function shouldSkipProjectTimeline(dateStr, rowName, userId) {

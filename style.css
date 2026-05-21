@@ -490,6 +490,18 @@ body.auth-locked main {
   max-height: 86px;
 }
 
+.monthly-gantt-off-entry.is-off {
+  background: #ffdcde;
+  color: #8b141b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.monthly-gantt-off-entry.is-holiday {
+  background: #fff3cd;
+  color: #7b1f1f;
+}
+
 .monthly-card-personal .month-label {
   font-size: clamp(16px, 2.5vw, 20px);
 }
@@ -1725,6 +1737,10 @@ input[type="date"] {
     font-size: 8px;
   }
 
+  .monthly-gantt-off-entry.is-off {
+    font-size: 10px;
+  }
+
   .monthly-table th {
     font-size: 12px;
     padding: 6px 4px;
@@ -1991,6 +2007,11 @@ input[type="date"] {
   min-width: 0;
 }
 
+.progress-project-card.is-delivered {
+  border-color: #9ba7b2;
+  background: #f1f5f9;
+}
+
 .progress-project-header {
   display: flex;
   align-items: flex-start;
@@ -2136,6 +2157,12 @@ input[type="date"] {
   background-color: #dbeafe;
   color: #1e40af;
   border: 1px solid #93c5fd;
+}
+
+.deadline-delivered {
+  background-color: #dcfce7;
+  color: #166534;
+  border: 1px solid #86efac;
 }
 
 .progress-deadline-date {
