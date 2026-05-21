@@ -2068,11 +2068,10 @@ function renderOverallMonthlyTable({ tableEl, monthStart }) {
 }
 
 function renderSingleMonthlyTable({ tableEl, monthStart, targetName }) {
-  renderProjectMonthlyTable({
+  renderOverallMonthlyGanttTable({
     tableEl,
     monthStart,
-    mode: "personal",
-    targetName,
+    owners: getPersonalProjectOwner(targetName),
   });
 }
 
@@ -2115,8 +2114,19 @@ function getDatesInMonth(monthStart) {
   return Array.from({ length: daysInMonth }, (_, index) => new Date(year, month, index + 1));
 }
 
-function renderOverallMonthlyGanttTable({ tableEl, monthStart }) {
-  const owners = getOverallProjectOwners();
+function getGanttOffLabel(dateStr, entry) {
+  const source = String(entry?.source || "");
+  if (source === "holiday") {
+    return String(getHolidayName(dateStr) || "祝日");
+  }
+  if (source === "sunday" || source === "company") {
+    return "休み";
+  }
+  return String(entry?.status || "休み");
+}
+
+function renderOverallMonthlyGanttTable({ tableEl, monthStart, owners: ownersOverride = null }) {
+  const owners = Array.isArray(ownersOverride) ? ownersOverride : getOverallProjectOwners();
   const monthDates = getDatesInMonth(monthStart);
 
   const table = document.createElement("table");
@@ -2166,7 +2176,6 @@ function renderOverallMonthlyGanttTable({ tableEl, monthStart }) {
       td.className = "monthly-gantt-cell";
       const entry = resolveEntry(owner.displayName, dateStr);
       const isOffEntry = isEngineeringCalendarOffEntry(entry);
-      const offSource = String(entry?.source || "");
 
       if (date.getDay() === 0 || date.getDay() === 6) {
         td.classList.add("is-weekend");
@@ -2178,12 +2187,10 @@ function renderOverallMonthlyGanttTable({ tableEl, monthStart }) {
       const segmentWrap = document.createElement("div");
       segmentWrap.className = "monthly-gantt-segment-wrap";
 
-      if (isOffEntry && offSource !== "sunday" && offSource !== "company") {
+      if (isOffEntry) {
         const offEl = document.createElement("div");
         offEl.className = "monthly-gantt-off-entry";
-        offEl.textContent = offSource === "holiday"
-          ? String(getHolidayName(dateStr) || "祝日")
-          : String(entry?.status || "休み");
+        offEl.textContent = getGanttOffLabel(dateStr, entry);
         offEl.title = buildEngineeringOffLabel(entry);
         segmentWrap.appendChild(offEl);
       }
