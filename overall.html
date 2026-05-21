@@ -7,7 +7,7 @@
     <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet" />
     <title>全体ページ | 週間予定表管理システム</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-    <link rel="stylesheet" href="style.css?v=20260521d" />
+    <link rel="stylesheet" href="style.css?v=20260521e" />
   </head>
   <body data-page="overall" class="auth-locked">
     <header class="topbar">
@@ -76,6 +76,19 @@
             </div>
             <div id="progressProjectList" class="progress-project-list"></div>
           </section>
+
+          <section class="card monthly-card monthly-card-overall" aria-label="月間作業カレンダー">
+            <div class="settings-header">
+              <h2>月間作業カレンダー</h2>
+            </div>
+            <div class="month-nav">
+              <button id="prevMonthBtn" class="btn btn-secondary" type="button">前月</button>
+              <button id="currentMonthBtn" class="btn btn-ghost" type="button">当月</button>
+              <button id="nextMonthBtn" class="btn btn-secondary" type="button">次月</button>
+            </div>
+            <div id="monthLabel" class="month-label"></div>
+            <table id="monthlyScheduleTable" class="monthly-table"></table>
+          </section>
         </div>
 
         <aside class="page-main-secondary" aria-label="補助表示">
@@ -88,19 +101,6 @@
           </section>
         </aside>
       </div>
-
-      <section class="card monthly-card monthly-card-overall" aria-label="月間作業カレンダー">
-        <div class="settings-header">
-          <h2>月間作業カレンダー</h2>
-        </div>
-        <div class="month-nav">
-          <button id="prevMonthBtn" class="btn btn-secondary" type="button">前月</button>
-          <button id="currentMonthBtn" class="btn btn-ghost" type="button">当月</button>
-          <button id="nextMonthBtn" class="btn btn-secondary" type="button">次月</button>
-        </div>
-        <div id="monthLabel" class="month-label"></div>
-        <table id="monthlyScheduleTable" class="monthly-table"></table>
-      </section>
 
       <p id="syncAlert" class="sync-alert hidden" aria-live="polite"></p>
 

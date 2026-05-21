@@ -637,13 +637,29 @@ body[data-page="admin"] .schedule-table td {
 
 select,
 input[type="text"],
-input[type="password"] {
+input[type="password"],
+input[type="date"] {
   width: 100%;
   min-height: 44px;
   font-size: 17px;
   border: 1px solid #bfc7ce;
   border-radius: 8px;
   padding: 8px 10px;
+}
+
+/* 60代利用を想定し、工程管理の工期日付入力は視認性と押しやすさを優先 */
+#progressProjectStartDateInput,
+#progressProjectEndDateInput {
+  min-height: 52px;
+  font-size: 18px;
+  padding: 10px 12px;
+}
+
+#progressProjectStartDateInput::-webkit-calendar-picker-indicator,
+#progressProjectEndDateInput::-webkit-calendar-picker-indicator {
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
 }
 
 .notice {
@@ -1226,9 +1242,22 @@ input[type="password"] {
 
   select,
   input[type="text"],
-  input[type="password"] {
+  input[type="password"],
+  input[type="date"] {
     min-height: 40px;
     font-size: 16px;
+  }
+
+  #progressProjectStartDateInput,
+  #progressProjectEndDateInput {
+    min-height: 48px;
+    font-size: 17px;
+  }
+
+  #progressProjectStartDateInput::-webkit-calendar-picker-indicator,
+  #progressProjectEndDateInput::-webkit-calendar-picker-indicator {
+    width: 22px;
+    height: 22px;
   }
 
   .week-nav {
@@ -1509,10 +1538,24 @@ input[type="password"] {
 
   select,
   input[type="text"],
-  input[type="password"] {
+  input[type="password"],
+  input[type="date"] {
     min-height: 36px;
     font-size: 16px;
     padding: 6px 8px;
+  }
+
+  #progressProjectStartDateInput,
+  #progressProjectEndDateInput {
+    min-height: 44px;
+    font-size: 16px;
+    padding: 8px 10px;
+  }
+
+  #progressProjectStartDateInput::-webkit-calendar-picker-indicator,
+  #progressProjectEndDateInput::-webkit-calendar-picker-indicator {
+    width: 20px;
+    height: 20px;
   }
 
   .week-nav {
@@ -2010,6 +2053,7 @@ input[type="password"] {
 }
 
 .progress-pct-input[type="number"] {
+  appearance: textfield;
   -moz-appearance: textfield;
 }
 
