@@ -3251,8 +3251,8 @@ async function handleConfirmationRequestAction(requestId, action) {
   }
 
   if (action === "halfday-allow" || action === "halfday-deny") {
-    if (normalizeLoginId(request.targetId)) {
-      setNotice("半日休み案件は通知画面の「可能/不可」ボタンで処理してください。");
+    if (normalizeLoginId(request.targetId) !== currentId) {
+      setNotice("この依頼は処理できません。");
       return;
     }
 
@@ -3267,7 +3267,29 @@ async function handleConfirmationRequestAction(requestId, action) {
       }
     }
 
+    const allowHalfDayOverwrite = action === "halfday-allow";
     await applyApprovalRequest(request, requestId, currentId, allowHalfDayOverwrite);
+    return;
+  }
+
+  if (action === "approve") {
+    if (normalizeLoginId(request.targetId) !== currentId) {
+      setNotice("この依頼は承認できません。");
+      return;
+    }
+
+    const targetRowName = resolveRowNameByLoginId(
+      currentId,
+      request.targetName || state.currentUser || currentId,
+    );
+
+    if (hasScheduleConflict(targetRowName, request.startDate, request.repeatDays)) {
+      if (!confirm("当初から予定が入っています。変更してもいいですか？")) {
+        return;
+      }
+    }
+
+    await applyApprovalRequest(request, requestId, currentId, true);
     return;
   }
 
