@@ -89,6 +89,14 @@
         <p class="scroll-hint">左右にスクロールして全日程を表示できます。</p>
       </section>
 
+      <section id="progressSection" class="card" aria-label="工程管理">
+        <div class="settings-header">
+          <h2>工程管理</h2>
+          <button id="addProgressProjectBtn" class="btn btn-secondary no-print hidden" type="button">＋ 現場を追加</button>
+        </div>
+        <div id="progressProjectList" class="progress-project-list"></div>
+      </section>
+
       <p id="syncAlert" class="sync-alert hidden" aria-live="polite"></p>
 
       <section id="adminSettingsSection" class="card" aria-label="管理設定">
@@ -250,10 +258,8 @@
             <input id="requestConfirmEnabled" type="checkbox" />
             保存前に相手へ確認依頼を送る
           </label>
-          <label for="requestTargetInput">確認相手</label>
-          <select id="requestTargetInput">
-            <option value="">選択してください</option>
-          </select>
+          <label for="requestTargetInput">確認相手（複数選択可）</label>
+          <select id="requestTargetInput" multiple size="5" aria-label="確認相手（複数選択可）"></select>
           <label for="requestMessageInput">依頼メモ</label>
           <input id="requestMessageInput" type="text" maxlength="80" placeholder="例: 午前から同行可能ですか？" />
         </div>
@@ -280,6 +286,38 @@
         <div class="dialog-buttons">
           <button id="loginSubmitBtn" value="login" class="btn">ログイン</button>
           <button id="loginCancelBtn" value="cancel" class="btn btn-ghost" type="button">閉じる</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="progressProjectDialog" class="edit-dialog">
+      <form id="progressProjectForm" method="dialog">
+        <h2 id="progressProjectDialogTitle">現場を追加</h2>
+        <label for="progressProjectNameInput">現場名</label>
+        <input id="progressProjectNameInput" type="text" placeholder="例: 曽於市大隈町中之内地内 道路工事" required />
+        <label for="progressProjectLocationInput">現場名</label>
+        <input id="progressProjectLocationInput" type="text" placeholder="例: 曽於市大隈町" />
+        <label for="progressProjectStartDateInput">工期開始日</label>
+        <input id="progressProjectStartDateInput" type="date" />
+        <label for="progressProjectEndDateInput">工期終了日（納品予定日）</label>
+        <input id="progressProjectEndDateInput" type="date" />
+        <div class="dialog-buttons">
+          <button type="submit" class="btn">保存</button>
+          <button type="button" id="cancelProgressProjectBtn" class="btn btn-ghost">キャンセル</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="progressItemDialog" class="edit-dialog">
+      <form id="progressItemForm" method="dialog">
+        <h2 id="progressItemDialogTitle">工種を追加</h2>
+        <label for="progressItemNameInput">工種名</label>
+        <input id="progressItemNameInput" type="text" placeholder="例: 測量・設計" required />
+        <label for="progressItemNoteInput">備考</label>
+        <input id="progressItemNoteInput" type="text" placeholder="例: 6月上旬着工予定" />
+        <div class="dialog-buttons">
+          <button type="submit" class="btn">保存</button>
+          <button type="button" id="cancelProgressItemBtn" class="btn btn-ghost">キャンセル</button>
         </div>
       </form>
     </dialog>

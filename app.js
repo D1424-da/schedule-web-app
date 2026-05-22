@@ -61,8 +61,10 @@ let scheduleFinalizeRequired = false;
 let finalizeInFlight = false;
 let currentPushToken = "";
 let progressEditProjectId = null;
+let progressEditProjectOwnerUserId = null;
 let progressEditItemProjectId = null;
 let progressEditItemId = null;
+let progressEditItemOwnerUserId = null;
 let progressSaveTimer = null;
 let lifecycleEventsBound = false;
 
@@ -878,23 +880,27 @@ function bindEvents() {
       if (requiresConfirmation) {
         const requesterId = normalizeLoginId(state.currentUserId);
         const requesterName = normalizeDisplayName(state.currentUser || requesterId);
-        const targetId = normalizeLoginId(refs.requestTargetInput?.value || "");
-        const targetAccount = findAccountByLoginId(targetId);
+        const targetIds = getSelectedRequestTargetIds();
 
         if (!requesterId) {
           setNotice("確認依頼を送るにはログインが必要です。");
           return;
         }
-        if (!targetId || !targetAccount) {
-          setNotice("確認相手を選択してください。");
-          return;
-        }
-        if (requesterId === targetId) {
-          setNotice("自分自身には確認依頼できません。");
+
+        const targets = targetIds
+          .map((targetId) => ({
+            targetId,
+            targetAccount: findAccountByLoginId(targetId),
+          }))
+          .filter((item) => Boolean(item.targetId) && Boolean(item.targetAccount) && item.targetId !== requesterId);
+
+        if (targets.length === 0) {
+          setNotice("確認相手を1人以上選択してください。");
           return;
         }
 
-        state.confirmationRequests.push({
+        const message = normalizeDisplayName(refs.requestMessageInput?.value || "");
+        const createdRequests = targets.map(({ targetId, targetAccount }) => ({
           id: createRequestId(),
           status: "pending",
           createdAt: new Date().toISOString(),
@@ -906,15 +912,20 @@ function bindEvents() {
           startDate: state.editTarget.date,
           repeatDays: clamp(repeatDays, 1, 12),
           entryData,
-          message: normalizeDisplayName(refs.requestMessageInput?.value || ""),
+          message,
+        }));
+
+        createdRequests.forEach((request) => {
+          state.confirmationRequests.push(request);
         });
-        const createdRequest = state.confirmationRequests[state.confirmationRequests.length - 1] || null;
 
         trimResolvedRequests();
         saveState();
-        triggerServerPushForConfirmationRequest(createdRequest);
+        createdRequests.forEach((request) => {
+          triggerServerPushForConfirmationRequest(request);
+        });
         closeDialog(refs.editDialog);
-        setNotice(`${targetAccount.name} に確認依頼を送りました。承認後に予定へ反映されます。`);
+        setNotice(`${createdRequests.length}人に確認依頼を送りました。承認後に予定へ反映されます。`);
         await render();
         return;
       }
@@ -1006,6 +1017,7 @@ function bindEvents() {
 
   if (refs.addProgressProjectBtn) {
     refs.addProgressProjectBtn.addEventListener("click", () => {
+      progressEditProjectOwnerUserId = normalizeLoginId(state.currentUserId);
       openProgressProjectDialog(null);
     });
   }
@@ -1222,16 +1234,58 @@ function getMyProjects() {
   return Array.isArray(entry?.projects) ? entry.projects : [];
 }
 
+function getProjectsByUserId(userId) {
+  const normalizedUserId = normalizeLoginId(userId);
+  if (!normalizedUserId) {
+    return [];
+  }
+  const entry = (state.progressProjectsByUser || {})[normalizedUserId];
+  return Array.isArray(entry?.projects) ? entry.projects : [];
+}
+
+function ensureProjectsEntryByUserId(userId) {
+  const normalizedUserId = normalizeLoginId(userId);
+  if (!normalizedUserId) {
+    return null;
+  }
+  if (!state.progressProjectsByUser) state.progressProjectsByUser = {};
+  if (!state.progressProjectsByUser[normalizedUserId]) {
+    const account = findAccountByLoginId(normalizedUserId);
+    state.progressProjectsByUser[normalizedUserId] = {
+      userName: account?.name || normalizedUserId,
+      projects: [],
+    };
+  }
+  if (!state.progressProjectsByUser[normalizedUserId].userName) {
+    const account = findAccountByLoginId(normalizedUserId);
+    state.progressProjectsByUser[normalizedUserId].userName = account?.name || normalizedUserId;
+  }
+  return state.progressProjectsByUser[normalizedUserId];
+}
+
+function canManageProgressOwner(ownerUserId) {
+  if (!currentFirebaseUser) {
+    return false;
+  }
+  const normalizedOwnerId = normalizeLoginId(ownerUserId);
+  if (!normalizedOwnerId) {
+    return false;
+  }
+  if (isAdminPage && state.isAdmin) {
+    return true;
+  }
+  return normalizedOwnerId === normalizeLoginId(state.currentUserId);
+}
+
 /** 現在ユーザーのエントリを初期化して返す。未ログインなら null */
 function ensureMyProjectsEntry() {
   const uid = state.currentUserId;
   if (!uid) return null;
-  if (!state.progressProjectsByUser) state.progressProjectsByUser = {};
-  if (!state.progressProjectsByUser[uid]) {
-    state.progressProjectsByUser[uid] = { userName: state.currentUser || uid, projects: [] };
+  const entry = ensureProjectsEntryByUserId(uid);
+  if (entry) {
+    entry.userName = state.currentUser || uid;
   }
-  state.progressProjectsByUser[uid].userName = state.currentUser || uid;
-  return state.progressProjectsByUser[uid];
+  return entry;
 }
 
 /** 納品予定日から本日までの残り日数を計算。マイナスなら期限超過 */
@@ -1249,8 +1303,8 @@ function calculateDaysRemaining(endDateStr) {
 
 /** projects 配列を HTML 文字列に変換する。isOwner=true のときのみ編集ボタンを表示 */
 function renderProgressProjectCards(projects, ownerUserId) {
-  const isOwner = !!currentFirebaseUser && ownerUserId === state.currentUserId;
-  const isOverallPage = document.body.dataset.page === "overall"; // 全体ページ判定
+  const canManage = canManageProgressOwner(ownerUserId);
+  const isOverallPage = document.body.dataset.page === "overall";
 
   return projects.map((project) => {
     const isDelivered = project?.deliveryStatus === "delivered";
@@ -1290,7 +1344,7 @@ function renderProgressProjectCards(projects, ownerUserId) {
             ${daysRemainingDisplay}
             ${project.endDate ? `<span class="progress-deadline-date">${project.endDate} 納品</span>` : ""}
           </div>
-          ${isOwner && !isOverallPage ? `
+          ${canManage && !isOverallPage ? `
             <div class="progress-project-actions no-print">
               <button class="btn ${isDelivered ? "btn-secondary" : "btn"}" type="button" data-progress-action="toggle-delivered" data-project-id="${escapeHtml(project.id)}" data-user-id="${escapeHtml(ownerUserId)}">${isDelivered ? "納品完了を取り消す" : "納品完了"}</button>
               <button class="btn btn-secondary" type="button" data-progress-action="add-item" data-project-id="${escapeHtml(project.id)}" data-user-id="${escapeHtml(ownerUserId)}">＋ 工種追加</button>
@@ -1309,7 +1363,7 @@ function renderProgressProjectCards(projects, ownerUserId) {
                   <th>状態</th>
                   <th class="no-print">備考</th>
                   <th class="no-print">更新者</th>
-                  ${isOwner && !isOverallPage ? '<th class="no-print"></th>' : ""}
+                  ${canManage && !isOverallPage ? '<th class="no-print"></th>' : ""}
                 </tr>
               </thead>
               <tbody>
@@ -1323,7 +1377,7 @@ function renderProgressProjectCards(projects, ownerUserId) {
                         <div class="progress-bar-wrap progress-bar-wrap-wide">
                           <div class="progress-bar-fill" style="width:${progress}%"></div>
                         </div>
-                        ${isOwner && !isOverallPage ? `
+                        ${canManage && !isOverallPage ? `
                           <div class="progress-input-row no-print">
                             <div class="progress-input-controls">
                               <button type="button" class="progress-decrement-btn" data-progress-action="decrement" data-project-id="${escapeHtml(project.id)}" data-item-id="${escapeHtml(item.id)}" data-user-id="${escapeHtml(ownerUserId)}" aria-label="進捗を減らす">−</button>
@@ -1344,7 +1398,7 @@ function renderProgressProjectCards(projects, ownerUserId) {
                       <td><span class="progress-badge progress-badge-${status}">${status}</span></td>
                       <td class="no-print progress-note-cell">${item.note ? escapeHtml(item.note) : ""}</td>
                       <td class="no-print progress-meta-cell">${item.updatedByName ? escapeHtml(item.updatedByName) : ""}</td>
-                      ${isOwner && !isOverallPage ? `
+                      ${canManage && !isOverallPage ? `
                         <td class="no-print progress-action-cell">
                           <button class="btn btn-ghost" type="button" data-progress-action="edit-item" data-project-id="${escapeHtml(project.id)}" data-item-id="${escapeHtml(item.id)}" data-user-id="${escapeHtml(ownerUserId)}">編集</button>
                           <button class="btn btn-ghost" type="button" data-progress-action="delete-item" data-project-id="${escapeHtml(project.id)}" data-item-id="${escapeHtml(item.id)}" data-user-id="${escapeHtml(ownerUserId)}">削除</button>
@@ -1356,7 +1410,7 @@ function renderProgressProjectCards(projects, ownerUserId) {
               </tbody>
             </table>
           </div>
-        ` : `<p class="subtitle-mini no-print" style="display: none;">${isOwner ? "「＋ 工種追加」ボタンで工種を登録してください。" : "工種が登録されていません。"}</p>`}
+        ` : `<p class="subtitle-mini no-print" style="display: none;">${canManage ? "「＋ 工種追加」ボタンで工種を登録してください。" : "工種が登録されていません。"}</p>`}
       </div>
     `;
   }).join("");
@@ -1454,7 +1508,7 @@ function renderProgressSection() {
     refs.addProgressProjectBtn.classList.toggle("hidden", !currentFirebaseUser || isOverallPage);
   }
 
-  if (isOverallPage) {
+  if (isOverallPage || isAdminPage) {
     const byUser = state.progressProjectsByUser || {};
     const userIds = Object.keys(byUser).filter((uid) => {
       const entry = byUser[uid];
@@ -1497,10 +1551,17 @@ function openProgressProjectDialog(projectId) {
     return;
   }
 
+  const ownerUserId = normalizeLoginId(progressEditProjectOwnerUserId || state.currentUserId);
+  if (!ownerUserId || !canManageProgressOwner(ownerUserId)) {
+    setNotice("このユーザーの工程管理は編集できません。");
+    return;
+  }
+
   progressEditProjectId = projectId || null;
+  progressEditProjectOwnerUserId = ownerUserId;
 
   if (projectId) {
-    const project = getMyProjects().find((p) => p.id === projectId);
+    const project = getProjectsByUserId(ownerUserId).find((p) => p.id === projectId);
     if (!project) {
       return;
     }
@@ -1542,6 +1603,12 @@ async function saveProgressProject() {
     return;
   }
 
+  const ownerUserId = normalizeLoginId(progressEditProjectOwnerUserId || state.currentUserId);
+  if (!ownerUserId || !canManageProgressOwner(ownerUserId)) {
+    setNotice("このユーザーの工程管理は編集できません。");
+    return;
+  }
+
   const name = String(refs.progressProjectNameInput?.value || "").trim();
   if (!name) {
     return;
@@ -1550,7 +1617,7 @@ async function saveProgressProject() {
   const startDate = String(refs.progressProjectStartDateInput?.value || "").trim();
   const endDate = String(refs.progressProjectEndDateInput?.value || "").trim();
 
-  const entry = ensureMyProjectsEntry();
+  const entry = ensureProjectsEntryByUserId(ownerUserId);
   if (!entry) {
     setNotice("ログイン後に操作できます。");
     return;
@@ -1574,8 +1641,8 @@ async function saveProgressProject() {
       endDate: endDate || null,
       items: [],
       createdAt: new Date().toISOString(),
-      createdByName: state.currentUser || "",
-      createdById: state.currentUserId || "",
+      createdByName: state.currentUser || ownerUserId,
+      createdById: state.currentUserId || ownerUserId,
     });
   }
 
@@ -1586,16 +1653,23 @@ async function saveProgressProject() {
   setNotice(progressEditProjectId ? "現場を更新しました。" : "現場を追加しました。");
 }
 
-function openProgressItemDialog(projectId, itemId) {
+function openProgressItemDialog(projectId, itemId, ownerUserId = state.currentUserId) {
   if (!refs.progressItemDialog || !refs.progressItemNameInput) {
+    return;
+  }
+
+  const normalizedOwnerUserId = normalizeLoginId(ownerUserId);
+  if (!normalizedOwnerUserId || !canManageProgressOwner(normalizedOwnerUserId)) {
+    setNotice("このユーザーの工程管理は編集できません。");
     return;
   }
 
   progressEditItemProjectId = projectId;
   progressEditItemId = itemId || null;
+  progressEditItemOwnerUserId = normalizedOwnerUserId;
 
   if (itemId) {
-    const project = getMyProjects().find((p) => p.id === projectId);
+    const project = getProjectsByUserId(normalizedOwnerUserId).find((p) => p.id === projectId);
     const item = (project?.items || []).find((i) => i.id === itemId);
     if (!item) {
       return;
@@ -1626,13 +1700,19 @@ async function saveProgressItem() {
     return;
   }
 
+  const ownerUserId = normalizeLoginId(progressEditItemOwnerUserId || state.currentUserId);
+  if (!ownerUserId || !canManageProgressOwner(ownerUserId)) {
+    setNotice("このユーザーの工程管理は編集できません。");
+    return;
+  }
+
   const name = String(refs.progressItemNameInput?.value || "").trim();
   if (!name) {
     return;
   }
   const note = String(refs.progressItemNoteInput?.value || "").trim();
 
-  const entry = ensureMyProjectsEntry();
+  const entry = ensureProjectsEntryByUserId(ownerUserId);
   if (!entry) {
     setNotice("ログイン後に操作できます。");
     return;
@@ -1674,12 +1754,13 @@ function updateProgressItemProgress(projectId, itemId, progress, ownerUserId) {
     setNotice("ログイン後に進捗を更新できます。");
     return;
   }
-  if (ownerUserId !== state.currentUserId) {
+  const normalizedOwnerUserId = normalizeLoginId(ownerUserId);
+  if (!canManageProgressOwner(normalizedOwnerUserId)) {
     setNotice("他のユーザーのデータは編集できません。");
     return;
   }
 
-  const entry = (state.progressProjectsByUser || {})[ownerUserId];
+  const entry = (state.progressProjectsByUser || {})[normalizedOwnerUserId];
   const project = (entry?.projects || []).find((p) => p.id === projectId);
   if (!project) {
     return;
@@ -1691,8 +1772,8 @@ function updateProgressItemProgress(projectId, itemId, progress, ownerUserId) {
 
   item.progress = clamp(Number(progress), 0, 100);
   item.updatedAt = new Date().toISOString();
-  item.updatedByName = state.currentUser || state.currentUserId || "";
-  item.updatedById = state.currentUserId || "";
+  item.updatedByName = state.currentUser || normalizedOwnerUserId || "";
+  item.updatedById = state.currentUserId || normalizedOwnerUserId || "";
 
   const viewportY = window.scrollY;
   renderProgressSection();
@@ -1727,13 +1808,13 @@ async function handleProgressListClick(event) {
     const userId = String(button.dataset.userId || "");
 
     if (action === "add-item") {
-      openProgressItemDialog(projectId, null);
+      openProgressItemDialog(projectId, null, userId);
     } else if (action === "toggle-delivered") {
-      if (userId !== state.currentUserId) {
+      if (!canManageProgressOwner(userId)) {
         setNotice("他のユーザーのデータは編集できません。");
         return;
       }
-      const entryD = ensureMyProjectsEntry();
+      const entryD = ensureProjectsEntryByUserId(userId);
       const project = (entryD?.projects || []).find((p) => p.id === projectId);
       if (!project) {
         return;
@@ -1764,16 +1845,17 @@ async function handleProgressListClick(event) {
       renderMonthlyCalendar();
       await saveStateImmediately();
     } else if (action === "edit-project") {
+      progressEditProjectOwnerUserId = normalizeLoginId(userId || state.currentUserId);
       openProgressProjectDialog(projectId);
     } else if (action === "delete-project") {
-      if (userId !== state.currentUserId) {
+      if (!canManageProgressOwner(userId)) {
         setNotice("他のユーザーのデータは編集できません。");
         return;
       }
       if (!confirm("この業務を削除しますか？工種データもすべて削除されます。")) {
         return;
       }
-      const entryD = ensureMyProjectsEntry();
+      const entryD = ensureProjectsEntryByUserId(userId);
       if (entryD) {
         entryD.projects = (entryD.projects || []).filter((p) => p.id !== projectId);
       }
@@ -1782,16 +1864,16 @@ async function handleProgressListClick(event) {
       await saveStateImmediately();
       setNotice("業務を削除しました。");
     } else if (action === "edit-item") {
-      openProgressItemDialog(projectId, itemId);
+      openProgressItemDialog(projectId, itemId, userId);
     } else if (action === "delete-item") {
-      if (userId !== state.currentUserId) {
+      if (!canManageProgressOwner(userId)) {
         setNotice("他のユーザーのデータは編集できません。");
         return;
       }
       if (!confirm("この工種を削除しますか？")) {
         return;
       }
-      const entryI = ensureMyProjectsEntry();
+      const entryI = ensureProjectsEntryByUserId(userId);
       const project = (entryI?.projects || []).find((p) => p.id === projectId);
       if (project) {
         project.items = (project.items || []).filter((i) => i.id !== itemId);
@@ -2842,6 +2924,23 @@ function syncRequestFormUi() {
   }
 }
 
+function getSelectedRequestTargetIds() {
+  if (!refs.requestTargetInput) {
+    return [];
+  }
+
+  const selectedValues = Array.from(refs.requestTargetInput.selectedOptions || [])
+    .map((option) => normalizeLoginId(option.value))
+    .filter(Boolean);
+
+  if (selectedValues.length > 0) {
+    return [...new Set(selectedValues)];
+  }
+
+  const fallbackValue = normalizeLoginId(refs.requestTargetInput.value || "");
+  return fallbackValue ? [fallbackValue] : [];
+}
+
 function isMorningOffStatus(status) {
   return status === "午前休" || status === "午前有休";
 }
@@ -2954,16 +3053,31 @@ function populateRequestTargetOptions(ownerName) {
   }
 
   const requesterId = normalizeLoginId(state.currentUserId);
-  refs.requestTargetInput.innerHTML = '<option value="">選択してください</option>';
-
-  state.staffAccounts
+  const candidates = state.staffAccounts
     .filter((account) => normalizeLoginId(account.id) !== requesterId && account.name !== ownerName)
-    .forEach((account) => {
-      const option = document.createElement("option");
-      option.value = account.id;
-      option.textContent = account.name;
-      refs.requestTargetInput.appendChild(option);
-    });
+    .map((account) => ({
+      id: normalizeLoginId(account.id),
+      name: account.name,
+    }))
+    .filter((account) => Boolean(account.id));
+
+  refs.requestTargetInput.innerHTML = "";
+
+  if (candidates.length === 0) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "送信先がありません";
+    option.disabled = true;
+    refs.requestTargetInput.appendChild(option);
+    return;
+  }
+
+  candidates.forEach((account) => {
+    const option = document.createElement("option");
+    option.value = account.id;
+    option.textContent = account.name;
+    refs.requestTargetInput.appendChild(option);
+  });
 }
 
 function renderRequestInbox() {
@@ -3627,7 +3741,9 @@ function openEditDialog(name, dateStr, currentEntry) {
     refs.requestConfirmEnabled.checked = false;
   }
   if (refs.requestTargetInput) {
-    refs.requestTargetInput.value = "";
+    Array.from(refs.requestTargetInput.options).forEach((option) => {
+      option.selected = false;
+    });
   }
   if (refs.requestMessageInput) {
     refs.requestMessageInput.value = "";

@@ -160,10 +160,8 @@
             <input id="requestConfirmEnabled" type="checkbox" />
             保存前に相手へ確認依頼を送る
           </label>
-          <label for="requestTargetInput">確認相手</label>
-          <select id="requestTargetInput">
-            <option value="">選択してください</option>
-          </select>
+          <label for="requestTargetInput">確認相手（複数選択可）</label>
+          <select id="requestTargetInput" multiple size="5" aria-label="確認相手（複数選択可）"></select>
           <label for="requestMessageInput">依頼メモ</label>
           <input id="requestMessageInput" type="text" maxlength="80" placeholder="例: 午前から同行可能ですか？" />
         </div>
