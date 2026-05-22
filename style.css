@@ -2267,6 +2267,95 @@ input[type="date"] {
   white-space: nowrap;
 }
 
+/* 工程管理はファイル後半で再定義されるため、スマホ上書きはここで最終適用する */
+@media (max-width: 768px) {
+  body[data-page="personal"] #progressSection,
+  body[data-page="overall"] #progressSection,
+  body[data-page="admin"] #progressSection {
+    overflow-x: hidden;
+  }
+
+  .progress-project-card {
+    padding: 8px;
+    border-radius: 8px;
+    overflow-x: hidden;
+  }
+
+  .progress-project-header {
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
+  .progress-project-title {
+    min-width: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .progress-project-summary {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .progress-overall-label,
+  .progress-deadline-status,
+  .progress-deadline-date {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    font-size: 10px;
+  }
+
+  .progress-items-container {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .progress-item-table {
+    width: max-content;
+    min-width: 100%;
+    font-size: 11px;
+  }
+
+  .progress-item-name-cell {
+    min-width: 76px;
+  }
+
+  .progress-item-cell {
+    min-width: 112px;
+  }
+}
+
+@media (max-width: 480px) {
+  .progress-project-card {
+    padding: 6px;
+  }
+
+  .progress-project-header {
+    gap: 4px;
+    margin-bottom: 4px;
+  }
+
+  .progress-project-summary {
+    gap: 4px;
+  }
+
+  .progress-item-table {
+    font-size: 9px;
+  }
+
+  .progress-item-name-cell {
+    min-width: 64px;
+  }
+
+  .progress-item-cell {
+    min-width: 92px;
+  }
+}
+
 /* 低い画面高のPC向け: 余白と固定UIを圧縮して可視領域を確保 */
 @media (max-height: 860px) and (min-width: 901px) {
   .topbar {
