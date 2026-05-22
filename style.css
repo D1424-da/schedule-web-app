@@ -1134,26 +1134,6 @@ input[type="date"] {
     overflow-x: hidden;
   }
 
-  /* 個人/全体ページ: 各主要セクションは固定幅で保持し、横スクロールで閲覧 */
-  body[data-page="personal"],
-  body[data-page="overall"] {
-    --mobile-fixed-panel-min-width: 720px;
-  }
-
-  body[data-page="personal"] .controls,
-  body[data-page="overall"] .controls,
-  body[data-page="personal"] #personalBusinessNoteSection,
-  body[data-page="overall"] #overallBusinessNoteSection,
-  body[data-page="personal"] #progressSection,
-  body[data-page="overall"] #progressSection {
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-gutter: stable;
-    scrollbar-width: auto;
-    scrollbar-color: #5f7b8b #dbe5ec;
-  }
-
   body[data-page="personal"] #personalWeeklySection,
   body[data-page="overall"] #overallWeeklySection {
     overflow-x: auto;
@@ -1163,73 +1143,6 @@ input[type="date"] {
     scrollbar-width: auto;
     scrollbar-color: #5f7b8b #dbe5ec;
     touch-action: auto;
-  }
-
-  body[data-page="personal"] .controls::-webkit-scrollbar,
-  body[data-page="overall"] .controls::-webkit-scrollbar,
-  body[data-page="personal"] #personalBusinessNoteSection::-webkit-scrollbar,
-  body[data-page="overall"] #overallBusinessNoteSection::-webkit-scrollbar,
-  body[data-page="personal"] #progressSection::-webkit-scrollbar,
-  body[data-page="overall"] #progressSection::-webkit-scrollbar {
-    height: 16px;
-  }
-
-  body[data-page="personal"] .controls::-webkit-scrollbar-track,
-  body[data-page="overall"] .controls::-webkit-scrollbar-track,
-  body[data-page="personal"] #personalBusinessNoteSection::-webkit-scrollbar-track,
-  body[data-page="overall"] #overallBusinessNoteSection::-webkit-scrollbar-track,
-  body[data-page="personal"] #progressSection::-webkit-scrollbar-track,
-  body[data-page="overall"] #progressSection::-webkit-scrollbar-track {
-    background: #dbe5ec;
-    border-radius: 999px;
-  }
-
-  body[data-page="personal"] .controls::-webkit-scrollbar-thumb,
-  body[data-page="overall"] .controls::-webkit-scrollbar-thumb,
-  body[data-page="personal"] #personalBusinessNoteSection::-webkit-scrollbar-thumb,
-  body[data-page="overall"] #overallBusinessNoteSection::-webkit-scrollbar-thumb,
-  body[data-page="personal"] #progressSection::-webkit-scrollbar-thumb,
-  body[data-page="overall"] #progressSection::-webkit-scrollbar-thumb {
-    background: #5f7b8b;
-    border-radius: 999px;
-    border: 2px solid #dbe5ec;
-  }
-
-  body[data-page="personal"] .controls > *,
-  body[data-page="overall"] .controls > *,
-  body[data-page="personal"] #personalBusinessNoteSection > *,
-  body[data-page="overall"] #overallBusinessNoteSection > *,
-  body[data-page="personal"] #progressSection > *,
-  body[data-page="overall"] #progressSection > * {
-    min-width: var(--mobile-fixed-panel-min-width);
-  }
-
-  body[data-page="personal"] .controls,
-  body[data-page="overall"] .controls {
-    overflow-x: visible;
-    overflow-y: visible;
-  }
-
-  body[data-page="personal"] .controls > *,
-  body[data-page="overall"] .controls > * {
-    min-width: 0;
-  }
-
-  body[data-page="personal"] #personalBusinessNoteSection,
-  body[data-page="overall"] #overallBusinessNoteSection {
-    overflow-x: hidden;
-  }
-
-  body[data-page="personal"] #progressSection,
-  body[data-page="overall"] #progressSection {
-    overflow-x: visible;
-  }
-
-  body[data-page="personal"] #personalBusinessNoteSection > *,
-  body[data-page="overall"] #overallBusinessNoteSection > *,
-  body[data-page="personal"] #progressSection > *,
-  body[data-page="overall"] #progressSection > * {
-    min-width: 0;
   }
 
   body[data-page="personal"] .controls .week-nav,
@@ -1583,11 +1496,6 @@ input[type="date"] {
 }
 
 @media (max-width: 480px) {
-  body[data-page="personal"],
-  body[data-page="overall"] {
-    --mobile-fixed-panel-min-width: 640px;
-  }
-
   .topbar {
     padding: 12px 10px 8px;
   }
