@@ -200,6 +200,10 @@ const refs = {
   changePasswordBtn: document.getElementById("changePasswordBtn"),
   adminSettingsSection: document.getElementById("adminSettingsSection"),
   adminRegisterSection: document.getElementById("adminRegisterSection"),
+  adminRecoverySection: document.getElementById("adminRecoverySection"),
+  backupRestoreSelect: document.getElementById("backupRestoreSelect"),
+  refreshBackupListBtn: document.getElementById("refreshBackupListBtn"),
+  restoreBackupBtn: document.getElementById("restoreBackupBtn"),
   adminOnlyNotice: document.getElementById("adminOnlyNotice"),
   enableNotificationsBtn: document.getElementById("enableNotificationsBtn"),
   toggleScheduleNotificationsBtn: document.getElementById("toggleScheduleNotificationsBtn"),
@@ -786,6 +790,58 @@ function bindEvents() {
     });
   }
 
+  if (refs.refreshBackupListBtn) {
+    refs.refreshBackupListBtn.addEventListener("click", () => {
+      if (!canManageAdminSettings() || !state.isAdmin) {
+        setNotice("管理者のみ操作できます。");
+        return;
+      }
+      renderBackupRestoreOptions();
+      setNotice("バックアップ一覧を更新しました。");
+    });
+  }
+
+  if (refs.restoreBackupBtn) {
+    refs.restoreBackupBtn.addEventListener("click", async () => {
+      if (!canManageAdminSettings() || !state.isAdmin) {
+        setNotice("管理者のみ操作できます。");
+        return;
+      }
+      if (!refs.backupRestoreSelect) {
+        return;
+      }
+
+      const backupKey = String(refs.backupRestoreSelect.value || "").trim();
+      if (!backupKey) {
+        setNotice("復元するバックアップを選択してください。");
+        return;
+      }
+
+      const backup = getLocalRecoveryBackupByKey(backupKey);
+      if (!backup?.payload) {
+        setNotice("選択したバックアップが見つかりません。一覧を更新して再実行してください。");
+        return;
+      }
+
+      const summary = backup?.createdAt
+        ? `作成日時: ${formatDateTimeLabel(backup.createdAt)}`
+        : "作成日時: 不明";
+      const ok = confirm(`バックアップを復元します。\n${summary}\n現在データは上書きされます。よろしいですか？`);
+      if (!ok) {
+        return;
+      }
+
+      applyLoadedData(backup.payload, false);
+      refreshStaffFromAccounts();
+      syncCurrentUserFromLoginId();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(buildLocalPayload()));
+      await saveStateImmediately({ forceCloud: true });
+      renderBackupRestoreOptions();
+      await render();
+      setNotice("バックアップを復元しました。全体データへ反映済みです。");
+    });
+  }
+
   if (refs.userOrderList) {
     refs.userOrderList.addEventListener("click", async (event) => {
       if (!canManageAdminSettings()) {
@@ -1194,9 +1250,76 @@ async function render() {
   renderMonthlyCalendar();
   renderUserOrderList();
   renderPasswordChangeUserOptions();
+  renderBackupRestoreOptions();
   renderRequestInbox();
   renderDesktopRequestPanel();
   syncFinalizeButtonUi();
+}
+
+function getLocalRecoveryBackupIndex() {
+  try {
+    const raw = localStorage.getItem(LOCAL_RECOVERY_BACKUP_INDEX_KEY);
+    const parsed = JSON.parse(raw || "[]");
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed.filter((item) => item && typeof item.key === "string");
+  } catch (error) {
+    return [];
+  }
+}
+
+function getLocalRecoveryBackupByKey(backupKey) {
+  if (!backupKey) {
+    return null;
+  }
+
+  try {
+    const raw = localStorage.getItem(backupKey);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") {
+      return null;
+    }
+    return parsed;
+  } catch (error) {
+    return null;
+  }
+}
+
+function renderBackupRestoreOptions() {
+  if (!refs.backupRestoreSelect) {
+    return;
+  }
+
+  const previousValue = refs.backupRestoreSelect.value;
+  const list = getLocalRecoveryBackupIndex().slice().reverse();
+  const options = ["<option value=\"\">バックアップを選択してください</option>"];
+
+  for (const item of list) {
+    const backup = getLocalRecoveryBackupByKey(item.key);
+    if (!backup?.payload) {
+      continue;
+    }
+
+    const createdAt = backup.createdAt || item.createdAt || "";
+    const reason = backup.reason || item.reason || "save";
+    const label = createdAt
+      ? `${formatDateTimeLabel(createdAt)} / ${reason}`
+      : `日時不明 / ${reason}`;
+    options.push(`<option value="${escapeHtml(item.key)}">${escapeHtml(label)}</option>`);
+  }
+
+  refs.backupRestoreSelect.innerHTML = options.join("");
+  if (previousValue && Array.from(refs.backupRestoreSelect.options).some((option) => option.value === previousValue)) {
+    refs.backupRestoreSelect.value = previousValue;
+  }
+
+  if (refs.restoreBackupBtn) {
+    refs.restoreBackupBtn.disabled = list.length === 0;
+  }
 }
 
 function renderWeeklyBusinessNotes() {
@@ -4011,6 +4134,9 @@ function syncAdminUi() {
   }
   if (refs.adminRegisterSection) {
     refs.adminRegisterSection.classList.toggle("hidden", !showAdmin);
+  }
+  if (refs.adminRecoverySection) {
+    refs.adminRecoverySection.classList.toggle("hidden", !showAdmin);
   }
   if (refs.adminOnlyNotice) {
     refs.adminOnlyNotice.classList.toggle("hidden", showAdmin);

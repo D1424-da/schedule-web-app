@@ -185,6 +185,23 @@
         </div>
       </section>
 
+      <section id="adminRecoverySection" class="card hidden" aria-label="バックアップ復元">
+        <div class="settings-header">
+          <h2>データ復元（管理者）</h2>
+        </div>
+        <p class="subtitle-mini">保存時に自動作成されたローカルバックアップから現在データを復元し、全体へ反映します。</p>
+        <div class="field-grid">
+          <label for="backupRestoreSelect">復元元バックアップ</label>
+          <select id="backupRestoreSelect">
+            <option value="">バックアップを選択してください</option>
+          </select>
+        </div>
+        <div class="field-row">
+          <button id="refreshBackupListBtn" class="btn btn-secondary" type="button">一覧を更新</button>
+             <button id="restoreBackupBtn" class="btn" type="button">選択したバックアップを復元</button>
+        </div>
+      </section>
+
       <section id="requestInboxSection" class="card request-inbox hidden" aria-label="確認依頼">
         <div class="settings-header">
           <h2>確認依頼</h2>
