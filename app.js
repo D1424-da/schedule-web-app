@@ -1,4 +1,7 @@
 const STORAGE_KEY = "weekly-schedule-v1";
+const LOCAL_RECOVERY_BACKUP_INDEX_KEY = "weekly-schedule-backup-index-v1";
+const LOCAL_RECOVERY_BACKUP_PREFIX = "weekly-schedule-backup-v1-";
+const LOCAL_RECOVERY_BACKUP_MAX_COUNT = 20;
 const SCHEDULE_NOTIFICATION_PREFERENCE_KEY = "weekly-notification-schedule-enabled-v1";
 const REQUEST_NOTIFICATION_PREFERENCE_KEY = "weekly-notification-request-enabled-v1";
 const PUSH_TOKEN_STORAGE_KEY = "weekly-push-token-v1";
@@ -93,6 +96,43 @@ const state = {
   weeklyBusinessNotes: {},
   progressProjectsByUser: {},
 };
+
+function hasMeaningfulScheduleData() {
+  return (
+    Object.keys(state.manualEntries || {}).length > 0
+    || Object.keys(state.weeklyBusinessNotes || {}).length > 0
+    || Object.keys(state.progressProjectsByUser || {}).length > 0
+    || (Array.isArray(state.confirmationRequests) && state.confirmationRequests.length > 0)
+  );
+}
+
+function saveLocalRecoveryBackup(payload, reason = "autosave") {
+  try {
+    const timestamp = new Date().toISOString();
+    const backupKey = `${LOCAL_RECOVERY_BACKUP_PREFIX}${timestamp}`;
+    localStorage.setItem(backupKey, JSON.stringify({
+      createdAt: timestamp,
+      reason,
+      payload,
+    }));
+
+    const rawIndex = localStorage.getItem(LOCAL_RECOVERY_BACKUP_INDEX_KEY);
+    const parsedIndex = JSON.parse(rawIndex || "[]");
+    const index = Array.isArray(parsedIndex) ? parsedIndex : [];
+    index.push({ key: backupKey, createdAt: timestamp, reason });
+
+    while (index.length > LOCAL_RECOVERY_BACKUP_MAX_COUNT) {
+      const removed = index.shift();
+      if (removed?.key) {
+        localStorage.removeItem(removed.key);
+      }
+    }
+
+    localStorage.setItem(LOCAL_RECOVERY_BACKUP_INDEX_KEY, JSON.stringify(index));
+  } catch (error) {
+    // バックアップ保存失敗時も本処理は継続
+  }
+}
 
 const refs = {
   prevWeekBtn: document.getElementById("prevWeekBtn"),
@@ -289,7 +329,7 @@ async function init() {
 
   if (currentFirebaseUser) {
     startCloudListener();
-    if (currentUserAddedToStaff) {
+    if (currentUserAddedToStaff && hasMeaningfulScheduleData()) {
       saveState();
     }
   }
@@ -813,13 +853,12 @@ function bindEvents() {
           return;
         }
 
-        const ok = confirm(`${targetAccount.name} を削除します。よろしいですか？`);
+        const ok = confirm(`${targetAccount.name} を削除します。\n予定データは保護のため残し、アカウント表示のみ削除します。\nよろしいですか？`);
         if (!ok) {
           return;
         }
 
         state.staffAccounts.splice(index, 1);
-        deleteManualEntriesByUserName(targetAccount.name);
 
         if (state.currentUser === targetAccount.name) {
           state.currentUser = "";
@@ -828,7 +867,7 @@ function bindEvents() {
 
         refreshStaffFromAccounts();
         saveState();
-        setNotice(`${targetAccount.name} を削除しました。`);
+        setNotice(`${targetAccount.name} を削除しました。予定データは保護されています。`);
         await render();
         return;
       }
@@ -4085,6 +4124,7 @@ function saveState(options = {}) {
   const forceCloud = options?.forceCloud === true;
   const localPayload = buildLocalPayload();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(localPayload));
+  saveLocalRecoveryBackup(localPayload, "saveState");
 
   if (localOnly && !forceCloud) {
     return;
@@ -4099,6 +4139,7 @@ async function saveStateImmediately(options = {}) {
   const announce = options?.announce === true;
   const localPayload = buildLocalPayload();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(localPayload));
+  saveLocalRecoveryBackup(localPayload, "saveStateImmediately");
 
   if (!cloudSyncEnabled || !currentFirebaseUser || !firestoreDb) {
     return;
@@ -4113,6 +4154,7 @@ async function saveStateImmediately(options = {}) {
 function saveWeeklyBusinessNotesImmediately() {
   const localPayload = buildLocalPayload();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(localPayload));
+  saveLocalRecoveryBackup(localPayload, "saveWeeklyBusinessNotesImmediately");
 
   if (!cloudSyncEnabled || !currentFirebaseUser || !firestoreDb) {
     return;
@@ -4713,7 +4755,7 @@ async function handleAuthStateChanged(user) {
     await ensureBackgroundPushSubscription();
   }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(buildLocalPayload()));
-  if (currentUserAddedToStaff) {
+  if (currentUserAddedToStaff && hasMeaningfulScheduleData()) {
     saveState();
   }
   const signedInLabel = state.currentUser || state.currentUserId || "利用者";
