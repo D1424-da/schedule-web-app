@@ -2354,7 +2354,14 @@ input[type="date"] {
     width: 48%;
   }
 
-  .progress-bar-wrap {
+  .progress-project-summary > .progress-bar-wrap {
+    width: 96px;
+    max-width: 96px;
+    flex: 0 0 96px;
+  }
+
+  .progress-item-cell .progress-bar-wrap,
+  .progress-item-cell .progress-bar-wrap-wide {
     width: 100%;
     max-width: none;
   }
