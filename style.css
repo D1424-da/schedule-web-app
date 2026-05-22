@@ -1233,10 +1233,13 @@ input[type="date"] {
   }
 
   body[data-page="personal"] .controls .week-nav,
-  body[data-page="overall"] .controls .week-nav,
+  body[data-page="overall"] .controls .week-nav {
+    flex-wrap: nowrap;
+  }
+
   body[data-page="personal"] .monthly-card .month-nav,
   body[data-page="overall"] .monthly-card .month-nav {
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
   }
 
   body[data-page="personal"] #personalWeeklySection .table-wrap,
@@ -1272,7 +1275,7 @@ input[type="date"] {
 
   body[data-page="personal"] #progressSection .settings-header,
   body[data-page="overall"] #progressSection .settings-header {
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
   }
 
   .desktop-request-panel {
