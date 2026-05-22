@@ -1134,6 +1134,15 @@ input[type="date"] {
     overflow-x: hidden;
   }
 
+  .table-wrap {
+    touch-action: auto;
+    scrollbar-gutter: auto;
+  }
+
+  .table-scrollbar {
+    display: none !important;
+  }
+
   body[data-page="personal"] #personalWeeklySection,
   body[data-page="overall"] #overallWeeklySection {
     overflow-x: auto;

@@ -2851,6 +2851,9 @@ function bindTableScrollbarSync() {
   if (!tableScrollbarResizeBound) {
     tableScrollbarResizeBound = true;
     window.addEventListener("resize", () => {
+      if (window.innerWidth <= 768) {
+        return;
+      }
       syncTableScrollbar();
       syncMonthlyScrollbar();
     });
@@ -2859,6 +2862,13 @@ function bindTableScrollbarSync() {
 
 function syncTableScrollbar() {
   if (!refs.scheduleTable || !refs.scheduleScrollbar || !refs.scheduleScrollbarInner) {
+    return;
+  }
+
+  if (window.innerWidth <= 768) {
+    refs.scheduleScrollbar.classList.add("hidden");
+    refs.scheduleScrollbar.scrollLeft = 0;
+    refs.scheduleScrollbarInner.style.width = "1px";
     return;
   }
 
@@ -2920,6 +2930,13 @@ function bindMonthlyScrollbarSync() {
 
 function syncMonthlyScrollbar() {
   if (!refs.monthlyScheduleTable || !refs.monthlyScrollbar || !refs.monthlyScrollbarInner) {
+    return;
+  }
+
+  if (window.innerWidth <= 768) {
+    refs.monthlyScrollbar.classList.add("hidden");
+    refs.monthlyScrollbar.scrollLeft = 0;
+    refs.monthlyScrollbarInner.style.width = "1px";
     return;
   }
 
