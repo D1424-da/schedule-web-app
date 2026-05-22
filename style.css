@@ -2313,6 +2313,14 @@ input[type="date"] {
     gap: 4px;
   }
 
+  .progress-project-card[data-expanded="true"] .progress-project-summary {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: start;
+    width: 100%;
+    gap: 4px;
+  }
+
   .progress-project-card[data-expanded="true"] .progress-overall-label,
   .progress-project-card[data-expanded="true"] .progress-deadline-status,
   .progress-project-card[data-expanded="true"] .progress-deadline-date {
@@ -2360,6 +2368,13 @@ input[type="date"] {
     flex: 0 0 96px;
   }
 
+  .progress-project-card[data-expanded="true"] .progress-project-summary > .progress-bar-wrap {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    flex: initial;
+  }
+
   .progress-item-cell .progress-bar-wrap,
   .progress-item-cell .progress-bar-wrap-wide {
     width: 100%;
@@ -2379,6 +2394,10 @@ input[type="date"] {
 
   .progress-project-summary {
     gap: 4px;
+  }
+
+  .progress-project-card[data-expanded="true"] .progress-project-summary {
+    gap: 3px;
   }
 
   .progress-project-title {
