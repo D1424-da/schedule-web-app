@@ -2315,17 +2315,30 @@ input[type="date"] {
   }
 
   .progress-item-table {
-    width: max-content;
-    min-width: 100%;
+    width: 100%;
+    min-width: 0;
+    table-layout: fixed;
     font-size: 11px;
   }
 
+  .progress-item-table th,
+  .progress-item-table td {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    padding: 5px;
+  }
+
+  .progress-item-table .no-print {
+    display: none;
+  }
+
   .progress-item-name-cell {
-    min-width: 76px;
+    min-width: 0;
   }
 
   .progress-item-cell {
-    min-width: 112px;
+    min-width: 0;
   }
 }
 
@@ -2347,12 +2360,17 @@ input[type="date"] {
     font-size: 9px;
   }
 
+  .progress-item-table th,
+  .progress-item-table td {
+    padding: 4px;
+  }
+
   .progress-item-name-cell {
-    min-width: 64px;
+    min-width: 0;
   }
 
   .progress-item-cell {
-    min-width: 92px;
+    min-width: 0;
   }
 }
 
