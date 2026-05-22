@@ -2275,6 +2275,10 @@ input[type="date"] {
     overflow-x: hidden;
   }
 
+  :root {
+    --mobile-summary-bar-width: clamp(68px, 22vw, 92px);
+  }
+
   .progress-project-card {
     padding: 8px;
     border-radius: 8px;
@@ -2297,6 +2301,10 @@ input[type="date"] {
     width: 100%;
     flex-wrap: wrap;
     gap: 6px;
+  }
+
+  .progress-project-summary > * {
+    min-width: 0;
   }
 
   .progress-overall-label,
@@ -2354,18 +2362,23 @@ input[type="date"] {
 
   .progress-item-name-cell {
     min-width: 0;
-    width: 32%;
+    width: 28%;
   }
 
   .progress-item-cell {
     min-width: 0;
-    width: 48%;
+    width: 44%;
+  }
+
+  .progress-item-table th:nth-child(3),
+  .progress-item-table td:nth-child(3) {
+    width: 28%;
   }
 
   .progress-project-summary > .progress-bar-wrap {
-    width: 96px;
-    max-width: 96px;
-    flex: 0 0 96px;
+    width: var(--mobile-summary-bar-width);
+    max-width: var(--mobile-summary-bar-width);
+    flex: 0 0 var(--mobile-summary-bar-width);
   }
 
   .progress-project-card[data-expanded="true"] .progress-project-summary > .progress-bar-wrap {
@@ -2379,6 +2392,26 @@ input[type="date"] {
   .progress-item-cell .progress-bar-wrap-wide {
     width: 100%;
     max-width: none;
+  }
+
+  .progress-input-row {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .progress-input-controls {
+    max-width: 100%;
+  }
+
+  .progress-pct-input {
+    width: 56px;
+    padding-inline: 6px;
+  }
+
+  .progress-increment-btn,
+  .progress-decrement-btn {
+    width: 22px;
+    height: 22px;
   }
 }
 
@@ -2421,16 +2454,25 @@ input[type="date"] {
   }
 
   .progress-item-name-cell {
-    width: 34%;
+    width: 26%;
   }
 
   .progress-item-cell {
-    width: 46%;
+    width: 42%;
+  }
+
+  .progress-item-table th:nth-child(3),
+  .progress-item-table td:nth-child(3) {
+    width: 32%;
   }
 
   .progress-item-table th,
   .progress-item-table td {
     padding: 4px;
+  }
+
+  .progress-pct-input {
+    width: 52px;
   }
 }
 
