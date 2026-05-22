@@ -2084,21 +2084,6 @@ async function handleProgressListClick(event) {
         if (emptyMsg && emptyMsg.parentElement === card) emptyMsg.style.display = "none";
         if (toggle) toggle.textContent = "▶";
       } else {
-        // 1件だけ展開する: 他ユーザー/他現場のカードは先に閉じる
-        const allCards = refs.progressProjectList?.querySelectorAll(".progress-project-card") || [];
-        allCards.forEach((otherCard) => {
-          if (!(otherCard instanceof HTMLElement) || otherCard === card) {
-            return;
-          }
-          otherCard.dataset.expanded = "false";
-          const otherContainer = otherCard.querySelector(".progress-items-container");
-          const otherEmptyMsg = otherCard.querySelector(".progress-items-container ~ .subtitle-mini");
-          const otherToggle = otherCard.querySelector(".progress-project-toggle");
-          if (otherContainer) otherContainer.style.display = "none";
-          if (otherEmptyMsg && otherEmptyMsg.parentElement === otherCard) otherEmptyMsg.style.display = "none";
-          if (otherToggle) otherToggle.textContent = "▶";
-        });
-
         card.dataset.expanded = "true";
         if (container) container.style.display = "block";
         if (emptyMsg && emptyMsg.parentElement === card) emptyMsg.style.display = "block";
