@@ -1216,10 +1216,13 @@ input[type="date"] {
   }
 
   body[data-page="personal"] #personalBusinessNoteSection,
-  body[data-page="overall"] #overallBusinessNoteSection,
+  body[data-page="overall"] #overallBusinessNoteSection {
+    overflow-x: hidden;
+  }
+
   body[data-page="personal"] #progressSection,
   body[data-page="overall"] #progressSection {
-    overflow-x: hidden;
+    overflow-x: visible;
   }
 
   body[data-page="personal"] #personalBusinessNoteSection > *,
@@ -1495,8 +1498,8 @@ input[type="date"] {
     overflow-y: visible;
     -webkit-overflow-scrolling: touch;
     scrollbar-gutter: stable;
-    margin-inline: -3px;
-    padding-inline: 3px;
+    margin-inline: 0;
+    padding-inline: 0;
     max-width: 100%;
   }
 
@@ -1848,8 +1851,8 @@ input[type="date"] {
     overflow-y: visible;
     -webkit-overflow-scrolling: touch;
     scrollbar-gutter: stable;
-    margin-inline: -2px;
-    padding-inline: 2px;
+    margin-inline: 0;
+    padding-inline: 0;
     max-width: 100%;
   }
 
