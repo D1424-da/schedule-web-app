@@ -909,9 +909,37 @@ function bindEvents() {
           return;
         }
 
-        const ok = confirm(`${targetAccount.name} を削除します。\n予定データは保護のため残し、アカウント表示のみ削除します。\nよろしいですか？`);
+        const ok = confirm(`${targetAccount.name} を削除します。\nこのユーザーの予定・業務メモ・工程管理データも全て削除されます。\nよろしいですか？`);
         if (!ok) {
           return;
+        }
+
+        // ユーザーID取得
+        const loginId = normalizeLoginId(targetAccount.id || targetAccount.name);
+
+        // 予定データ削除
+        if (state.manualEntries) {
+          Object.keys(state.manualEntries).forEach((key) => {
+            if (key.startsWith(`${loginId}::`)) {
+              delete state.manualEntries[key];
+            }
+          });
+        }
+        // 業務メモ削除
+        if (state.weeklyBusinessNotes) {
+          Object.keys(state.weeklyBusinessNotes).forEach((key) => {
+            if (key.startsWith(`${loginId}::`)) {
+              delete state.weeklyBusinessNotes[key];
+            }
+          });
+        }
+        // 工程管理データ削除
+        if (state.progressProjectsByUser && state.progressProjectsByUser[loginId]) {
+          delete state.progressProjectsByUser[loginId];
+        }
+        // 確認依頼データ削除（該当ユーザーが関係するものを全て削除）
+        if (Array.isArray(state.confirmationRequests)) {
+          state.confirmationRequests = state.confirmationRequests.filter((req) => req.targetId !== loginId && req.requesterId !== loginId);
         }
 
         state.staffAccounts.splice(index, 1);
@@ -923,7 +951,7 @@ function bindEvents() {
 
         refreshStaffFromAccounts();
         saveState();
-        setNotice(`${targetAccount.name} を削除しました。予定データは保護されています。`);
+        setNotice(`${targetAccount.name} を削除しました。関連データも全て削除されました。`);
         await render();
         return;
       }
