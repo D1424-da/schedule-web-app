@@ -4,27 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
-      <style>
-      /* 印刷用A4横レイアウト */
-      @media print {
-        @page {
-          size: A4 landscape;
-          margin: 15mm;
-        }
-        body {
-          width: 100%;
-          margin: 0;
-          background: white;
-        }
-        .no-print {
-          display: none !important;
-        }
-        /* 必要に応じて表や業務欄のレイアウト調整を追加 */
-      }
-      </style>
     <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet" />
     <title>管理者ページ | 週間予定表管理システム</title>
-      <!-- 印刷ボタンはbody内に配置 -->
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <link rel="stylesheet" href="style.css?v=20260523a" />
   </head>
@@ -34,8 +15,8 @@
       <p class="subtitle">登録・休日設定・全体編集</p>
       <div class="page-links">
         <a href="index.html" class="btn btn-ghost">入口へ戻る</a>
-        <button class="btn btn-secondary no-print" type="button" onclick="window.print()">印刷</button>
-        <button class="btn btn-secondary no-print" type="button" onclick="downloadPdf()">PDFダウンロード</button>
+        <button id="printPageBtn" class="btn btn-secondary no-print" type="button">印刷</button>
+        <button id="downloadPdfBtn" class="btn btn-secondary no-print" type="button">PDFダウンロード</button>
       </div>
       <div class="auth-bar">
         <span id="currentUserLabel" class="current-user">ログイン: 未ログイン</span>
@@ -49,21 +30,6 @@
         <span id="notificationStatus" class="notification-status">端末通知: 未設定</span>
       </div>
     </header>
-
-    <script>
-    function downloadPdf() {
-      // PDF化したい範囲を指定（例：body全体）
-      const element = document.body;
-      const opt = {
-      margin:       0.5,
-      filename:     '週間作業予定表.pdf',
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2 },
-      jsPDF:        { unit: 'cm', format: 'a4', orientation: 'landscape' }
-      };
-      html2pdf().set(opt).from(element).save();
-    }
-    </script>
     <main class="container">
       <p id="adminOnlyNotice" class="admin-only-notice hidden" aria-live="polite">
         このページは管理者専用です。個人/全体ページでログイン後に遷移してください。

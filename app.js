@@ -153,6 +153,8 @@ const refs = {
   monthlyScrollbarInner: document.getElementById("monthlyScrollbarInner"),
   notice: document.getElementById("notice"),
   currentUserLabel: document.getElementById("currentUserLabel"),
+  printPageBtn: document.getElementById("printPageBtn"),
+  downloadPdfBtn: document.getElementById("downloadPdfBtn"),
   openLoginBtn: document.getElementById("openLoginBtn"),
   logoutBtn: document.getElementById("logoutBtn"),
   toggleSettingsBtn: document.getElementById("toggleSettingsBtn"),
@@ -580,6 +582,32 @@ function bindEvents() {
       saveWeeklyBusinessNotesImmediately();
       renderWeeklyBusinessNotes();
       setNotice("業務欄を保存しました。全体ページへ即時反映しました。");
+    });
+  }
+
+  if (refs.printPageBtn) {
+    refs.printPageBtn.addEventListener("click", () => {
+      window.print();
+    });
+  }
+
+  if (refs.downloadPdfBtn) {
+    refs.downloadPdfBtn.addEventListener("click", () => {
+      if (typeof window.html2pdf !== "function") {
+        setNotice("PDFライブラリの読込に失敗しました。ページを再読み込みしてください。");
+        return;
+      }
+
+      const element = document.body;
+      const opt = {
+        margin: 0.5,
+        filename: "週間作業予定表.pdf",
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: "cm", format: "a4", orientation: "landscape" },
+      };
+
+      window.html2pdf().set(opt).from(element).save();
     });
   }
 

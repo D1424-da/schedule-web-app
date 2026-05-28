@@ -16,8 +16,8 @@
       <div class="page-links">
         <a href="personal.html" class="btn btn-secondary">個人入力ページへ</a>
         <a href="index.html" class="btn btn-ghost">入口へ戻る</a>
-        <button class="btn btn-secondary no-print" type="button" onclick="window.print()">印刷</button>
-        <button class="btn btn-secondary no-print" type="button" onclick="downloadPdf()">PDFダウンロード</button>
+        <button id="printPageBtn" class="btn btn-secondary no-print" type="button">印刷</button>
+        <button id="downloadPdfBtn" class="btn btn-secondary no-print" type="button">PDFダウンロード</button>
       </div>
       <div class="auth-bar">
         <span id="currentUserLabel" class="current-user">ログイン: 未ログイン</span>
@@ -300,20 +300,6 @@
         </div>
       </form>
     </dialog>
-
-    <script>
-    function downloadPdf() {
-      const element = document.body;
-      const opt = {
-        margin: 0.5,
-        filename: "週間作業予定表.pdf",
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: "cm", format: "a4", orientation: "landscape" }
-      };
-      html2pdf().set(opt).from(element).save();
-    }
-    </script>
 
     <script src="firebase-config.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
