@@ -1392,7 +1392,7 @@ async function render() {
   renderTable(weekDates);
   renderWeeklyBusinessNotes();
   renderProgressSection();
-  renderMonthlyCalendar();
+  await renderMonthlyCalendar();
   renderUserOrderList();
   renderPasswordChangeUserOptions();
   renderBackupRestoreOptions();
@@ -1955,7 +1955,7 @@ async function saveProgressProject() {
 
   closeDialog(refs.progressProjectDialog);
   renderProgressSection();
-  renderMonthlyCalendar();
+  await renderMonthlyCalendar();
   await saveStateImmediately();
   setNotice(progressEditProjectId ? "現場を更新しました。" : "現場を追加しました。");
 }
@@ -2149,7 +2149,7 @@ async function handleProgressListClick(event) {
       }
 
       renderProgressSection();
-      renderMonthlyCalendar();
+      await renderMonthlyCalendar();
       await saveStateImmediately();
     } else if (action === "edit-project") {
       progressEditProjectOwnerUserId = normalizeLoginId(userId || state.currentUserId);
@@ -2167,7 +2167,7 @@ async function handleProgressListClick(event) {
         entryD.projects = (entryD.projects || []).filter((p) => p.id !== projectId);
       }
       renderProgressSection();
-      renderMonthlyCalendar();
+      await renderMonthlyCalendar();
       await saveStateImmediately();
       setNotice("業務を削除しました。");
     } else if (action === "edit-item") {
@@ -2461,7 +2461,7 @@ function renderTable(weekDates) {
   syncTableScrollbar();
 }
 
-function renderMonthlyCalendar() {
+async function renderMonthlyCalendar() {
   if (!refs.monthlyScheduleTable || !refs.monthLabel) {
     return;
   }
@@ -2471,6 +2471,7 @@ function renderMonthlyCalendar() {
 
   const monthStart = getMonthStart(state.currentMonthStart || new Date());
   state.currentMonthStart = monthStart;
+  await ensureHolidayCache(getDatesInMonth(monthStart));
   refs.monthLabel.textContent = `${monthStart.getFullYear()}年${monthStart.getMonth() + 1}月`;
 
   if (isPersonalPage) {
