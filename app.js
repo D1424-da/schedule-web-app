@@ -4347,6 +4347,29 @@ function saveState(options = {}) {
 }
 
 async function saveStateImmediately(options = {}) {
+    // --- Firestore自動バックアップ（2週間分のみ保持） ---
+    try {
+      if (cloudSyncEnabled && currentFirebaseUser && firestoreDb) {
+        const backupDate = new Date();
+        const backupId = backupDate.toISOString().replace(/[:.]/g, "-");
+        const backupRef = firestoreDb.collection("backups").doc(backupId);
+        const backupPayload = buildCloudPayload(options?.announce === true);
+        // バックアップ保存
+        await backupRef.set({
+          ...backupPayload,
+          backupCreatedAt: backupDate.toISOString(),
+          backupBy: state.currentUser || state.currentUserId || "system"
+        });
+        // 14日より古いバックアップを削除
+        const twoWeeksAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+        const oldBackups = await firestoreDb.collection("backups")
+          .where("backupCreatedAt", "<", twoWeeksAgo.toISOString())
+          .get();
+        oldBackups.forEach(doc => doc.ref.delete());
+      }
+    } catch (e) {
+      // バックアップ失敗時も本処理は継続
+    }
   const announce = options?.announce === true;
   const localPayload = buildLocalPayload();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(localPayload));
