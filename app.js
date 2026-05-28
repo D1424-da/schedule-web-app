@@ -371,6 +371,7 @@ async function init() {
   loadNotificationPreferences();
   await waitForInitialAuthState();
   await loadState();
+  refreshStaffFromAccounts();
   const removedLegacyTestUsers = purgeLegacyTestUsersFromState();
   if (removedLegacyTestUsers) {
     refreshStaffFromAccounts();
@@ -577,7 +578,7 @@ function bindEvents() {
           text,
           updatedAt: new Date().toISOString(),
           updatedById: loginId,
-          updatedByName: state.currentUser || loginId,
+          updatedByName: getVisibleUserLabel(loginId),
         };
       }
 
@@ -3225,12 +3226,16 @@ function renderUserOrderList() {
   }
 
   refs.userOrderList.innerHTML = "";
+  const visibleAccounts = state.staffAccounts
+    .map((account, index) => ({ account, index }))
+    .filter(({ account }) => !isAdminLoginId(normalizeLoginId(account?.id)));
 
-  state.staffAccounts.forEach((account, index) => {
+  visibleAccounts.forEach(({ account, index }, visibleIndex) => {
     const li = document.createElement("li");
     li.className = "user-order-item";
     li.draggable = true;
     li.dataset.index = String(index);
+    li.dataset.accountId = normalizeLoginId(account.id);
 
     const handle = document.createElement("span");
     handle.className = "drag-handle";
@@ -3263,7 +3268,7 @@ function renderUserOrderList() {
     downBtn.textContent = "↓";
     downBtn.dataset.action = "down";
     downBtn.dataset.index = String(index);
-    downBtn.disabled = index === state.staffAccounts.length - 1;
+    downBtn.disabled = visibleIndex === visibleAccounts.length - 1;
 
     const deleteBtn = document.createElement("button");
     deleteBtn.type = "button";
@@ -3462,7 +3467,13 @@ function populateRequestTargetOptions(ownerName) {
 
   const requesterId = normalizeLoginId(state.currentUserId);
   const candidates = state.staffAccounts
-    .filter((account) => normalizeLoginId(account.id) !== requesterId && account.name !== ownerName)
+    .filter((account) => {
+      const accountId = normalizeLoginId(account.id);
+      return Boolean(accountId)
+        && !isAdminLoginId(accountId)
+        && accountId !== requesterId
+        && account.name !== ownerName;
+    })
     .map((account) => ({
       id: normalizeLoginId(account.id),
       name: account.name,
@@ -4364,8 +4375,23 @@ function syncAuthUi() {
   if (!refs.currentUserLabel) {
     return;
   }
-  const userLabel = state.currentUser || "未ログイン";
+  const userLabel = getVisibleUserLabel("未ログイン");
   refs.currentUserLabel.textContent = `ログイン: ${userLabel}${state.isAdmin ? " [管理者]" : ""}`;
+}
+
+function getVisibleUserLabel(fallback = "") {
+  const loginId = normalizeLoginId(state.currentUserId);
+  if (state.isAdmin || isAdminLoginId(loginId)) {
+    return "管理者";
+  }
+
+  const name = normalizeDisplayName(state.currentUser || "");
+  if (name && !isAdminLoginId(name)) {
+    return name;
+  }
+
+  const fallbackText = String(fallback || "").trim();
+  return fallbackText || "";
 }
 
 function syncAdminUi() {
@@ -4523,7 +4549,7 @@ async function saveStateImmediately(options = {}) {
         await backupRef.set({
           ...backupPayload,
           backupCreatedAt: backupDate.toISOString(),
-          backupBy: state.currentUser || state.currentUserId || "system"
+          backupBy: getVisibleUserLabel(state.currentUserId || "system")
         }, { merge: true });
         // 14日より古いバックアップを削除
         const twoWeeksAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
@@ -4568,7 +4594,7 @@ function saveWeeklyBusinessNotesImmediately() {
 
   const payload = {
     weeklyBusinessNotes: state.weeklyBusinessNotes,
-    updatedByName: state.currentUser || (isPersonalPage ? "未ログイン利用者" : "管理画面"),
+    updatedByName: getVisibleUserLabel(isPersonalPage ? "未ログイン利用者" : "管理画面"),
     updatedById: state.currentUserId || "",
     updatedByPage: pageMode,
     notifyScope: "silent",
@@ -4613,7 +4639,7 @@ function buildCloudPayload(announce = false) {
     confirmationRequests: state.confirmationRequests,
     weeklyBusinessNotes: state.weeklyBusinessNotes,
     progressProjectsByUser: state.progressProjectsByUser,
-    updatedByName: state.currentUser || (isPersonalPage ? "未ログイン利用者" : "管理画面"),
+    updatedByName: getVisibleUserLabel(isPersonalPage ? "未ログイン利用者" : "管理画面"),
     updatedById: state.currentUserId || "",
     updatedByPage: pageMode,
     notifyScope: announce ? "announce" : "silent",
@@ -4698,6 +4724,8 @@ function applyLoadedData(data, restoreSession = true) {
       state.currentUserId = findLoginIdByUserName(state.currentUser) || "";
     }
   }
+
+  refreshStaffFromAccounts();
 
   syncManualEntryKeySnapshotFromState();
 }
@@ -5796,7 +5824,24 @@ function syncCurrentUserFromLoginId() {
 }
 
 function refreshStaffFromAccounts() {
-  const names = state.staffAccounts.map((item) => item.name).filter((name) => Boolean(name));
+  const seenIds = new Set();
+  const nextStaffAccounts = [];
+
+  for (const item of state.staffAccounts || []) {
+    const account = toStaffAccount(item || {});
+    const accountId = normalizeLoginId(account.id);
+    if (!accountId || isAdminLoginId(accountId) || seenIds.has(accountId)) {
+      continue;
+    }
+    seenIds.add(accountId);
+    nextStaffAccounts.push(account);
+  }
+
+  state.staffAccounts = nextStaffAccounts;
+
+  const names = nextStaffAccounts
+    .map((item) => normalizeDisplayName(item.name || item.id || ""))
+    .filter((name) => Boolean(name));
   state.staff = [...new Set(names)];
 }
 
