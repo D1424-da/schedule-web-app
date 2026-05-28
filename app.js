@@ -4383,7 +4383,7 @@ async function saveStateImmediately(options = {}) {
           ...backupPayload,
           backupCreatedAt: backupDate.toISOString(),
           backupBy: state.currentUser || state.currentUserId || "system"
-        });
+        }, { merge: true });
         // 14日より古いバックアップを削除
         const twoWeeksAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
         const oldBackups = await firestoreDb.collection("backups")
