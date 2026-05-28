@@ -2528,84 +2528,52 @@ function renderSingleMonthlyTable({ tableEl, monthStart, targetName }) {
 
 function getOverallProjectOwners() {
   const owners = [];
-  const seenKeys = new Set();
-  const inputLoginIds = new Set();
-  const inputNames = new Set();
+  const seenIds = new Set();
+  const projectOwnerIds = new Set();
 
   const addOwner = (loginId, displayName) => {
     const normalizedLoginId = normalizeLoginId(loginId);
-    if (normalizedLoginId && isAdminLoginId(normalizedLoginId)) {
+    if (!normalizedLoginId || isAdminLoginId(normalizedLoginId) || seenIds.has(normalizedLoginId)) {
       return;
     }
 
     const resolvedDisplayName = normalizeDisplayName(
-      displayName || (normalizedLoginId ? resolveRowNameByLoginId(normalizedLoginId, normalizedLoginId) : ""),
+      displayName || resolveRowNameByLoginId(normalizedLoginId, normalizedLoginId),
     );
     if (!resolvedDisplayName) {
       return;
     }
 
-    const key = normalizedLoginId || `name:${resolvedDisplayName}`;
-    if (seenKeys.has(key)) {
-      return;
-    }
-    seenKeys.add(key);
+    seenIds.add(normalizedLoginId);
 
     owners.push({
-      loginId: normalizedLoginId || findLoginIdByUserName(resolvedDisplayName) || "",
+      loginId: normalizedLoginId,
       displayName: resolvedDisplayName,
     });
   };
 
   for (const [loginId, entry] of Object.entries(state.progressProjectsByUser || {})) {
     const normalizedLoginId = normalizeLoginId(loginId);
-    if (normalizedLoginId) {
-      inputLoginIds.add(normalizedLoginId);
-    }
-    const inputName = normalizeDisplayName(entry?.userName || resolveRowNameByLoginId(normalizedLoginId, normalizedLoginId));
-    if (inputName) {
-      inputNames.add(inputName);
-    }
-
-    const account = findAccountByLoginId(normalizedLoginId);
-    const accountName = normalizeDisplayName(account?.name || "");
-    if (accountName) {
-      inputNames.add(accountName);
-    }
-  }
-
-  for (const key of Object.keys(state.manualEntries || {})) {
-    const separatorIndex = key.indexOf("::");
-    if (separatorIndex <= 0) {
+    const projects = Array.isArray(entry?.projects) ? entry.projects : [];
+    if (!normalizedLoginId || projects.length === 0 || isAdminLoginId(normalizedLoginId)) {
       continue;
     }
-
-    const name = normalizeDisplayName(key.slice(0, separatorIndex));
-    if (!name) {
-      continue;
-    }
-
-    inputNames.add(name);
-    const loginId = normalizeLoginId(findLoginIdByUserName(name));
-    if (loginId) {
-      inputLoginIds.add(loginId);
-    }
+    projectOwnerIds.add(normalizedLoginId);
   }
 
-  // 表示順はスタッフ並びを優先しつつ、入力データがあるユーザーのみを採用する
+  // 表示順はスタッフ並びを優先し、工程管理に入力のあるユーザーだけを採用する
   for (const account of state.staffAccounts || []) {
     const accountLoginId = normalizeLoginId(account?.id);
-    const accountName = normalizeDisplayName(account?.name || "");
-    const hasInput = (accountLoginId && inputLoginIds.has(accountLoginId)) || (accountName && inputNames.has(accountName));
-    if (!hasInput) {
+    if (!accountLoginId || !projectOwnerIds.has(accountLoginId)) {
       continue;
     }
-    addOwner(accountLoginId, accountName);
+    addOwner(accountLoginId, account?.name);
   }
 
-  // スタッフ未登録の入力名があれば末尾に追加
-  for (const name of inputNames) {
-    addOwner(findLoginIdByUserName(name), name);
+  // スタッフ未登録の工程管理入力ユーザーがあれば末尾に追加
+  for (const loginId of projectOwnerIds) {
+    const entry = state.progressProjectsByUser?.[loginId];
+    addOwner(loginId, entry?.userName || resolveRowNameByLoginId(loginId, loginId));
   }
 
   return owners;
