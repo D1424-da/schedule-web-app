@@ -182,6 +182,7 @@ const refs = {
   requestTargetInput: document.getElementById("requestTargetInput"),
   requestMessageInput: document.getElementById("requestMessageInput"),
   clearEntryBtn: document.getElementById("clearEntryBtn"),
+  deleteEntryBtn: document.getElementById("deleteEntryBtn"),
   cancelEntryBtn: document.getElementById("cancelEntryBtn"),
   loginDialog: document.getElementById("loginDialog"),
   loginForm: document.getElementById("loginForm"),
@@ -1117,16 +1118,30 @@ function bindEvents() {
     });
   }
 
+
   if (refs.clearEntryBtn) {
-      refs.clearEntryBtn.addEventListener("click", async () => {
-        if (!state.editTarget) {
-          return;
-        }
-        if (!canEditRow(state.editTarget.name)) {
-          setNotice("本人の行、または管理者として編集できます。");
-          return;
-        }
-  
+    refs.clearEntryBtn.addEventListener("click", async () => {
+      // 旧「手動入力を解除」ボタンの動作（必要なら残す）
+      if (!state.editTarget) {
+        return;
+      }
+      if (!canEditRow(state.editTarget.name)) {
+        setNotice("本人の行、または管理者として編集できます。");
+        return;
+      }
+      // ここに「手動入力を解除」用の処理があれば記述
+    });
+  }
+
+  if (refs.deleteEntryBtn) {
+    refs.deleteEntryBtn.addEventListener("click", async () => {
+      if (!state.editTarget) {
+        return;
+      }
+      if (!canEditRow(state.editTarget.name)) {
+        setNotice("本人の行、または管理者として編集できます。");
+        return;
+      }
       const key = entryKey(state.editTarget.name, state.editTarget.date);
       if (state.manualEntries[key]?.approvedByRequest) {
         const ok = confirm("確認変更済みの予定です。変更しますか？");
@@ -1134,7 +1149,6 @@ function bindEvents() {
           return;
         }
       }
-
       delete state.manualEntries[key];
       markScheduleNeedsFinalize();
       await saveStateImmediately();
