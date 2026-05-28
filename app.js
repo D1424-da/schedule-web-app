@@ -1,3 +1,5 @@
+// 直前にFirestoreから消すべきmanualEntriesキーを記録
+let lastDeletedManualEntryKey = null;
 const STORAGE_KEY = "weekly-schedule-v1";
 const LOCAL_RECOVERY_BACKUP_INDEX_KEY = "weekly-schedule-backup-index-v1";
 const LOCAL_RECOVERY_BACKUP_PREFIX = "weekly-schedule-backup-v1-";
@@ -1135,6 +1137,7 @@ function bindEvents() {
 
   if (refs.deleteEntryBtn) {
     refs.deleteEntryBtn.addEventListener("click", async () => {
+      lastDeletedManualEntryKey = null;
       console.log("[予定を削除] ボタンがクリックされました", state.editTarget);
       if (!state.editTarget) {
         console.log("[予定を削除] state.editTargetが未設定のため中断");
@@ -1146,6 +1149,7 @@ function bindEvents() {
         return;
       }
       const key = entryKey(state.editTarget.name, state.editTarget.date);
+      lastDeletedManualEntryKey = key;
       console.log("[予定を削除] 削除対象key:", key, "現state:", state.manualEntries[key]);
       if (state.manualEntries[key]?.approvedByRequest) {
         const ok = confirm("確認変更済みの予定です。変更しますか？");
@@ -4458,11 +4462,21 @@ function buildLocalPayload() {
 }
 
 function buildCloudPayload(announce = false) {
+  // manualEntriesが空ならフィールド自体をFirestoreから削除
+  let manualEntries = state.manualEntries;
+  if (manualEntries && Object.keys(manualEntries).length === 0 && typeof firebase !== "undefined" && firebase.firestore && firebase.firestore.FieldValue) {
+    manualEntries = firebase.firestore.FieldValue.delete();
+  } else if (lastDeletedManualEntryKey && typeof firebase !== "undefined" && firebase.firestore && firebase.firestore.FieldValue) {
+    // 直前に削除したキーをFirestoreからも消す
+    manualEntries = { ...manualEntries };
+    manualEntries[lastDeletedManualEntryKey] = firebase.firestore.FieldValue.delete();
+    lastDeletedManualEntryKey = null;
+  }
   return {
     currentWeekStart: toISODate(state.currentWeekStart),
     staff: state.staff,
     staffAccounts: state.staffAccounts,
-    manualEntries: state.manualEntries,
+    manualEntries,
     settings: state.settings,
     confirmationRequests: state.confirmationRequests,
     weeklyBusinessNotes: state.weeklyBusinessNotes,
