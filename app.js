@@ -2325,7 +2325,11 @@ function renderTable(weekDates) {
       btn.innerHTML = renderCellHtml(entry);
 
       if (isEditable) {
-        btn.addEventListener("click", () => openEditDialog(name, dateStr, entry));
+        btn.addEventListener("click", () => {
+          // 最新の手動入力データを必ず渡す
+          const manualEntry = state.manualEntries[entryKey(name, dateStr)];
+          openEditDialog(name, dateStr, manualEntry);
+        });
       } else {
         btn.disabled = true;
         btn.title = state.isAdmin
