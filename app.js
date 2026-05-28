@@ -272,6 +272,46 @@ function closeDialog(dialog) {
 init();
 
 async function init() {
+      // ユーザー削除後の状態を即時保存・画面反映
+      await saveState();
+      await render();
+    // --- 指定ユーザーの完全削除（管理者用・一時処理） ---
+    const deleteNames = ["テスト", "テスト１", "テスト2", "テスト２"];
+    // 「テスト2」と「テスト２」両方対応
+    for (const delName of deleteNames) {
+      // staffAccounts から削除
+      const idx = state.staffAccounts.findIndex(acc => acc.name === delName);
+      if (idx !== -1) {
+        const acc = state.staffAccounts[idx];
+        const loginId = (typeof normalizeLoginId === 'function') ? normalizeLoginId(acc.id || acc.name) : (acc.id || acc.name);
+        // 予定データ削除
+        if (state.manualEntries) {
+          Object.keys(state.manualEntries).forEach((key) => {
+            if (key.startsWith(`${loginId}::`)) {
+              delete state.manualEntries[key];
+            }
+          });
+        }
+        // 業務メモ削除
+        if (state.weeklyBusinessNotes) {
+          Object.keys(state.weeklyBusinessNotes).forEach((key) => {
+            if (key.startsWith(`${loginId}::`)) {
+              delete state.weeklyBusinessNotes[key];
+            }
+          });
+        }
+        // 工程管理データ削除
+        if (state.progressProjectsByUser && state.progressProjectsByUser[loginId]) {
+          delete state.progressProjectsByUser[loginId];
+        }
+        // 確認依頼データ削除
+        if (Array.isArray(state.confirmationRequests)) {
+          state.confirmationRequests = state.confirmationRequests.filter((req) => req.targetId !== loginId && req.requesterId !== loginId);
+        }
+        state.staffAccounts.splice(idx, 1);
+      }
+    }
+    // --- 完全削除ここまで ---
   initCloudStore();
   loadAuthProfileMap();
   loadNotificationPreferences();
