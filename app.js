@@ -2528,6 +2528,8 @@ function renderSingleMonthlyTable({ tableEl, monthStart, targetName }) {
 function getOverallProjectOwners() {
   const owners = [];
   const seenKeys = new Set();
+  const inputLoginIds = new Set();
+  const inputNames = new Set();
 
   const addOwner = (loginId, displayName) => {
     const normalizedLoginId = normalizeLoginId(loginId);
@@ -2554,20 +2556,21 @@ function getOverallProjectOwners() {
     });
   };
 
-  for (const account of state.staffAccounts || []) {
-    addOwner(account?.id, account?.name);
-  }
-
   for (const [loginId, entry] of Object.entries(state.progressProjectsByUser || {})) {
     const normalizedLoginId = normalizeLoginId(loginId);
+    if (normalizedLoginId) {
+      inputLoginIds.add(normalizedLoginId);
+    }
+    const inputName = normalizeDisplayName(entry?.userName || resolveRowNameByLoginId(normalizedLoginId, normalizedLoginId));
+    if (inputName) {
+      inputNames.add(inputName);
+    }
+
     const account = findAccountByLoginId(normalizedLoginId);
-    addOwner(
-      normalizedLoginId,
-      account?.name
-        || entry?.userName
-        || resolveRowNameByLoginId(normalizedLoginId, normalizedLoginId)
-        || normalizedLoginId,
-    );
+    const accountName = normalizeDisplayName(account?.name || "");
+    if (accountName) {
+      inputNames.add(accountName);
+    }
   }
 
   for (const key of Object.keys(state.manualEntries || {})) {
@@ -2581,6 +2584,26 @@ function getOverallProjectOwners() {
       continue;
     }
 
+    inputNames.add(name);
+    const loginId = normalizeLoginId(findLoginIdByUserName(name));
+    if (loginId) {
+      inputLoginIds.add(loginId);
+    }
+  }
+
+  // 表示順はスタッフ並びを優先しつつ、入力データがあるユーザーのみを採用する
+  for (const account of state.staffAccounts || []) {
+    const accountLoginId = normalizeLoginId(account?.id);
+    const accountName = normalizeDisplayName(account?.name || "");
+    const hasInput = (accountLoginId && inputLoginIds.has(accountLoginId)) || (accountName && inputNames.has(accountName));
+    if (!hasInput) {
+      continue;
+    }
+    addOwner(accountLoginId, accountName);
+  }
+
+  // スタッフ未登録の入力名があれば末尾に追加
+  for (const name of inputNames) {
     addOwner(findLoginIdByUserName(name), name);
   }
 
