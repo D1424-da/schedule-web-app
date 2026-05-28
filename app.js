@@ -270,54 +270,115 @@ function closeDialog(dialog) {
   dialog.removeAttribute("open");
 }
 
+function canonicalizeLegacyTestId(value) {
+  return normalizeLoginId(value)
+    .replaceAll("１", "1")
+    .replaceAll("２", "2");
+}
+
+function purgeLegacyTestUsersFromState() {
+  // 削除対象は要望どおり「テスト」「テスト2（全角/半角表記ゆれ）」のみ
+  const legacyCanonIds = new Set(["テスト", "テスト2"].map(canonicalizeLegacyTestId));
+  let changed = false;
+
+  const removedCanonIds = new Set();
+  const nextStaffAccounts = [];
+
+  for (const account of state.staffAccounts || []) {
+    const idCanon = canonicalizeLegacyTestId(account?.id || "");
+    const nameCanon = canonicalizeLegacyTestId(account?.name || "");
+    const shouldRemove = legacyCanonIds.has(idCanon) || legacyCanonIds.has(nameCanon);
+    if (shouldRemove) {
+      changed = true;
+      if (idCanon) {
+        removedCanonIds.add(idCanon);
+      }
+      if (nameCanon) {
+        removedCanonIds.add(nameCanon);
+      }
+      continue;
+    }
+    nextStaffAccounts.push(account);
+  }
+
+  if (changed) {
+    state.staffAccounts = nextStaffAccounts;
+  }
+
+  const shouldRemoveByOwner = (ownerId) => {
+    const canon = canonicalizeLegacyTestId(ownerId || "");
+    return legacyCanonIds.has(canon) || removedCanonIds.has(canon);
+  };
+
+  if (state.manualEntries && typeof state.manualEntries === "object") {
+    for (const key of Object.keys(state.manualEntries)) {
+      const ownerId = String(key).split("::")[0] || "";
+      if (shouldRemoveByOwner(ownerId)) {
+        delete state.manualEntries[key];
+        changed = true;
+      }
+    }
+  }
+
+  if (state.weeklyBusinessNotes && typeof state.weeklyBusinessNotes === "object") {
+    for (const key of Object.keys(state.weeklyBusinessNotes)) {
+      const ownerId = String(key).split("::")[0] || "";
+      if (shouldRemoveByOwner(ownerId)) {
+        delete state.weeklyBusinessNotes[key];
+        changed = true;
+      }
+    }
+  }
+
+  if (state.progressProjectsByUser && typeof state.progressProjectsByUser === "object") {
+    for (const ownerId of Object.keys(state.progressProjectsByUser)) {
+      if (shouldRemoveByOwner(ownerId)) {
+        delete state.progressProjectsByUser[ownerId];
+        changed = true;
+      }
+    }
+  }
+
+  if (Array.isArray(state.confirmationRequests)) {
+    const filtered = state.confirmationRequests.filter((req) => {
+      const targetId = canonicalizeLegacyTestId(req?.targetId || "");
+      const requesterId = canonicalizeLegacyTestId(req?.requesterId || "");
+      return !legacyCanonIds.has(targetId) && !legacyCanonIds.has(requesterId);
+    });
+    if (filtered.length !== state.confirmationRequests.length) {
+      state.confirmationRequests = filtered;
+      changed = true;
+    }
+  }
+
+  if (legacyCanonIds.has(canonicalizeLegacyTestId(state.currentUserId || ""))) {
+    state.currentUserId = "";
+    state.currentUser = "";
+    changed = true;
+  }
+
+  return changed;
+}
+
 init();
 
 async function init() {
-      // ユーザー削除後の状態を即時保存・画面反映
-      await saveState();
-      await render();
-    // --- 指定ユーザーの完全削除（管理者用・一時処理） ---
-    const deleteNames = ["テスト", "テスト１", "テスト2", "テスト２"];
-    // 「テスト2」と「テスト２」両方対応
-    for (const delName of deleteNames) {
-      // staffAccounts から削除
-      const idx = state.staffAccounts.findIndex(acc => acc.name === delName);
-      if (idx !== -1) {
-        const acc = state.staffAccounts[idx];
-        const loginId = (typeof normalizeLoginId === 'function') ? normalizeLoginId(acc.id || acc.name) : (acc.id || acc.name);
-        // 予定データ削除
-        if (state.manualEntries) {
-          Object.keys(state.manualEntries).forEach((key) => {
-            if (key.startsWith(`${loginId}::`)) {
-              delete state.manualEntries[key];
-            }
-          });
-        }
-        // 業務メモ削除
-        if (state.weeklyBusinessNotes) {
-          Object.keys(state.weeklyBusinessNotes).forEach((key) => {
-            if (key.startsWith(`${loginId}::`)) {
-              delete state.weeklyBusinessNotes[key];
-            }
-          });
-        }
-        // 工程管理データ削除
-        if (state.progressProjectsByUser && state.progressProjectsByUser[loginId]) {
-          delete state.progressProjectsByUser[loginId];
-        }
-        // 確認依頼データ削除
-        if (Array.isArray(state.confirmationRequests)) {
-          state.confirmationRequests = state.confirmationRequests.filter((req) => req.targetId !== loginId && req.requesterId !== loginId);
-        }
-        state.staffAccounts.splice(idx, 1);
-      }
-    }
-    // --- 完全削除ここまで ---
   initCloudStore();
   loadAuthProfileMap();
   loadNotificationPreferences();
   await waitForInitialAuthState();
   await loadState();
+  const removedLegacyTestUsers = purgeLegacyTestUsersFromState();
+  if (removedLegacyTestUsers) {
+    refreshStaffFromAccounts();
+    // ページ遷移(return)より前に永続化し、削除結果の取りこぼしを防ぐ
+    if (currentFirebaseUser) {
+      await saveStateImmediately();
+    } else {
+      saveState({ localOnly: true });
+    }
+    setNotice("テストユーザー（テスト/テスト2）と関連データを自動削除しました。");
+  }
   let currentUserAddedToStaff = false;
 
   // 初期ロード時は waitForInitialAuthState が handleAuthStateChanged を呼ばないため
@@ -374,7 +435,7 @@ async function init() {
 
   if (currentFirebaseUser) {
     startCloudListener();
-    if (currentUserAddedToStaff && hasMeaningfulScheduleData()) {
+    if (!removedLegacyTestUsers && currentUserAddedToStaff && hasMeaningfulScheduleData()) {
       saveState();
     }
   }
@@ -747,7 +808,7 @@ function bindEvents() {
           createdAccount.password = registerPassword;
         }
         refreshStaffFromAccounts();
-        saveState();
+        await saveStateImmediately();
 
         refs.registerNameInput.value = "";
         refs.registerBirthdayInput.value = "";
