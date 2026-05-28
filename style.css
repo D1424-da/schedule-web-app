@@ -535,6 +535,12 @@ a.btn {
   outline-offset: 2px;
 }
 
+a:focus-visible {
+  outline: 3px solid #1e6f9a;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
 .btn-secondary {
   background: #647682;
 }
@@ -793,6 +799,16 @@ input[type="date"] {
   border: 1px solid #bfc7ce;
   border-radius: 8px;
   padding: 8px 10px;
+}
+
+select:focus-visible,
+input[type="text"]:focus-visible,
+input[type="password"]:focus-visible,
+input[type="date"]:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid #1e6f9a;
+  outline-offset: 1px;
+  border-color: #2f6b88;
 }
 
 /* 60代利用を想定し、工程管理の工期日付入力は視認性と押しやすさを優先 */
