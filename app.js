@@ -21,9 +21,9 @@ const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
 const AUTH_EMAIL_DOMAIN = "schedule.local";
 const ADMIN_LOGIN_ID = "イオリ技研";
 const ADMIN_LOGIN_ID_ALIASES = ["イオリ技建"];
-const ADMIN_PASSWORD = "123456";
 const ADMIN_AUTH_LOCAL_PART = "__admin_root_v1";
 const AUTH_PROFILE_MAP_KEY = "weekly-auth-profile-map-v1";
+const ADMIN_BOOTSTRAP_PASSWORD = normalizeLoginPassword(window.__FIREBASE_CONFIG__?.adminBootstrapPassword || "");
 
 const pageMode = document.body?.dataset?.page || "home";
 const isPersonalPage = pageMode === "personal";
@@ -70,6 +70,8 @@ let progressEditItemId = null;
 let progressEditItemOwnerUserId = null;
 let progressSaveTimer = null;
 let lifecycleEventsBound = false;
+let cloudCleanupInFlight = false;
+let lastSyncedManualEntryKeys = new Set();
 
 const LOGIN_BLOCK_MS_AFTER_TOO_MANY_REQUESTS = 60 * 1000;
 
@@ -623,18 +625,12 @@ function bindEvents() {
 
   if (refs.openLoginBtn && refs.loginDialog) {
     const handler = () => {
-      console.log('openLoginBtn clicked');
       openDialog(refs.loginDialog);
     };
     refs.openLoginBtn.addEventListener("click", handler);
     refs.openLoginBtn.addEventListener("touchend", (e) => {
       e.preventDefault();
       handler();
-    });
-  } else {
-    console.warn("openLoginBtn or loginDialog not found:", {
-      openLoginBtn: !!refs.openLoginBtn,
-      loginDialog: !!refs.loginDialog
     });
   }
 
@@ -687,11 +683,6 @@ function bindEvents() {
       }
       if (!firebaseAuth) {
         handleLoginFailure("Firebase Authentication の設定が未完了です。");
-        return;
-      }
-
-      if (isAdminLoginId(loginId) && !isAdminCredential(loginId, loginPassword)) {
-        handleLoginFailure("管理者IDのパスワードが正しくありません。");
         return;
       }
 
@@ -1207,31 +1198,24 @@ function bindEvents() {
   }
 
   const handleDeleteEntryClick = async () => {
-    console.log("[予定を削除] ボタンがクリックされました", state.editTarget);
     if (!state.editTarget) {
-      console.log("[予定を削除] state.editTargetが未設定のため中断");
       return;
     }
     if (!canEditRow(state.editTarget.name)) {
       setNotice("本人の行、または管理者として編集できます。");
-      console.log("[予定を削除] 編集権限なし: ", state.editTarget.name);
       return;
     }
 
     const key = entryKey(state.editTarget.name, state.editTarget.date);
-    console.log("[予定を削除] 削除対象key:", key, "現state:", state.manualEntries[key]);
     if (state.manualEntries[key]?.approvedByRequest) {
       const ok = confirm("確認変更済みの予定です。変更しますか？");
       if (!ok) {
-        console.log("[予定を削除] ユーザーが確認ダイアログでキャンセル");
         return;
       }
     }
 
     delete state.manualEntries[key];
-    console.log("[予定を削除] manualEntries削除後:", state.manualEntries);
     markScheduleNeedsFinalize();
-    console.log("[予定を削除] Firestore保存直前 state:", state.manualEntries);
     await saveStateImmediately();
     closeDialog(refs.editDialog);
     setNotice("予定を削除しました。");
@@ -2318,9 +2302,14 @@ function startCloudListener() {
       if (!lastKnownRemoteUpdatedAt) {
         lastKnownRemoteUpdatedAt = remoteUpdatedAt;
         applyLoadedData(mergedCloudData, false);
-        if (purgeLegacyTestUsersFromState()) {
+        if (!cloudCleanupInFlight && purgeLegacyTestUsersFromState()) {
           refreshStaffFromAccounts();
-          await saveStateImmediately();
+          cloudCleanupInFlight = true;
+          try {
+            await saveStateImmediately({ skipBackup: true });
+          } finally {
+            cloudCleanupInFlight = false;
+          }
         }
         localStorage.setItem(STORAGE_KEY, JSON.stringify(buildLocalPayload()));
         await render();
@@ -2338,9 +2327,14 @@ function startCloudListener() {
 
       lastKnownRemoteUpdatedAt = remoteUpdatedAt;
       applyLoadedData(mergedCloudData, false);
-      if (purgeLegacyTestUsersFromState()) {
+      if (!cloudCleanupInFlight && purgeLegacyTestUsersFromState()) {
         refreshStaffFromAccounts();
-        await saveStateImmediately();
+        cloudCleanupInFlight = true;
+        try {
+          await saveStateImmediately({ skipBackup: true });
+        } finally {
+          cloudCleanupInFlight = false;
+        }
       }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(buildLocalPayload()));
       await render();
@@ -4446,17 +4440,19 @@ function saveState(options = {}) {
     return;
   }
 
-  const cloudPayload = buildCloudPayload(announce);
+  let cloudPayload = buildCloudPayload(announce);
+  cloudPayload = buildCloudPayloadWithManualEntryDeletes(cloudPayload);
   lastLocalSaveUpdatedAt = normalizeTimestamp(cloudPayload.updatedAt);
   queueCloudSave(cloudPayload);
 }
 
 async function saveStateImmediately(options = {}) {
   const announce = options?.announce === true;
+  const skipBackup = options?.skipBackup === true;
 
     // --- Firestore自動バックアップ（2週間分のみ保持） ---
     try {
-      if (cloudSyncEnabled && currentFirebaseUser && firestoreDb) {
+      if (!skipBackup && cloudSyncEnabled && currentFirebaseUser && firestoreDb) {
         const backupDate = new Date();
         const backupId = backupDate.toISOString().replace(/[:.]/g, "-");
         const backupRef = firestoreDb.collection("backups").doc(backupId);
@@ -4486,11 +4482,13 @@ async function saveStateImmediately(options = {}) {
     return;
   }
 
-  const cloudPayload = buildCloudPayload(announce);
+  let cloudPayload = buildCloudPayload(announce);
+  cloudPayload = buildCloudPayloadWithManualEntryDeletes(cloudPayload);
   lastLocalSaveUpdatedAt = normalizeTimestamp(cloudPayload.updatedAt);
   try {
-    await firestoreDb.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOCUMENT).set(cloudPayload);
+    await firestoreDb.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOCUMENT).set(cloudPayload, { merge: true });
     lastKnownRemoteUpdatedAt = normalizeTimestamp(cloudPayload.updatedAt);
+    syncManualEntryKeySnapshotFromState();
   } catch (e) {
     console.error("[Firestore本体保存エラー]", e);
     throw e;
@@ -4561,6 +4559,39 @@ function buildCloudPayload(announce = false) {
   };
 }
 
+function syncManualEntryKeySnapshotFromState() {
+  const entries = state.manualEntries && typeof state.manualEntries === "object"
+    ? state.manualEntries
+    : {};
+  lastSyncedManualEntryKeys = new Set(Object.keys(entries));
+}
+
+function buildCloudPayloadWithManualEntryDeletes(payload) {
+  if (!payload || typeof payload !== "object") {
+    return payload;
+  }
+
+  if (!(firebase && firebase.firestore && firebase.firestore.FieldValue)) {
+    return payload;
+  }
+
+  const currentEntries = payload.manualEntries && typeof payload.manualEntries === "object"
+    ? payload.manualEntries
+    : {};
+
+  const mergedEntries = { ...currentEntries };
+  for (const key of lastSyncedManualEntryKeys) {
+    if (!(key in currentEntries)) {
+      mergedEntries[key] = firebase.firestore.FieldValue.delete();
+    }
+  }
+
+  return {
+    ...payload,
+    manualEntries: mergedEntries,
+  };
+}
+
 function applyLoadedData(data, restoreSession = true) {
   if (!data || typeof data !== "object") {
     return;
@@ -4605,6 +4636,8 @@ function applyLoadedData(data, restoreSession = true) {
       state.currentUserId = findLoginIdByUserName(state.currentUser) || "";
     }
   }
+
+  syncManualEntryKeySnapshotFromState();
 }
 
 function mergeCloudDataWithPersonalDraft(cloudData, draftData = null) {
@@ -4685,8 +4718,9 @@ function queueCloudSave(payload) {
 
   cloudSaveTimer = setTimeout(async () => {
     try {
-      await firestoreDb.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOCUMENT).set(payload);
+      await firestoreDb.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOCUMENT).set(payload, { merge: true });
       lastKnownRemoteUpdatedAt = normalizeTimestamp(payload.updatedAt);
+      syncManualEntryKeySnapshotFromState();
     } catch (error) {
       setNotice("Firestore保存に失敗。再度保存してください。");
     }
@@ -5154,14 +5188,23 @@ function getAdminLoginIdCandidates() {
 }
 
 async function ensureAdminAccount(loginId, loginPassword) {
-  if (!firebaseAuth || !isAdminCredential(loginId, loginPassword)) {
+  if (!firebaseAuth || !isAdminLoginId(loginId)) {
+    return;
+  }
+
+  // 管理者初期作成は設定値がある場合のみ許可
+  if (!ADMIN_BOOTSTRAP_PASSWORD) {
+    return;
+  }
+
+  if (normalizeLoginPassword(loginPassword) !== ADMIN_BOOTSTRAP_PASSWORD) {
     return;
   }
 
   // 管理者は専用の内部メールを優先し、ID名との衝突を避ける
   for (const email of buildAdminAuthEmailCandidates()) {
     try {
-      await firebaseAuth.createUserWithEmailAndPassword(email, ADMIN_PASSWORD);
+      await firebaseAuth.createUserWithEmailAndPassword(email, loginPassword);
       await firebaseAuth.signOut();
       return;
     } catch (error) {
@@ -5174,11 +5217,6 @@ async function ensureAdminAccount(loginId, loginPassword) {
       return;
     }
   }
-}
-
-function isAdminCredential(loginId, loginPassword) {
-  return isAdminLoginId(loginId)
-    && normalizeLoginPassword(loginPassword) === normalizeLoginPassword(ADMIN_PASSWORD);
 }
 
 async function createUserWithoutSwitchingSession(email, password) {
@@ -5789,29 +5827,3 @@ function escapeHtml(text) {
     .replaceAll("'", "&#39;");
 }
 
-// Function to log in using only a username
-async function loginWithUsernameOnly(username, password) {
-    const db = firebase.firestore();
-    try {
-        // Search for the user by username
-        const userSnapshot = await db.collection('users').where('username', '==', username).get();
-        if (userSnapshot.empty) {
-            throw new Error('ユーザー名が見つかりません');
-        }
-
-        // Retrieve the user data
-        const userData = userSnapshot.docs[0].data();
-        const storedPassword = userData.password; // Password stored in Firestore
-
-        // Check if the password matches
-        if (storedPassword !== password) {
-            throw new Error('パスワードが正しくありません');
-        }
-
-        console.log('ログイン成功');
-        alert('ログイン成功しました');
-    } catch (error) {
-        console.error('ログインエラー:', error.message);
-        alert('ログインに失敗しました: ' + error.message);
-    }
-}
