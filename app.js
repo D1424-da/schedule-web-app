@@ -1139,7 +1139,7 @@ function bindEvents() {
       markScheduleNeedsFinalize();
       await saveStateImmediately();
       closeDialog(refs.editDialog);
-      setNotice("手動入力を解除しました。");
+      setNotice("予定を削除しました。");
       await render();
     });
   }
