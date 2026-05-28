@@ -2527,23 +2527,61 @@ function renderSingleMonthlyTable({ tableEl, monthStart, targetName }) {
 
 function getOverallProjectOwners() {
   const owners = [];
-  const seenIds = new Set();
+  const seenKeys = new Set();
+
+  const addOwner = (loginId, displayName) => {
+    const normalizedLoginId = normalizeLoginId(loginId);
+    if (normalizedLoginId && isAdminLoginId(normalizedLoginId)) {
+      return;
+    }
+
+    const resolvedDisplayName = normalizeDisplayName(
+      displayName || (normalizedLoginId ? resolveRowNameByLoginId(normalizedLoginId, normalizedLoginId) : ""),
+    );
+    if (!resolvedDisplayName) {
+      return;
+    }
+
+    const key = normalizedLoginId || `name:${resolvedDisplayName}`;
+    if (seenKeys.has(key)) {
+      return;
+    }
+    seenKeys.add(key);
+
+    owners.push({
+      loginId: normalizedLoginId || findLoginIdByUserName(resolvedDisplayName) || "",
+      displayName: resolvedDisplayName,
+    });
+  };
+
+  for (const account of state.staffAccounts || []) {
+    addOwner(account?.id, account?.name);
+  }
 
   for (const [loginId, entry] of Object.entries(state.progressProjectsByUser || {})) {
     const normalizedLoginId = normalizeLoginId(loginId);
-    const projects = Array.isArray(entry?.projects) ? entry.projects : [];
-    if (!normalizedLoginId || seenIds.has(normalizedLoginId) || projects.length === 0) {
-      continue;
-    }
-    seenIds.add(normalizedLoginId);
     const account = findAccountByLoginId(normalizedLoginId);
-    owners.push({
-      loginId: normalizedLoginId,
-      displayName: account?.name
+    addOwner(
+      normalizedLoginId,
+      account?.name
         || entry?.userName
         || resolveRowNameByLoginId(normalizedLoginId, normalizedLoginId)
         || normalizedLoginId,
-    });
+    );
+  }
+
+  for (const key of Object.keys(state.manualEntries || {})) {
+    const separatorIndex = key.indexOf("::");
+    if (separatorIndex <= 0) {
+      continue;
+    }
+
+    const name = normalizeDisplayName(key.slice(0, separatorIndex));
+    if (!name) {
+      continue;
+    }
+
+    addOwner(findLoginIdByUserName(name), name);
   }
 
   return owners;
