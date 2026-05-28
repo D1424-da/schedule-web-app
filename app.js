@@ -4388,6 +4388,7 @@ async function saveStateImmediately(options = {}) {
         oldBackups.forEach(doc => doc.ref.delete());
       }
     } catch (e) {
+      console.error("[Firestoreバックアップ保存エラー]", e);
       // バックアップ失敗時も本処理は継続
     }
   const announce = options?.announce === true;
@@ -4401,8 +4402,13 @@ async function saveStateImmediately(options = {}) {
 
   const cloudPayload = buildCloudPayload(announce);
   lastLocalSaveUpdatedAt = normalizeTimestamp(cloudPayload.updatedAt);
-  await firestoreDb.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOCUMENT).set(cloudPayload, { merge: true });
-  lastKnownRemoteUpdatedAt = normalizeTimestamp(cloudPayload.updatedAt);
+  try {
+    await firestoreDb.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOCUMENT).set(cloudPayload, { merge: true });
+    lastKnownRemoteUpdatedAt = normalizeTimestamp(cloudPayload.updatedAt);
+  } catch (e) {
+    console.error("[Firestore本体保存エラー]", e);
+    throw e;
+  }
 }
 
 function saveWeeklyBusinessNotesImmediately() {
