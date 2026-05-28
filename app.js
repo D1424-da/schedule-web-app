@@ -1289,15 +1289,10 @@ function waitForInitialAuthState() {
   return new Promise((resolve) => {
     firebaseAuth.onAuthStateChanged(async (user) => {
       currentFirebaseUser = user;
-
+      await handleAuthStateChanged(user);
       if (!authObserverReady) {
         authObserverReady = true;
         resolve();
-        return;
-      }
-
-      if (appReady) {
-        await handleAuthStateChanged(user);
       }
     });
   });
