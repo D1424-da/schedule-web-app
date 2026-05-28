@@ -1137,7 +1137,7 @@ function bindEvents() {
 
       delete state.manualEntries[key];
       markScheduleNeedsFinalize();
-      saveState();
+      await saveStateImmediately();
       closeDialog(refs.editDialog);
       setNotice("手動入力を解除しました。");
       await render();
