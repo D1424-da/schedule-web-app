@@ -181,7 +181,6 @@ const refs = {
   requestConfirmEnabled: document.getElementById("requestConfirmEnabled"),
   requestTargetInput: document.getElementById("requestTargetInput"),
   requestMessageInput: document.getElementById("requestMessageInput"),
-  clearEntryBtn: document.getElementById("clearEntryBtn"),
   deleteEntryBtn: document.getElementById("deleteEntryBtn"),
   cancelEntryBtn: document.getElementById("cancelEntryBtn"),
   loginDialog: document.getElementById("loginDialog"),
@@ -1213,11 +1212,6 @@ function bindEvents() {
 
   if (refs.deleteEntryBtn) {
     refs.deleteEntryBtn.addEventListener("click", handleDeleteEntryClick);
-  }
-
-  // 旧IDを使っている画面・キャッシュ向けの後方互換
-  if (refs.clearEntryBtn) {
-    refs.clearEntryBtn.addEventListener("click", handleDeleteEntryClick);
   }
 
   if (refs.cancelEntryBtn) {
@@ -2296,6 +2290,10 @@ function startCloudListener() {
       if (!lastKnownRemoteUpdatedAt) {
         lastKnownRemoteUpdatedAt = remoteUpdatedAt;
         applyLoadedData(mergedCloudData, false);
+        if (purgeLegacyTestUsersFromState()) {
+          refreshStaffFromAccounts();
+          await saveStateImmediately();
+        }
         localStorage.setItem(STORAGE_KEY, JSON.stringify(buildLocalPayload()));
         await render();
 
@@ -2312,6 +2310,10 @@ function startCloudListener() {
 
       lastKnownRemoteUpdatedAt = remoteUpdatedAt;
       applyLoadedData(mergedCloudData, false);
+      if (purgeLegacyTestUsersFromState()) {
+        refreshStaffFromAccounts();
+        await saveStateImmediately();
+      }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(buildLocalPayload()));
       await render();
 

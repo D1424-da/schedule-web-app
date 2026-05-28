@@ -530,6 +530,11 @@ a.btn {
   background: var(--primary-strong);
 }
 
+.btn:focus-visible {
+  outline: 3px solid #1e6f9a;
+  outline-offset: 2px;
+}
+
 .btn-secondary {
   background: #647682;
 }
