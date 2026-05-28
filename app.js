@@ -1,5 +1,3 @@
-// 直前にFirestoreから消すべきmanualEntriesキーを記録
-let lastDeletedManualEntryKey = null;
 const STORAGE_KEY = "weekly-schedule-v1";
 const LOCAL_RECOVERY_BACKUP_INDEX_KEY = "weekly-schedule-backup-index-v1";
 const LOCAL_RECOVERY_BACKUP_PREFIX = "weekly-schedule-backup-v1-";
@@ -1137,7 +1135,6 @@ function bindEvents() {
 
   if (refs.deleteEntryBtn) {
     refs.deleteEntryBtn.addEventListener("click", async () => {
-      lastDeletedManualEntryKey = null;
       console.log("[予定を削除] ボタンがクリックされました", state.editTarget);
       if (!state.editTarget) {
         console.log("[予定を削除] state.editTargetが未設定のため中断");
@@ -1149,7 +1146,6 @@ function bindEvents() {
         return;
       }
       const key = entryKey(state.editTarget.name, state.editTarget.date);
-      lastDeletedManualEntryKey = key;
       console.log("[予定を削除] 削除対象key:", key, "現state:", state.manualEntries[key]);
       if (state.manualEntries[key]?.approvedByRequest) {
         const ok = confirm("確認変更済みの予定です。変更しますか？");
@@ -4371,13 +4367,15 @@ function saveState(options = {}) {
 }
 
 async function saveStateImmediately(options = {}) {
+  const announce = options?.announce === true;
+
     // --- Firestore自動バックアップ（2週間分のみ保持） ---
     try {
       if (cloudSyncEnabled && currentFirebaseUser && firestoreDb) {
         const backupDate = new Date();
         const backupId = backupDate.toISOString().replace(/[:.]/g, "-");
         const backupRef = firestoreDb.collection("backups").doc(backupId);
-        const backupPayload = buildCloudPayload(options?.announce === true);
+        const backupPayload = buildCloudPayload(announce);
         // バックアップ保存
         await backupRef.set({
           ...backupPayload,
@@ -4395,7 +4393,6 @@ async function saveStateImmediately(options = {}) {
       console.error("[Firestoreバックアップ保存エラー]", e);
       // バックアップ失敗時も本処理は継続
     }
-  const announce = options?.announce === true;
   const localPayload = buildLocalPayload();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(localPayload));
   saveLocalRecoveryBackup(localPayload, "saveStateImmediately");
@@ -4407,7 +4404,7 @@ async function saveStateImmediately(options = {}) {
   const cloudPayload = buildCloudPayload(announce);
   lastLocalSaveUpdatedAt = normalizeTimestamp(cloudPayload.updatedAt);
   try {
-    await firestoreDb.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOCUMENT).set(cloudPayload, { merge: true });
+    await firestoreDb.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOCUMENT).set(cloudPayload);
     lastKnownRemoteUpdatedAt = normalizeTimestamp(cloudPayload.updatedAt);
   } catch (e) {
     console.error("[Firestore本体保存エラー]", e);
@@ -4462,21 +4459,11 @@ function buildLocalPayload() {
 }
 
 function buildCloudPayload(announce = false) {
-  // manualEntriesが空ならフィールド自体をFirestoreから削除
-  let manualEntries = state.manualEntries;
-  if (manualEntries && Object.keys(manualEntries).length === 0 && typeof firebase !== "undefined" && firebase.firestore && firebase.firestore.FieldValue) {
-    manualEntries = firebase.firestore.FieldValue.delete();
-  } else if (lastDeletedManualEntryKey && typeof firebase !== "undefined" && firebase.firestore && firebase.firestore.FieldValue) {
-    // 直前に削除したキーをFirestoreからも消す
-    manualEntries = { ...manualEntries };
-    manualEntries[lastDeletedManualEntryKey] = firebase.firestore.FieldValue.delete();
-    lastDeletedManualEntryKey = null;
-  }
   return {
     currentWeekStart: toISODate(state.currentWeekStart),
     staff: state.staff,
     staffAccounts: state.staffAccounts,
-    manualEntries,
+    manualEntries: state.manualEntries,
     settings: state.settings,
     confirmationRequests: state.confirmationRequests,
     weeklyBusinessNotes: state.weeklyBusinessNotes,
@@ -4613,7 +4600,7 @@ function queueCloudSave(payload) {
 
   cloudSaveTimer = setTimeout(async () => {
     try {
-      await firestoreDb.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOCUMENT).set(payload, { merge: true });
+      await firestoreDb.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOCUMENT).set(payload);
       lastKnownRemoteUpdatedAt = normalizeTimestamp(payload.updatedAt);
     } catch (error) {
       setNotice("Firestore保存に失敗。再度保存してください。");
