@@ -1118,51 +1118,45 @@ function bindEvents() {
     });
   }
 
+  const handleDeleteEntryClick = async () => {
+    console.log("[予定を削除] ボタンがクリックされました", state.editTarget);
+    if (!state.editTarget) {
+      console.log("[予定を削除] state.editTargetが未設定のため中断");
+      return;
+    }
+    if (!canEditRow(state.editTarget.name)) {
+      setNotice("本人の行、または管理者として編集できます。");
+      console.log("[予定を削除] 編集権限なし: ", state.editTarget.name);
+      return;
+    }
 
-  if (refs.clearEntryBtn) {
-    refs.clearEntryBtn.addEventListener("click", async () => {
-      // 旧「手動入力を解除」ボタンの動作（必要なら残す）
-      if (!state.editTarget) {
+    const key = entryKey(state.editTarget.name, state.editTarget.date);
+    console.log("[予定を削除] 削除対象key:", key, "現state:", state.manualEntries[key]);
+    if (state.manualEntries[key]?.approvedByRequest) {
+      const ok = confirm("確認変更済みの予定です。変更しますか？");
+      if (!ok) {
+        console.log("[予定を削除] ユーザーが確認ダイアログでキャンセル");
         return;
       }
-      if (!canEditRow(state.editTarget.name)) {
-        setNotice("本人の行、または管理者として編集できます。");
-        return;
-      }
-      // ここに「手動入力を解除」用の処理があれば記述
-    });
-  }
+    }
+
+    delete state.manualEntries[key];
+    console.log("[予定を削除] manualEntries削除後:", state.manualEntries);
+    markScheduleNeedsFinalize();
+    console.log("[予定を削除] Firestore保存直前 state:", state.manualEntries);
+    await saveStateImmediately();
+    closeDialog(refs.editDialog);
+    setNotice("予定を削除しました。");
+    await render();
+  };
 
   if (refs.deleteEntryBtn) {
-    refs.deleteEntryBtn.addEventListener("click", async () => {
-      console.log("[予定を削除] ボタンがクリックされました", state.editTarget);
-      if (!state.editTarget) {
-        console.log("[予定を削除] state.editTargetが未設定のため中断");
-        return;
-      }
-      if (!canEditRow(state.editTarget.name)) {
-        setNotice("本人の行、または管理者として編集できます。");
-        console.log("[予定を削除] 編集権限なし: ", state.editTarget.name);
-        return;
-      }
-      const key = entryKey(state.editTarget.name, state.editTarget.date);
-      console.log("[予定を削除] 削除対象key:", key, "現state:", state.manualEntries[key]);
-      if (state.manualEntries[key]?.approvedByRequest) {
-        const ok = confirm("確認変更済みの予定です。変更しますか？");
-        if (!ok) {
-          console.log("[予定を削除] ユーザーが確認ダイアログでキャンセル");
-          return;
-        }
-      }
-      delete state.manualEntries[key];
-      console.log("[予定を削除] manualEntries削除後:", state.manualEntries);
-      markScheduleNeedsFinalize();
-      console.log("[予定を削除] Firestore保存直前 state:", state.manualEntries);
-      await saveStateImmediately();
-      closeDialog(refs.editDialog);
-      setNotice("予定を削除しました。");
-      await render();
-    });
+    refs.deleteEntryBtn.addEventListener("click", handleDeleteEntryClick);
+  }
+
+  // 旧IDを使っている画面・キャッシュ向けの後方互換
+  if (refs.clearEntryBtn) {
+    refs.clearEntryBtn.addEventListener("click", handleDeleteEntryClick);
   }
 
   if (refs.cancelEntryBtn) {
