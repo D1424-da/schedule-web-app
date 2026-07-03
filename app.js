@@ -4601,7 +4601,8 @@ function buildCloudPayload(announce = false) {
   return {
     currentWeekStart: toISODate(state.currentWeekStart),
     staff: state.staff,
-    staffAccounts: state.staffAccounts,
+    // Firestoreは全ログインユーザーが読めるため、平文パスワードは同期しない（ローカル保存のみ）
+    staffAccounts: (state.staffAccounts || []).map(({ password, ...rest }) => rest),
     manualEntries: state.manualEntries,
     settings: state.settings,
     confirmationRequests: state.confirmationRequests,
@@ -4656,7 +4657,18 @@ function applyLoadedData(data, restoreSession = true) {
     state.staff = data.staff;
   }
   if (data.staffAccounts && Array.isArray(data.staffAccounts)) {
-    state.staffAccounts = data.staffAccounts.map((item) => toStaffAccount(item));
+    // クラウド側にパスワードは無いため、既知のローカルパスワードを保持したままマージする
+    const previousById = new Map((state.staffAccounts || []).map((account) => [account.id, account]));
+    state.staffAccounts = data.staffAccounts.map((item) => {
+      const account = toStaffAccount(item);
+      if (!account.password) {
+        const previous = previousById.get(account.id);
+        if (previous?.password) {
+          account.password = previous.password;
+        }
+      }
+      return account;
+    });
   }
   if (data.manualEntries && typeof data.manualEntries === "object") {
     state.manualEntries = data.manualEntries;
@@ -5078,7 +5090,7 @@ async function removePushTokenRegistration() {
   }
 }
 
-function triggerServerPushForConfirmationRequest(request) {
+async function triggerServerPushForConfirmationRequest(request) {
   const endpoint = getPushNotifyEndpoint();
   if (!endpoint || !request || typeof request !== "object") {
     return;
@@ -5098,15 +5110,24 @@ function triggerServerPushForConfirmationRequest(request) {
     createdAt: String(request.createdAt || new Date().toISOString()),
   };
 
-  fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  }).catch(() => {
+  try {
+    // Cloud Functions側で未認証利用者からのPush送信を拒否するため、IDトークンを付与する
+    const idToken = await currentFirebaseUser?.getIdToken?.();
+    if (!idToken) {
+      return;
+    }
+
+    await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${idToken}`,
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch (error) {
     // Push送信失敗時もFirestore上の確認依頼は保持される
-  });
+  }
 }
 
 async function handleAuthStateChanged(user) {
