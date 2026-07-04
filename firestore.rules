@@ -79,9 +79,10 @@ service cloud.firestore {
       allow delete: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
     }
 
-    // 自動バックアップ（2週間分保持）: 管理者のみ読み書き可能
+    // 自動バックアップ（2週間分保持）: appDataと同じくstaffAccounts登録済みの利用者なら読み書き可能
+    // （バックアップの中身はappDataと同等の機微度のため、外部者のみ拒否できれば十分）
     match /backups/{backupId} {
-      allow read, write: if isAdmin();
+      allow read, write: if isRegisteredStaff();
     }
 
     // 明示的に未定義パスは拒否
