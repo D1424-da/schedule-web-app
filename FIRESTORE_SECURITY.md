@@ -6,7 +6,9 @@
 ## このルールでできること
 - ログイン済みユーザーのみ読み取り可能
 - 現在の共有ドキュメント構成でも Firebase Authentication を使って運用可能
-- `users` と `appData` は認証済みユーザーに読み書きを許可
+- `appData` は認証済みユーザーなら誰でも自分の予定などを書き込めるが、`staffAccounts`（利用者一覧）と`settings`（休日設定）フィールドはフィールド単位で管理者のみ変更可能
+- `users` は本人または管理者のみ書き込み可能
+- 管理者判定は custom claim（`admin=true`）を優先し、未設定でも管理者専用Authメール（`__admin_root_v1@schedule.local`）でフォールバック判定
 
 ## 前提
 このルールは `request.auth` を使うため、Firebase Authentication が必須です。

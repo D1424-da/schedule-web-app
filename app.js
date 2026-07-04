@@ -213,6 +213,8 @@ const refs = {
   toggleScheduleNotificationsBtn: document.getElementById("toggleScheduleNotificationsBtn"),
   toggleRequestNotificationsBtn: document.getElementById("toggleRequestNotificationsBtn"),
   notificationStatus: document.getElementById("notificationStatus"),
+  toggleNotificationToolsBtn: document.getElementById("toggleNotificationToolsBtn"),
+  notificationToolsPanel: document.getElementById("notificationToolsPanel"),
   syncAlert: document.getElementById("syncAlert"),
   requestInboxSection: document.getElementById("requestInboxSection"),
   requestInboxList: document.getElementById("requestInboxList"),
@@ -452,26 +454,45 @@ async function init() {
   }
 }
 
+// ============================================================
+// 印刷 / PDF書き出し (overall.html・admin.html対応)
+//
+// - 実際の紙印刷(Ctrl+P): style.css の `@media print` がそのまま効くため、
+//   ここでは1ページに収めるための拡大縮小(--print-fit-scale)だけを担う。
+// - PDFダウンロード: html2canvas は対象ノードを別iframeへ複製してから描画するため、
+//   `@media print` は(CSSOMを書き換えても)反映されない。そのため
+//     1. 表示切替は `.pdf-export-mode` クラス(style.css内に実体として定義)の付け外し
+//     2. 印刷対象外セクションの除外は ignoreElements の matches() 判定
+//     3. 1ページに収める調整はキャプチャ後のcanvas実寸に合わせたPDFページサイズ指定
+//   という、紙印刷とは別の手段で同等の見た目を再現している。
+// ============================================================
+
+const supportsPrintFitScale = isOverallPage || isAdminPage;
+
 function bindPrintFitEvents() {
-  if (!isOverallPage || typeof window === "undefined") {
+  if (!supportsPrintFitScale || typeof window === "undefined") {
     return;
   }
 
-  window.addEventListener("beforeprint", applyOverallPrintFitScale);
-  window.addEventListener("afterprint", resetOverallPrintFitScale);
+  window.addEventListener("beforeprint", applyPrintFitScale);
+  window.addEventListener("afterprint", resetPrintFitScale);
 }
 
-function applyOverallPrintFitScale() {
+// 紙印刷時、A4横1ページに収まるようcontainerを縮小する(--print-fit-scaleはstyle.css側で参照)。
+// PDF書き出しではhtml2canvasの内部クローンにtransform:scaleが反映されないため使用しない
+// (1ページに収める調整はdownloadPdfBtnのPDFページサイズ指定側で行う)。
+function applyPrintFitScale(options = {}) {
+  const { marginMm = 8, minScale = 0.58 } = options;
   const body = document.body;
   const container = document.querySelector("main.container");
-  if (!body || !container || !isOverallPage) {
+  if (!body || !container || !supportsPrintFitScale) {
     return;
   }
 
-  // A4横(297x210mm) / 余白8mm前提の印刷領域をCSS pxへ換算
+  // A4横(297x210mm)から余白分を引いた印刷領域をCSS pxへ換算
   const pxPerMm = 3.7795;
-  const printableWidthPx = (297 - 16) * pxPerMm;
-  const printableHeightPx = (210 - 16) * pxPerMm;
+  const printableWidthPx = (297 - marginMm * 2) * pxPerMm;
+  const printableHeightPx = (210 - marginMm * 2) * pxPerMm;
 
   const rect = container.getBoundingClientRect();
   if (!rect.width || !rect.height) {
@@ -481,15 +502,51 @@ function applyOverallPrintFitScale() {
 
   const widthScale = printableWidthPx / rect.width;
   const heightScale = printableHeightPx / rect.height;
-  const nextScale = Math.max(0.58, Math.min(1, widthScale, heightScale));
+  const nextScale = Math.max(minScale, Math.min(1, widthScale, heightScale));
   body.style.setProperty("--print-fit-scale", String(nextScale));
 }
 
-function resetOverallPrintFitScale() {
-  if (!isOverallPage || !document.body) {
+function resetPrintFitScale() {
+  if (!supportsPrintFitScale || !document.body) {
     return;
   }
   document.body.style.removeProperty("--print-fit-scale");
+}
+
+const PDF_EXPORT_MODE_CLASS = "pdf-export-mode";
+
+// 週移動・管理設定・確認依頼など印刷対象外のセクションをPDFキャプチャから除外する。
+// style.css の `@media print` 側の非表示リストと役割は同じなので、対象セクションを
+// 追加/削除する際はあわせて更新すること。
+// html2canvasはノードを内部クローンしてからignoreElementsへ渡すため、元DOMへの参照比較ではなく
+// クローン後でも成立するmatches()によるセレクタ判定で行う。
+const PDF_EXPORT_HIDDEN_SELECTORS = [
+  ".controls",
+  "#progressSection",
+  "#adminSettingsSection",
+  "#adminRegisterSection",
+  "#adminRecoverySection",
+  "#requestInboxSection",
+  "#syncAlert",
+  "#notice",
+  "#adminOnlyNotice",
+  ".monthly-card",
+];
+
+function shouldIgnoreForPdfExport(element) {
+  if (typeof element.matches !== "function") {
+    return false;
+  }
+  return PDF_EXPORT_HIDDEN_SELECTORS.some((selector) => element.matches(selector));
+}
+
+async function withPrintLayoutActive(action) {
+  document.body.classList.add(PDF_EXPORT_MODE_CLASS);
+  try {
+    await action();
+  } finally {
+    document.body.classList.remove(PDF_EXPORT_MODE_CLASS);
+  }
 }
 
 function bindEvents() {
@@ -595,22 +652,52 @@ function bindEvents() {
   }
 
   if (refs.downloadPdfBtn) {
-    refs.downloadPdfBtn.addEventListener("click", () => {
+    refs.downloadPdfBtn.addEventListener("click", async () => {
       if (typeof window.html2pdf !== "function") {
         setNotice("PDFライブラリの読込に失敗しました。ページを再読み込みしてください。");
         return;
       }
 
-      const element = document.body;
+      // document.bodyには印刷対象外のヘッダー等が含まれ、html2canvasの背景解析エラーの原因にもなるため
+      // 印刷時と同じ範囲(main.container)だけをPDF化する
+      const element = document.querySelector("main.container") || document.body;
       const opt = {
-        margin: 0.5,
+        margin: 0,
         filename: "週間作業予定表.pdf",
         image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: "cm", format: "a4", orientation: "landscape" },
+        html2canvas: { scale: 2, ignoreElements: shouldIgnoreForPdfExport },
+        jsPDF: { unit: "px", format: "a4", orientation: "landscape" },
       };
 
-      window.html2pdf().set(opt).from(element).save();
+      try {
+        await withPrintLayoutActive(async () => {
+          const worker = window.html2pdf().set(opt).from(element);
+          await worker.toCanvas();
+          const canvas = await worker.get("canvas");
+          // CSSのtransform:scaleはhtml2canvasのキャプチャサイズ計算に反映されないため、
+          // 実際にキャプチャできたcanvasの寸法に合わせて1ページぶんのPDFサイズを決め、
+          // 複数ページに分割されないようにする
+          await worker
+            .set({
+              jsPDF: {
+                unit: "px",
+                format: [canvas.width, canvas.height],
+                orientation: canvas.width >= canvas.height ? "landscape" : "portrait",
+              },
+            })
+            .save();
+        });
+      } catch (error) {
+        setNotice("PDFの作成に失敗しました。再度お試しください。");
+      }
+    });
+  }
+
+  if (refs.toggleNotificationToolsBtn && refs.notificationToolsPanel) {
+    refs.toggleNotificationToolsBtn.addEventListener("click", () => {
+      const isHidden = refs.notificationToolsPanel.classList.toggle("hidden");
+      refs.toggleNotificationToolsBtn.textContent = isHidden ? "通知の設定を開く" : "通知の設定を閉じる";
+      refs.toggleNotificationToolsBtn.setAttribute("aria-expanded", String(!isHidden));
     });
   }
 
@@ -4601,7 +4688,8 @@ function buildCloudPayload(announce = false) {
   return {
     currentWeekStart: toISODate(state.currentWeekStart),
     staff: state.staff,
-    staffAccounts: state.staffAccounts,
+    // Firestoreは全ログインユーザーが読めるため、平文パスワードは同期しない（ローカル保存のみ）
+    staffAccounts: (state.staffAccounts || []).map(({ password, ...rest }) => rest),
     manualEntries: state.manualEntries,
     settings: state.settings,
     confirmationRequests: state.confirmationRequests,
@@ -4656,7 +4744,18 @@ function applyLoadedData(data, restoreSession = true) {
     state.staff = data.staff;
   }
   if (data.staffAccounts && Array.isArray(data.staffAccounts)) {
-    state.staffAccounts = data.staffAccounts.map((item) => toStaffAccount(item));
+    // クラウド側にパスワードは無いため、既知のローカルパスワードを保持したままマージする
+    const previousById = new Map((state.staffAccounts || []).map((account) => [account.id, account]));
+    state.staffAccounts = data.staffAccounts.map((item) => {
+      const account = toStaffAccount(item);
+      if (!account.password) {
+        const previous = previousById.get(account.id);
+        if (previous?.password) {
+          account.password = previous.password;
+        }
+      }
+      return account;
+    });
   }
   if (data.manualEntries && typeof data.manualEntries === "object") {
     state.manualEntries = data.manualEntries;
@@ -4996,8 +5095,13 @@ async function requestBrowserNotificationPermission() {
   if (permission === "granted") {
     setScheduleNotificationEnabled(true);
     setRequestNotificationEnabled(true);
-    await ensureBackgroundPushSubscription();
-    setNotice("端末通知を有効にしました。他の利用者の更新時に通知します。確認依頼はPush通知でも受信できます。");
+    try {
+      await ensureBackgroundPushSubscription();
+      setNotice("端末通知を有効にしました。他の利用者の更新時に通知します。確認依頼はPush通知でも受信できます。");
+    } catch (error) {
+      // 画面を開いている間の通知(schedule/request)は有効化済みのため、Push登録失敗のみを案内する
+      setNotice("端末通知を有効にしました（画面を開いている間のみ）。バックグラウンドPushの登録には失敗しました。");
+    }
     return;
   }
 
@@ -5078,7 +5182,7 @@ async function removePushTokenRegistration() {
   }
 }
 
-function triggerServerPushForConfirmationRequest(request) {
+async function triggerServerPushForConfirmationRequest(request) {
   const endpoint = getPushNotifyEndpoint();
   if (!endpoint || !request || typeof request !== "object") {
     return;
@@ -5098,15 +5202,24 @@ function triggerServerPushForConfirmationRequest(request) {
     createdAt: String(request.createdAt || new Date().toISOString()),
   };
 
-  fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  }).catch(() => {
+  try {
+    // Cloud Functions側で未認証利用者からのPush送信を拒否するため、IDトークンを付与する
+    const idToken = await currentFirebaseUser?.getIdToken?.();
+    if (!idToken) {
+      return;
+    }
+
+    await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${idToken}`,
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch (error) {
     // Push送信失敗時もFirestore上の確認依頼は保持される
-  });
+  }
 }
 
 async function handleAuthStateChanged(user) {
@@ -5830,10 +5943,30 @@ function ensureCurrentUserInStaffAccounts() {
   return true;
 }
 
+let noticeHideTimer = null;
+
 function setNotice(text) {
-  if (refs.notice) {
-    refs.notice.textContent = text;
+  if (!refs.notice) {
+    return;
   }
+
+  refs.notice.textContent = text;
+
+  if (noticeHideTimer) {
+    clearTimeout(noticeHideTimer);
+    noticeHideTimer = null;
+  }
+
+  if (!text) {
+    refs.notice.classList.remove("notice-show");
+    return;
+  }
+
+  refs.notice.classList.add("notice-show");
+  noticeHideTimer = setTimeout(() => {
+    refs.notice.classList.remove("notice-show");
+    noticeHideTimer = null;
+  }, 5000);
 }
 
 function getMonday(baseDate) {

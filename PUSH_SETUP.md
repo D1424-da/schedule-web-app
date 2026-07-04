@@ -8,89 +8,29 @@
 
 閉じたブラウザにも通知するには、Firebase Cloud Messaging へ送信するサーバー処理が必要です。
 
+`functions/` ディレクトリに Cloud Functions の実装（`pushNotify`）を同梱済みです。未認証の第三者が任意の利用者へ通知を送りつけられないよう、呼び出し元のFirebase IDトークン（`Authorization: Bearer <idToken>`）を検証してから送信します（`app.js` の `triggerServerPushForConfirmationRequest` が自動的に付与します）。
+
 ## 1. firebase-config.js の設定
 
 `firebase-config.js` を編集して設定します。
 
 - `window.__FIREBASE_VAPID_KEY__`: Firebase Console の Web Push 証明書キー
-- `window.__PUSH_NOTIFY_ENDPOINT__`: Cloud Functions HTTPSエンドポイント
+- `window.__PUSH_NOTIFY_ENDPOINT__`: Cloud Functions HTTPSエンドポイント（デプロイ後にURLが決まります）
 
-## 2. Cloud Functions の実装例
+## 2. Cloud Functions のデプロイ
 
-以下は Node.js（firebase-admin）での最小例です。
+同梱の `functions/` をそのままデプロイできます。
 
-```js
-// index.js (Cloud Functions)
-const { onRequest } = require("firebase-functions/v2/https");
-const admin = require("firebase-admin");
-
-admin.initializeApp();
-
-exports.pushNotify = onRequest(async (req, res) => {
-  try {
-    if (req.method !== "POST") {
-      res.status(405).send("Method Not Allowed");
-      return;
-    }
-
-    const {
-      targetId,
-      requesterName,
-      ownerName,
-      startDate,
-      repeatDays,
-      requestId,
-    } = req.body || {};
-
-    if (!targetId) {
-      res.status(400).json({ error: "targetId is required" });
-      return;
-    }
-
-    const snapshot = await admin.firestore()
-      .collection("pushTokens")
-      .where("loginId", "==", String(targetId))
-      .where("enabled", "==", true)
-      .get();
-
-    const tokens = snapshot.docs.map((doc) => doc.id).filter(Boolean);
-    if (tokens.length === 0) {
-      res.status(200).json({ ok: true, sent: 0 });
-      return;
-    }
-
-    const multicast = {
-      tokens,
-      notification: {
-        title: "確認依頼が届きました",
-        body: `${requesterName || "利用者"} から ${ownerName || "予定"} の確認依頼があります`,
-      },
-      data: {
-        url: `/overall.html?requestId=${encodeURIComponent(String(requestId || ""))}`,
-        type: "confirmation-request",
-        startDate: String(startDate || ""),
-        repeatDays: String(repeatDays || "1"),
-      },
-      webpush: {
-        fcmOptions: {
-          link: "https://d1424-da.github.io/schedule-web-app/overall.html",
-        },
-      },
-    };
-
-    const result = await admin.messaging().sendEachForMulticast(multicast);
-    res.status(200).json({ ok: true, sent: result.successCount, failed: result.failureCount });
-  } catch (error) {
-    res.status(500).json({ error: String(error?.message || error) });
-  }
-});
+```bash
+firebase login
+firebase use <your-project-id>
+cd functions && npm install && cd ..
+firebase deploy --only functions
 ```
 
-## 3. デプロイ後にエンドポイントを反映
+デプロイ完了時に表示されるHTTPS関数のURLを、手順1の `window.__PUSH_NOTIFY_ENDPOINT__` に設定してください。
 
-Cloud FunctionsのURLを `window.__PUSH_NOTIFY_ENDPOINT__` に設定します。
-
-## 4. Firestoreルールの反映
+## 3. Firestoreルールの反映
 
 このリポジトリには `pushTokens` 用ルールを追加済みです。反映してください。
 
@@ -98,7 +38,7 @@ Cloud FunctionsのURLを `window.__PUSH_NOTIFY_ENDPOINT__` に設定します。
 firebase deploy --only firestore:rules
 ```
 
-## 5. 動作確認
+## 4. 動作確認
 
 1. 全端末でログイン
 2. 各端末で「通知を有効にする」を実行

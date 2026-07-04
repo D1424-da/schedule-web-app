@@ -6,19 +6,23 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return signedIn() && request.auth.token.admin == true;
+      // custom claim(admin=true) を優先し、未設定環境向けに管理者専用Authメールもフォールバックで許可する
+      return signedIn() && (
+        request.auth.token.admin == true ||
+        request.auth.token.email == "__admin_root_v1@schedule.local"
+      );
     }
 
     function isOwner(uid) {
       return signedIn() && request.auth.uid == uid;
     }
 
-    // ユーザープロファイル
+    // ユーザープロファイル: 本人か管理者のみ書き込み可
     match /users/{uid} {
       allow read: if signedIn();
-      allow create: if signedIn();
-      allow update: if signedIn();
-      allow delete: if signedIn();
+      allow create: if isOwner(uid) || isAdmin();
+      allow update: if isOwner(uid) || isAdmin();
+      allow delete: if isOwner(uid) || isAdmin();
     }
 
     // 個人スケジュール: 本人のみ更新可
@@ -36,17 +40,25 @@ service cloud.firestore {
     }
 
     // 互換用: 現在の単一ドキュメント構成
+    // 全利用者が自分の予定などを書き込めるよう作成・更新自体は認証済みユーザーに許可しつつ、
+    // 利用者アカウント一覧(staffAccounts)と休日設定(settings)は管理者のみ変更できるようフィールド単位で制限する
     match /appData/{docId} {
       allow read: if signedIn();
-      allow write: if signedIn();
+      allow create: if signedIn();
+      allow update: if signedIn() && (
+        isAdmin() ||
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(["staffAccounts", "settings"])
+      );
+      allow delete: if isAdmin();
     }
 
-    // Web Push用トークン登録
+    // Web Push用トークン登録: 本人のトークンのみ読み書き可能（他利用者のトークン閲覧・改ざんを防止）
+    // 送信側のCloud FunctionsはAdmin SDK経由でこのルールをバイパスして参照する
     match /pushTokens/{tokenId} {
-      allow read: if signedIn();
-      allow create: if signedIn();
-      allow update: if signedIn();
-      allow delete: if signedIn();
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+      allow update: if signedIn() && resource.data.uid == request.auth.uid && request.resource.data.uid == request.auth.uid;
+      allow delete: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
     }
 
     // 明示的に未定義パスは拒否

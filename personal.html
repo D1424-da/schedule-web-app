@@ -22,11 +22,14 @@
         <button id="openLoginBtn" class="btn btn-secondary" type="button">ログイン</button>
         <button id="logoutBtn" class="btn btn-ghost" type="button">ログアウト</button>
       </div>
-      <div class="notification-tools">
+      <div class="notification-toggle-row">
+        <button id="toggleNotificationToolsBtn" class="btn btn-ghost" type="button" aria-expanded="false" aria-controls="notificationToolsPanel">通知の設定を開く</button>
+        <span id="notificationStatus" class="notification-status">端末通知: 未設定</span>
+      </div>
+      <div id="notificationToolsPanel" class="notification-tools hidden">
         <button id="enableNotificationsBtn" class="btn btn-secondary" type="button">通知を有効にする</button>
         <button id="toggleScheduleNotificationsBtn" class="btn btn-secondary" type="button">更新通知を無効にする</button>
         <button id="toggleRequestNotificationsBtn" class="btn btn-secondary" type="button">確認依頼通知を無効にする</button>
-        <span id="notificationStatus" class="notification-status">端末通知: 未設定</span>
       </div>
     </header>
 
@@ -133,38 +136,42 @@
         <input id="placeInput" type="text" placeholder="例: 鹿児島市" />
         <p id="halfDayWorkHint" class="subtitle-mini hidden"></p>
 
-        <div class="repeat-row">
-          <label>
-            <input id="repeatEnabled" type="checkbox" />
-            日にちを繰り返し入力する
-          </label>
-          <label for="repeatCount">回数</label>
-          <select id="repeatCount" aria-label="繰り返し回数">
-            <option value="1">1日分</option>
-            <option value="2">2日分</option>
-            <option value="3">3日分</option>
-            <option value="4">4日分</option>
-            <option value="5">5日分</option>
-            <option value="6">6日分</option>
-            <option value="7">7日分</option>
-            <option value="8">8日分</option>
-            <option value="9">9日分</option>
-            <option value="10">10日分</option>
-            <option value="11">11日分</option>
-            <option value="12">12日分</option>
-          </select>
-        </div>
+        <details class="dialog-advanced">
+          <summary>応用設定（繰り返し入力・確認依頼）</summary>
 
-        <div class="request-row">
-          <label>
-            <input id="requestConfirmEnabled" type="checkbox" />
-            保存前に相手へ確認依頼を送る
-          </label>
-          <label for="requestTargetInput">確認相手（複数選択可）</label>
-          <select id="requestTargetInput" multiple size="5" aria-label="確認相手（複数選択可）"></select>
-          <label for="requestMessageInput">依頼メモ</label>
-          <input id="requestMessageInput" type="text" maxlength="80" placeholder="例: 午前から同行可能ですか？" />
-        </div>
+          <div class="repeat-row">
+            <label>
+              <input id="repeatEnabled" type="checkbox" />
+              日にちを繰り返し入力する
+            </label>
+            <label for="repeatCount">回数</label>
+            <select id="repeatCount" aria-label="繰り返し回数">
+              <option value="1">1日分</option>
+              <option value="2">2日分</option>
+              <option value="3">3日分</option>
+              <option value="4">4日分</option>
+              <option value="5">5日分</option>
+              <option value="6">6日分</option>
+              <option value="7">7日分</option>
+              <option value="8">8日分</option>
+              <option value="9">9日分</option>
+              <option value="10">10日分</option>
+              <option value="11">11日分</option>
+              <option value="12">12日分</option>
+            </select>
+          </div>
+
+          <div class="request-row">
+            <label>
+              <input id="requestConfirmEnabled" type="checkbox" />
+              保存前に相手へ確認依頼を送る
+            </label>
+            <label for="requestTargetInput">確認相手（複数選択可）</label>
+            <select id="requestTargetInput" multiple size="5" aria-label="確認相手（複数選択可）"></select>
+            <label for="requestMessageInput">依頼メモ</label>
+            <input id="requestMessageInput" type="text" maxlength="80" placeholder="例: 午前から同行可能ですか？" />
+          </div>
+        </details>
 
         <div class="dialog-buttons">
           <button id="saveEntryBtn" value="save" class="btn">保存する</button>
@@ -225,10 +232,10 @@
     </dialog>
 
     <script src="firebase-config.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js" integrity="sha384-AQ3POAMqIhwS81FrUH95ekxqBZHeP5tG2JfEL3+7GuTtfRLWnrRh32UxwzM+//A9" crossorigin="anonymous"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js" integrity="sha384-TnlRYaR4JYz/lpaGuaiU61PjNberSA4vjLjtF+oRC/IkohkJqnWxw5EmDSOt1vA1" crossorigin="anonymous"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js" integrity="sha384-qn4Jh88HhJA8dplNQyGjOh9OGI4izVhrfj/qIFgaKcdgOE06pXqIKGlsCILZcLAC" crossorigin="anonymous"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js" integrity="sha384-XtSlZdmg0Ad5zf0AX4W9TGdm+dGjaNK4KG3lNFjfgbnxkCEuT9ugWXkLExgQTJ+6" crossorigin="anonymous"></script>
     <script src="app.js"></script>
   </body>
 </html>
