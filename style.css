@@ -177,6 +177,16 @@ body.auth-locked main {
   text-align: left;
 }
 
+.notification-toggle-row {
+  width: min(860px, 100%);
+  margin: 8px auto 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .notification-tools {
   width: min(860px, 100%);
   margin: 8px auto 0;
@@ -289,14 +299,14 @@ body.auth-locked main {
 }
 
 .monthly-day-no {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: #53626b;
   margin-bottom: 4px;
 }
 
 .monthly-entry {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.3;
   color: #25323a;
   word-break: break-word;
@@ -327,7 +337,7 @@ body.auth-locked main {
   flex-direction: column;
   gap: 2px;
   width: 100%;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.25;
   color: #25323a;
   word-break: break-word;
@@ -373,7 +383,7 @@ body.auth-locked main {
   display: block;
   width: 100%;
   color: currentColor;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   line-height: 1.1;
   word-break: break-word;
@@ -437,10 +447,10 @@ body.auth-locked main {
 
 .monthly-gantt-table th.monthly-gantt-day-head,
 .monthly-gantt-table td.monthly-gantt-cell {
-  min-width: 36px;
-  width: 36px;
+  min-width: 44px;
+  width: 44px;
   padding: 1px 0;
-  height: 96px;
+  height: 100px;
   vertical-align: top;
 }
 
@@ -481,19 +491,19 @@ body.auth-locked main {
   border-radius: 4px;
   background: #fff3cd;
   color: #7b1f1f;
-  font-size: 9px;
-  line-height: 1.1;
+  font-size: 12px;
+  line-height: 1.15;
   font-weight: 700;
   writing-mode: vertical-rl;
   text-orientation: mixed;
   white-space: normal;
-  max-height: 86px;
+  max-height: 90px;
 }
 
 .monthly-gantt-off-entry.is-off {
   background: #ffdcde;
   color: #8b141b;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 800;
 }
 
@@ -827,10 +837,32 @@ textarea:focus-visible {
 }
 
 .notice {
-  min-height: 22px;
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%) translateY(12px);
+  z-index: 500;
   margin: 0;
-  color: #2a5f22;
-  font-size: 15px;
+  min-width: 240px;
+  max-width: min(560px, 92vw);
+  padding: 14px 20px;
+  border-radius: 12px;
+  border: 1px solid #bcd9ff;
+  background: #1f2a30;
+  color: #ffffff;
+  font-size: 16px;
+  line-height: 1.4;
+  text-align: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+}
+
+.notice.notice-show {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
 }
 
 .admin-only-notice {
@@ -927,8 +959,36 @@ textarea:focus-visible {
   color: #7b4d00;
 }
 
+.dialog-advanced {
+  margin-top: 10px;
+  border-top: 1px dashed var(--line);
+  padding-top: 8px;
+}
+
+.dialog-advanced > summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 4px 0;
+}
+
+.dialog-advanced > summary::-webkit-details-marker {
+  display: none;
+}
+
+.dialog-advanced > summary::before {
+  content: "▶ ";
+  font-size: 11px;
+}
+
+.dialog-advanced[open] > summary::before {
+  content: "▼ ";
+}
+
 .repeat-row {
-  margin-top: 4px;
+  margin-top: 10px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1373,7 +1433,7 @@ textarea:focus-visible {
   }
 
   .monthly-entry-line {
-    font-size: 10px;
+    font-size: 12px;
   }
 
   .business-note-input {
@@ -1416,7 +1476,7 @@ textarea:focus-visible {
   .progress-overall-label,
   .progress-deadline-status,
   .progress-deadline-date {
-    font-size: 10px;
+    font-size: 12px;
   }
 
   .progress-bar-wrap {
@@ -1458,7 +1518,7 @@ textarea:focus-visible {
 
   .progress-item-table th {
     padding: 5px 6px;
-    font-size: 10px;
+    font-size: 12px;
   }
 
   .progress-item-table td {
@@ -1475,7 +1535,7 @@ textarea:focus-visible {
 
   .progress-note-cell,
   .progress-meta-cell {
-    font-size: 10px;
+    font-size: 12px;
   }
 
   .settings-header h2 {
@@ -1681,47 +1741,47 @@ textarea:focus-visible {
 
   .monthly-gantt-table th.monthly-gantt-day-head,
   .monthly-gantt-table td.monthly-gantt-cell {
-    min-width: 30px;
-    width: 30px;
+    min-width: 38px;
+    width: 38px;
     padding: 1px 0;
-    height: 84px;
+    height: 88px;
   }
 
   .monthly-gantt-segment-wrap {
-    min-height: 78px;
+    min-height: 82px;
   }
 
   .monthly-gantt-off-entry {
-    max-height: 74px;
-    font-size: 8px;
+    max-height: 78px;
+    font-size: 11px;
   }
 
   .monthly-gantt-off-entry.is-off {
-    font-size: 10px;
+    font-size: 13px;
   }
 
   .monthly-table th {
-    font-size: 12px;
+    font-size: 13px;
     padding: 6px 4px;
   }
 
   .monthly-table td {
-    height: 66px;
+    height: 68px;
     padding: 4px;
   }
 
   .monthly-day-no,
   .monthly-entry,
   .monthly-empty {
-    font-size: 10px;
+    font-size: 12px;
   }
 
   .monthly-entry-list {
-    max-height: 54px;
+    max-height: 58px;
   }
 
   .monthly-entry-line {
-    font-size: 9px;
+    font-size: 11px;
   }
 
   .business-note-input {
@@ -1758,13 +1818,13 @@ textarea:focus-visible {
   }
 
   .progress-project-name {
-    font-size: 12px;
+    font-size: 13px;
   }
 
   .progress-overall-label,
   .progress-deadline-status,
   .progress-deadline-date {
-    font-size: 8px;
+    font-size: 11px;
   }
 
   .progress-bar-wrap {
@@ -1799,14 +1859,14 @@ textarea:focus-visible {
   }
 
   .progress-item-table {
-    min-width: 360px;
+    min-width: 400px;
     width: 100%;
-    font-size: 9px;
+    font-size: 12px;
   }
 
   .progress-item-table th {
     padding: 4px;
-    font-size: 8px;
+    font-size: 11px;
   }
 
   .progress-item-table td {
@@ -1814,7 +1874,7 @@ textarea:focus-visible {
   }
 
   .progress-item-name-cell {
-    min-width: 64px;
+    min-width: 76px;
   }
 
   .progress-item-cell {
@@ -1823,7 +1883,7 @@ textarea:focus-visible {
 
   .progress-note-cell,
   .progress-meta-cell {
-    font-size: 8px;
+    font-size: 11px;
   }
 
   .settings-header {
@@ -2363,7 +2423,7 @@ textarea:focus-visible {
   .progress-project-card[data-expanded="true"] .progress-overall-label,
   .progress-project-card[data-expanded="true"] .progress-deadline-status,
   .progress-project-card[data-expanded="true"] .progress-deadline-date {
-    font-size: 10px;
+    font-size: 12px;
   }
 
   .progress-items-container {
@@ -2471,17 +2531,17 @@ textarea:focus-visible {
   .progress-overall-label,
   .progress-deadline-status,
   .progress-deadline-date {
-    font-size: 10px;
+    font-size: 11px;
   }
 
   .progress-project-card[data-expanded="true"] .progress-overall-label,
   .progress-project-card[data-expanded="true"] .progress-deadline-status,
   .progress-project-card[data-expanded="true"] .progress-deadline-date {
-    font-size: 9px;
+    font-size: 11px;
   }
 
   .progress-item-table {
-    font-size: 9px;
+    font-size: 11px;
   }
 
   .progress-item-name-cell {
@@ -2662,6 +2722,7 @@ textarea:focus-visible {
   .topbar,
   .auth-bar,
   .notification-tools,
+  .notification-toggle-row,
   #syncAlert,
   #requestInboxSection,
   #adminSettingsSection,

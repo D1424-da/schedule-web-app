@@ -213,6 +213,8 @@ const refs = {
   toggleScheduleNotificationsBtn: document.getElementById("toggleScheduleNotificationsBtn"),
   toggleRequestNotificationsBtn: document.getElementById("toggleRequestNotificationsBtn"),
   notificationStatus: document.getElementById("notificationStatus"),
+  toggleNotificationToolsBtn: document.getElementById("toggleNotificationToolsBtn"),
+  notificationToolsPanel: document.getElementById("notificationToolsPanel"),
   syncAlert: document.getElementById("syncAlert"),
   requestInboxSection: document.getElementById("requestInboxSection"),
   requestInboxList: document.getElementById("requestInboxList"),
@@ -611,6 +613,14 @@ function bindEvents() {
       };
 
       window.html2pdf().set(opt).from(element).save();
+    });
+  }
+
+  if (refs.toggleNotificationToolsBtn && refs.notificationToolsPanel) {
+    refs.toggleNotificationToolsBtn.addEventListener("click", () => {
+      const isHidden = refs.notificationToolsPanel.classList.toggle("hidden");
+      refs.toggleNotificationToolsBtn.textContent = isHidden ? "通知の設定を開く" : "通知の設定を閉じる";
+      refs.toggleNotificationToolsBtn.setAttribute("aria-expanded", String(!isHidden));
     });
   }
 
@@ -5851,10 +5861,30 @@ function ensureCurrentUserInStaffAccounts() {
   return true;
 }
 
+let noticeHideTimer = null;
+
 function setNotice(text) {
-  if (refs.notice) {
-    refs.notice.textContent = text;
+  if (!refs.notice) {
+    return;
   }
+
+  refs.notice.textContent = text;
+
+  if (noticeHideTimer) {
+    clearTimeout(noticeHideTimer);
+    noticeHideTimer = null;
+  }
+
+  if (!text) {
+    refs.notice.classList.remove("notice-show");
+    return;
+  }
+
+  refs.notice.classList.add("notice-show");
+  noticeHideTimer = setTimeout(() => {
+    refs.notice.classList.remove("notice-show");
+    noticeHideTimer = null;
+  }, 5000);
 }
 
 function getMonday(baseDate) {
