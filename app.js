@@ -156,7 +156,6 @@ const refs = {
   notice: document.getElementById("notice"),
   currentUserLabel: document.getElementById("currentUserLabel"),
   printPageBtn: document.getElementById("printPageBtn"),
-  downloadPdfBtn: document.getElementById("downloadPdfBtn"),
   openLoginBtn: document.getElementById("openLoginBtn"),
   logoutBtn: document.getElementById("logoutBtn"),
   toggleSettingsBtn: document.getElementById("toggleSettingsBtn"),
@@ -454,19 +453,6 @@ async function init() {
   }
 }
 
-// ============================================================
-// 印刷 / PDF書き出し (overall.html・admin.html対応)
-//
-// - 実際の紙印刷(Ctrl+P): style.css の `@media print` がそのまま効くため、
-//   ここでは1ページに収めるための拡大縮小(--print-fit-scale)だけを担う。
-// - PDFダウンロード: html2canvas は対象ノードを別iframeへ複製してから描画するため、
-//   `@media print` は(CSSOMを書き換えても)反映されない。そのため
-//     1. 表示切替は `.pdf-export-mode` クラス(style.css内に実体として定義)の付け外し
-//     2. 印刷対象外セクションの除外は ignoreElements の matches() 判定
-//     3. 1ページに収める調整はキャプチャ後のcanvas実寸に合わせたPDFページサイズ指定
-//   という、紙印刷とは別の手段で同等の見た目を再現している。
-// ============================================================
-
 const supportsPrintFitScale = isOverallPage || isAdminPage;
 
 function bindPrintFitEvents() {
@@ -511,50 +497,6 @@ function resetPrintFitScale() {
     return;
   }
   document.body.style.removeProperty("--print-fit-scale");
-}
-
-const PDF_EXPORT_MODE_CLASS = "pdf-export-mode";
-
-// 週移動・管理設定・確認依頼など印刷対象外のセクションをPDFキャプチャから除外する。
-// style.css の `@media print` 側の非表示リストと役割は同じなので、対象セクションを
-// 追加/削除する際はあわせて更新すること。
-// html2canvasはノードを内部クローンしてからignoreElementsへ渡すため、元DOMへの参照比較ではなく
-// クローン後でも成立するmatches()によるセレクタ判定で行う。
-const PDF_EXPORT_HIDDEN_SELECTORS = [
-  ".controls",
-  "#progressSection",
-  "#adminSettingsSection",
-  "#adminRegisterSection",
-  "#adminRecoverySection",
-  "#requestInboxSection",
-  "#syncAlert",
-  "#notice",
-  "#adminOnlyNotice",
-  ".monthly-card",
-];
-
-function shouldIgnoreForPdfExport(element) {
-  if (typeof element.matches !== "function") {
-    return false;
-  }
-  return PDF_EXPORT_HIDDEN_SELECTORS.some((selector) => element.matches(selector));
-}
-
-async function withPrintLayoutActive(action) {
-  document.body.classList.add(PDF_EXPORT_MODE_CLASS);
-  if (supportsPrintFitScale) {
-    // zoomはtransformと異なり実レイアウトを縮小するため、html2canvasのキャプチャにも正しく反映される
-    applyPrintFitScale({ marginMm: 6, minScale: 0.1, safetyFactor: 0.94 });
-  }
-
-  try {
-    await action();
-  } finally {
-    if (supportsPrintFitScale) {
-      resetPrintFitScale();
-    }
-    document.body.classList.remove(PDF_EXPORT_MODE_CLASS);
-  }
 }
 
 function bindEvents() {
@@ -656,32 +598,6 @@ function bindEvents() {
   if (refs.printPageBtn) {
     refs.printPageBtn.addEventListener("click", () => {
       window.print();
-    });
-  }
-
-  if (refs.downloadPdfBtn) {
-    refs.downloadPdfBtn.addEventListener("click", async () => {
-      if (typeof window.html2pdf !== "function") {
-        setNotice("PDFライブラリの読込に失敗しました。ページを再読み込みしてください。");
-        return;
-      }
-
-      // document.bodyには印刷対象外のヘッダー等が含まれ、html2canvasの背景解析エラーの原因にもなるため
-      // 印刷時と同じ範囲(main.container)だけをPDF化する
-      const element = document.querySelector("main.container") || document.body;
-      const opt = {
-        margin: 0.5,
-        filename: "週間作業予定表.pdf",
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, ignoreElements: shouldIgnoreForPdfExport },
-        jsPDF: { unit: "cm", format: "a4", orientation: "landscape" },
-      };
-
-      try {
-        await withPrintLayoutActive(() => window.html2pdf().set(opt).from(element).save());
-      } catch (error) {
-        setNotice("PDFの作成に失敗しました。再度お試しください。");
-      }
     });
   }
 
@@ -2266,6 +2182,7 @@ async function handleProgressListClick(event) {
         project.items = (project.items || []).filter((i) => i.id !== itemId);
       }
       renderProgressSection();
+      await renderMonthlyCalendar();
       await saveStateImmediately();
       setNotice("工種を削除しました。");
     } else if (action === "increment") {
@@ -5030,7 +4947,9 @@ function syncNotificationUi() {
   }
 
   if (Notification.permission === "granted") {
-    refs.notificationStatus.textContent = "端末通知: 許可済み";
+    const scheduleState = scheduleNotificationEnabled ? "オン" : "オフ";
+    const requestState = requestNotificationEnabled ? "オン" : "オフ";
+    refs.notificationStatus.textContent = `端末通知: 許可済み | 更新通知: ${scheduleState} | 確認依頼通知: ${requestState}`;
     refs.enableNotificationsBtn.textContent = "端末通知を再確認";
     refs.enableNotificationsBtn.disabled = false;
     refs.toggleScheduleNotificationsBtn.textContent = scheduleNotificationEnabled
