@@ -211,6 +211,31 @@ body.auth-locked main {
   padding: 8px 12px;
 }
 
+.notification-tools .btn[data-state="on"] {
+  background: #2e7d32;
+  color: #fff;
+  border: 2px solid #2e7d32;
+}
+
+.notification-tools .btn[data-state="off"] {
+  background: #e0e0e0;
+  color: #555;
+  border: 2px solid #bdbdbd;
+}
+
+@media (prefers-color-scheme: dark) {
+  .notification-tools .btn[data-state="on"] {
+    background: #1b5e20;
+    color: #e8f5e9;
+    border-color: #1b5e20;
+  }
+  .notification-tools .btn[data-state="off"] {
+    background: #424242;
+    color: #bdbdbd;
+    border-color: #555;
+  }
+}
+
 .auth-bar .btn,
 .notification-tools .btn {
   min-height: 38px;

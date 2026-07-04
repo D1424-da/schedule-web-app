@@ -642,10 +642,9 @@ function bindEvents() {
         setNotice("先に端末通知を有効化してください。");
         return;
       }
-      setScheduleNotificationEnabled(!scheduleNotificationEnabled);
-      setNotice(scheduleNotificationEnabled
-        ? "更新通知を有効にしました。"
-        : "更新通知を無効にしました。");
+      const next = !scheduleNotificationEnabled;
+      setScheduleNotificationEnabled(next);
+      setNotice(next ? "更新通知をオンにしました。" : "更新通知をオフにしました。");
     });
   }
 
@@ -655,10 +654,9 @@ function bindEvents() {
         setNotice("先に端末通知を有効化してください。");
         return;
       }
-      setRequestNotificationEnabled(!requestNotificationEnabled);
-      setNotice(requestNotificationEnabled
-        ? "確認依頼通知を有効にしました。"
-        : "確認依頼通知を無効にしました。");
+      const next = !requestNotificationEnabled;
+      setRequestNotificationEnabled(next);
+      setNotice(next ? "確認依頼通知をオンにしました。" : "確認依頼通知をオフにしました。");
     });
   }
 
@@ -2475,6 +2473,7 @@ async function renderMonthlyCalendar() {
     const targetName = getLoggedInScheduleTargetName();
     if (!targetName) {
       refs.monthlyScheduleTable.innerHTML = "<tbody><tr><td class=\"monthly-empty\">ログイン中ユーザーの工程表示対象が見つかりません。</td></tr></tbody>";
+      syncMonthlyScrollbar();
       return;
     }
 
@@ -2483,6 +2482,7 @@ async function renderMonthlyCalendar() {
       monthStart,
       targetName,
     });
+    syncMonthlyScrollbar();
     return;
   }
 
@@ -2699,13 +2699,45 @@ function renderOverallMonthlyGanttTable({ tableEl, monthStart, owners: ownersOve
   }
 
   if (owners.length === 0) {
-    const tr = document.createElement("tr");
-    const td = document.createElement("td");
-    td.className = "monthly-empty";
-    td.colSpan = monthDates.length + 1;
-    td.textContent = "工程データがありません。";
-    tr.appendChild(td);
-    tbody.appendChild(tr);
+    const holidayRow = document.createElement("tr");
+    const userCell = document.createElement("th");
+    userCell.className = "monthly-gantt-user-cell";
+    userCell.textContent = "";
+    holidayRow.appendChild(userCell);
+
+    for (const date of monthDates) {
+      const dateStr = toISODate(date);
+      const td = document.createElement("td");
+      td.className = "monthly-gantt-cell";
+      if (date.getDay() === 0 || date.getDay() === 6) {
+        td.classList.add("is-weekend");
+      }
+      const holidayName = String(getHolidayName(dateStr) || "").trim();
+      if (holidayName) {
+        td.classList.add("is-holiday");
+      }
+      const offLabel = getOverallCalendarDayOffLabel(date, dateStr);
+      if (offLabel) {
+        const wrap = document.createElement("div");
+        wrap.className = "monthly-gantt-segment-wrap";
+        const offEl = document.createElement("div");
+        offEl.className = "monthly-gantt-off-entry";
+        offEl.classList.add(holidayName ? "is-holiday" : "is-off");
+        offEl.textContent = holidayName || "休";
+        wrap.appendChild(offEl);
+        td.appendChild(wrap);
+      }
+      holidayRow.appendChild(td);
+    }
+    tbody.appendChild(holidayRow);
+
+    const msgRow = document.createElement("tr");
+    const msgTd = document.createElement("td");
+    msgTd.className = "monthly-empty";
+    msgTd.colSpan = monthDates.length + 1;
+    msgTd.textContent = "工程データがありません。";
+    msgRow.appendChild(msgTd);
+    tbody.appendChild(msgRow);
   }
 
   table.appendChild(thead);
@@ -4930,6 +4962,12 @@ function showSyncAlert(text) {
   }, 7000);
 }
 
+function setNotificationBtnState(btn, label, enabled, interactive) {
+  btn.textContent = enabled ? `${label}：オン` : `${label}：オフ`;
+  btn.dataset.state = enabled ? "on" : "off";
+  btn.disabled = !interactive;
+}
+
 function syncNotificationUi() {
   if (!refs.notificationStatus || !refs.enableNotificationsBtn || !refs.toggleScheduleNotificationsBtn || !refs.toggleRequestNotificationsBtn) {
     return;
@@ -4940,7 +4978,9 @@ function syncNotificationUi() {
     refs.enableNotificationsBtn.textContent = "通知未対応";
     refs.enableNotificationsBtn.disabled = true;
     refs.toggleScheduleNotificationsBtn.textContent = "更新通知: 未対応";
+    refs.toggleScheduleNotificationsBtn.dataset.state = "";
     refs.toggleRequestNotificationsBtn.textContent = "確認依頼通知: 未対応";
+    refs.toggleRequestNotificationsBtn.dataset.state = "";
     refs.toggleScheduleNotificationsBtn.disabled = true;
     refs.toggleRequestNotificationsBtn.disabled = true;
     return;
@@ -4949,42 +4989,28 @@ function syncNotificationUi() {
   if (Notification.permission === "granted") {
     const scheduleState = scheduleNotificationEnabled ? "オン" : "オフ";
     const requestState = requestNotificationEnabled ? "オン" : "オフ";
-    refs.notificationStatus.textContent = `端末通知: 許可済み | 更新通知: ${scheduleState} | 確認依頼通知: ${requestState}`;
+    refs.notificationStatus.textContent = `更新: ${scheduleState} ／ 確認依頼: ${requestState}`;
     refs.enableNotificationsBtn.textContent = "端末通知を再確認";
     refs.enableNotificationsBtn.disabled = false;
-    refs.toggleScheduleNotificationsBtn.textContent = scheduleNotificationEnabled
-      ? "更新通知を無効にする"
-      : "更新通知を有効にする";
-    refs.toggleRequestNotificationsBtn.textContent = requestNotificationEnabled
-      ? "確認依頼通知を無効にする"
-      : "確認依頼通知を有効にする";
-    refs.toggleScheduleNotificationsBtn.disabled = false;
-    refs.toggleRequestNotificationsBtn.disabled = false;
+    setNotificationBtnState(refs.toggleScheduleNotificationsBtn, "更新通知", scheduleNotificationEnabled, true);
+    setNotificationBtnState(refs.toggleRequestNotificationsBtn, "確認依頼通知", requestNotificationEnabled, true);
     return;
   }
 
   if (Notification.permission === "denied") {
-    refs.notificationStatus.textContent = "端末通知: ブロックされています";
+    refs.notificationStatus.textContent = "端末通知: ブロック中";
     refs.enableNotificationsBtn.textContent = "通知設定を確認";
     refs.enableNotificationsBtn.disabled = true;
-    refs.toggleScheduleNotificationsBtn.textContent = "更新通知を有効にする";
-    refs.toggleRequestNotificationsBtn.textContent = "確認依頼通知を有効にする";
-    refs.toggleScheduleNotificationsBtn.disabled = true;
-    refs.toggleRequestNotificationsBtn.disabled = true;
+    setNotificationBtnState(refs.toggleScheduleNotificationsBtn, "更新通知", false, false);
+    setNotificationBtnState(refs.toggleRequestNotificationsBtn, "確認依頼通知", false, false);
     return;
   }
 
   refs.notificationStatus.textContent = "端末通知: 未設定";
   refs.enableNotificationsBtn.textContent = "通知を有効にする";
   refs.enableNotificationsBtn.disabled = false;
-  refs.toggleScheduleNotificationsBtn.textContent = scheduleNotificationEnabled
-    ? "更新通知を無効にする"
-    : "更新通知を有効にする";
-  refs.toggleRequestNotificationsBtn.textContent = requestNotificationEnabled
-    ? "確認依頼通知を無効にする"
-    : "確認依頼通知を有効にする";
-  refs.toggleScheduleNotificationsBtn.disabled = true;
-  refs.toggleRequestNotificationsBtn.disabled = true;
+  setNotificationBtnState(refs.toggleScheduleNotificationsBtn, "更新通知", scheduleNotificationEnabled, false);
+  setNotificationBtnState(refs.toggleRequestNotificationsBtn, "確認依頼通知", requestNotificationEnabled, false);
 }
 
 async function requestBrowserNotificationPermission() {
