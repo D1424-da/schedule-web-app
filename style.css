@@ -226,6 +226,9 @@ body.auth-locked main {
 }
 
 .card {
+  /* CSS Gridのグリッドアイテムはmin-width:autoにより、内部の表など幅の広い
+     子要素があるとグリッド自体を押し広げてしまうため、明示的に0にリセットする */
+  min-width: 0;
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 14px;
@@ -570,6 +573,8 @@ a:focus-visible {
 }
 
 .table-wrap {
+  width: 100%;
+  min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
