@@ -692,10 +692,12 @@ function bindEvents() {
         return;
       }
 
-      state.currentUser = normalizeDisplayName(refs.loginIdInput.value);
-      state.currentUserId = loginId;
+      // 認証成功前にstate.currentUser/currentUserIdを書き換えると、既にログイン中の
+      // 利用者が誤ったID/パスワードで別人のログインを試みて失敗した場合でも、
+      // 編集対象だけが別人に切り替わったまま残ってしまう（handleAuthStateChangedが
+      // 認証成功時にpendingLogin*から本採用するまでは、ここではstateを変更しない）
       pendingLoginId = loginId;
-      pendingLoginDisplayName = state.currentUser;
+      pendingLoginDisplayName = normalizeDisplayName(refs.loginIdInput.value);
       pendingLoginPassword = loginPassword;
 
       loginInFlight = true;
