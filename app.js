@@ -2311,6 +2311,10 @@ function startCloudListener() {
         }
         localStorage.setItem(STORAGE_KEY, JSON.stringify(buildLocalPayload()));
         await render();
+        // クラウドの実データを取り込んだ直後にのみauthEmailsをピンポイントで更新する
+        // （ログイン直後などクラウド同期前に全体stateを保存すると、ローカルの
+        // 古い/空の状態でstaffAccounts等を上書きしてしまう恐れがあるため避ける）
+        await refreshAuthEmailAllowListIfNeeded(cloudData);
 
         // 初回同期でも自分宛の承認待ち依頼があれば通知する
         if (getPendingIncomingRequests(cloudData.confirmationRequests).length > 0) {
@@ -4638,6 +4642,29 @@ function buildAuthEmailAllowList() {
   return [...emails];
 }
 
+async function refreshAuthEmailAllowListIfNeeded(cloudData) {
+  if (!state.isAdmin || !cloudSyncEnabled || !currentFirebaseUser || !firestoreDb) {
+    return;
+  }
+
+  const expected = buildAuthEmailAllowList();
+  const current = Array.isArray(cloudData?.authEmails) ? cloudData.authEmails : [];
+  const isSameSet = expected.length === current.length && expected.every((email) => current.includes(email));
+  if (isSameSet) {
+    return;
+  }
+
+  try {
+    // staffAccounts等には触れず、authEmailsフィールドだけをピンポイントで更新する
+    await firestoreDb.collection(FIRESTORE_COLLECTION).doc(FIRESTORE_DOCUMENT).set(
+      { authEmails: expected },
+      { merge: true },
+    );
+  } catch (error) {
+    // 失敗しても通常の閲覧・保存動作には影響しない
+  }
+}
+
 function buildCloudPayload(announce = false) {
   return {
     currentWeekStart: toISODate(state.currentWeekStart),
@@ -5282,12 +5309,7 @@ async function handleAuthStateChanged(user) {
     await ensureBackgroundPushSubscription();
   }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(buildLocalPayload()));
-  if (
-    (currentUserAddedToStaff && hasMeaningfulScheduleData())
-    // Firestoreルールが参照するauthEmails許可リストを、管理者ログイン毎に
-    // 現在のstaffAccountsから再生成して最新化しておく（登録者追加/削除の反映漏れ防止）
-    || state.isAdmin
-  ) {
+  if (currentUserAddedToStaff && hasMeaningfulScheduleData()) {
     saveState();
   }
   const signedInLabel = state.currentUser || state.currentUserId || "利用者";
