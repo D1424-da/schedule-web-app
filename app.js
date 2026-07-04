@@ -454,6 +454,19 @@ async function init() {
   }
 }
 
+// ============================================================
+// 印刷 / PDF書き出し (overall.html・admin.html対応)
+//
+// - 実際の紙印刷(Ctrl+P): style.css の `@media print` がそのまま効くため、
+//   ここでは1ページに収めるための拡大縮小(--print-fit-scale)だけを担う。
+// - PDFダウンロード: html2canvas は対象ノードを別iframeへ複製してから描画するため、
+//   `@media print` は(CSSOMを書き換えても)反映されない。そのため
+//     1. 表示切替は `.pdf-export-mode` クラス(style.css内に実体として定義)の付け外し
+//     2. 印刷対象外セクションの除外は ignoreElements の matches() 判定
+//     3. 1ページに収める調整はキャプチャ後のcanvas実寸に合わせたPDFページサイズ指定
+//   という、紙印刷とは別の手段で同等の見た目を再現している。
+// ============================================================
+
 const supportsPrintFitScale = isOverallPage || isAdminPage;
 
 function bindPrintFitEvents() {
@@ -461,11 +474,14 @@ function bindPrintFitEvents() {
     return;
   }
 
-  window.addEventListener("beforeprint", applyOverallPrintFitScale);
-  window.addEventListener("afterprint", resetOverallPrintFitScale);
+  window.addEventListener("beforeprint", applyPrintFitScale);
+  window.addEventListener("afterprint", resetPrintFitScale);
 }
 
-function applyOverallPrintFitScale(options = {}) {
+// 紙印刷時、A4横1ページに収まるようcontainerを縮小する(--print-fit-scaleはstyle.css側で参照)。
+// PDF書き出しではhtml2canvasの内部クローンにtransform:scaleが反映されないため使用しない
+// (1ページに収める調整はdownloadPdfBtnのPDFページサイズ指定側で行う)。
+function applyPrintFitScale(options = {}) {
   const { marginMm = 8, minScale = 0.58 } = options;
   const body = document.body;
   const container = document.querySelector("main.container");
@@ -490,19 +506,18 @@ function applyOverallPrintFitScale(options = {}) {
   body.style.setProperty("--print-fit-scale", String(nextScale));
 }
 
-function resetOverallPrintFitScale() {
+function resetPrintFitScale() {
   if (!supportsPrintFitScale || !document.body) {
     return;
   }
   document.body.style.removeProperty("--print-fit-scale");
 }
 
-// html2canvas は対象ノードを別iframeへ複製してから描画するため、@media print のCSSは
-// (実行時にCSSOMを書き換えても)反映されない。そのため見た目の切替はスタイルシート上に
-// 実体として存在する「.pdf-export-mode」クラスの付け外しで行う。
 const PDF_EXPORT_MODE_CLASS = "pdf-export-mode";
 
 // 週移動・管理設定・確認依頼など印刷対象外のセクションをPDFキャプチャから除外する。
+// style.css の `@media print` 側の非表示リストと役割は同じなので、対象セクションを
+// 追加/削除する際はあわせて更新すること。
 // html2canvasはノードを内部クローンしてからignoreElementsへ渡すため、元DOMへの参照比較ではなく
 // クローン後でも成立するmatches()によるセレクタ判定で行う。
 const PDF_EXPORT_HIDDEN_SELECTORS = [
@@ -526,9 +541,6 @@ function shouldIgnoreForPdfExport(element) {
 }
 
 async function withPrintLayoutActive(action) {
-  // CSSのtransform:scale(--print-fit-scale)はhtml2canvasのキャプチャサイズ計算に反映されないため
-  // (実際の紙印刷のbeforeprint/afterprintでのみ有効)、PDF書き出し時には適用しない。
-  // 1ページに収める調整はキャプチャ後のcanvas寸法に合わせたPDFページサイズ側で行う。
   document.body.classList.add(PDF_EXPORT_MODE_CLASS);
   try {
     await action();
