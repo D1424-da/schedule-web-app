@@ -723,6 +723,18 @@ function bindEvents() {
         setLoginUiBusy(false);
       }
     });
+
+    // 日本語入力の変換確定Enter（isComposing中）は送信扱いにせず、
+    // 確定後の純粋なEnterキーのみでフォーム送信する
+    const submitOnEnter = (event) => {
+      if (event.key !== "Enter" || event.isComposing) {
+        return;
+      }
+      event.preventDefault();
+      refs.loginForm.requestSubmit();
+    };
+    refs.loginIdInput.addEventListener("keydown", submitOnEnter);
+    refs.loginPasswordInput.addEventListener("keydown", submitOnEnter);
   }
 
   if (refs.logoutBtn) {
@@ -5849,8 +5861,12 @@ function normalizeDisplayName(value) {
   return String(value).trim().replaceAll("　", " ").replace(/\s+/g, " ");
 }
 
+function normalizeFullWidthDigits(value) {
+  return String(value).replace(/[０-９]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xfee0));
+}
+
 function normalizeLoginPassword(value) {
-  return String(value).replaceAll("-", "").replaceAll("/", "").trim();
+  return normalizeFullWidthDigits(value).replaceAll("-", "").replaceAll("/", "").trim();
 }
 
 function maskPassword(password) {
