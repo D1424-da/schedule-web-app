@@ -22,8 +22,13 @@
   box-sizing: border-box;
 }
 
+html {
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
+  overflow-x: hidden;
   font-family: "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
   background:
     radial-gradient(circle at 12% 15%, #fff9ef 0%, transparent 42%),
@@ -198,12 +203,66 @@ body.auth-locked main {
   padding: 8px 12px 0;
 }
 
+.notification-hint {
+  width: 100%;
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
 .notification-status {
   font-size: 14px;
   color: var(--muted);
   background: #f3f5f7;
   border-radius: 999px;
   padding: 8px 12px;
+}
+
+.notification-tools .btn[data-state="on"] {
+  background: #2e7d32;
+  color: #fff;
+  border: 2px solid #2e7d32;
+}
+
+.notification-tools .btn[data-state="off"] {
+  background: #e0e0e0;
+  color: #555;
+  border: 2px solid #bdbdbd;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn:disabled:hover {
+  background: var(--primary);
+}
+
+/* 未許可・ブロック中はオン/オフの色を出さず「保留中」とわかる中立色にする */
+.notification-tools .btn:disabled {
+  background: #eceff1;
+  color: #455a64;
+  border: 2px dashed #90a4ae;
+  opacity: 1;
+}
+
+@media (prefers-color-scheme: dark) {
+  .notification-tools .btn[data-state="on"] {
+    background: #1b5e20;
+    color: #e8f5e9;
+    border-color: #1b5e20;
+  }
+  .notification-tools .btn[data-state="off"] {
+    background: #424242;
+    color: #bdbdbd;
+    border-color: #555;
+  }
+  .notification-tools .btn:disabled {
+    background: #37474f;
+    color: #cfd8dc;
+    border-color: #78909c;
+  }
 }
 
 .auth-bar .btn,
@@ -221,6 +280,9 @@ body.auth-locked main {
 }
 
 .card {
+  /* CSS Gridのグリッドアイテムはmin-width:autoにより、内部の表など幅の広い
+     子要素があるとグリッド自体を押し広げてしまうため、明示的に0にリセットする */
+  min-width: 0;
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 14px;
@@ -565,29 +627,19 @@ a:focus-visible {
 }
 
 .table-wrap {
+  width: 100%;
+  min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
   scrollbar-gutter: stable;
   overscroll-behavior-x: contain;
   touch-action: pan-x;
-  scrollbar-width: auto;
-  scrollbar-color: #6f8795 #dde6ec;
+  scrollbar-width: none;
 }
 
 .table-wrap::-webkit-scrollbar {
-  height: 14px;
-}
-
-.table-wrap::-webkit-scrollbar-track {
-  background: #dde6ec;
-  border-radius: 999px;
-}
-
-.table-wrap::-webkit-scrollbar-thumb {
-  background: #6f8795;
-  border-radius: 999px;
-  border: 2px solid #dde6ec;
+  display: none;
 }
 
 .scroll-hint {
@@ -1218,6 +1270,24 @@ textarea:focus-visible {
   .table-wrap {
     touch-action: auto;
     scrollbar-gutter: auto;
+    scrollbar-width: auto;
+    scrollbar-color: #6f8795 #dde6ec;
+  }
+
+  .table-wrap::-webkit-scrollbar {
+    display: block;
+    height: 14px;
+  }
+
+  .table-wrap::-webkit-scrollbar-track {
+    background: #dde6ec;
+    border-radius: 999px;
+  }
+
+  .table-wrap::-webkit-scrollbar-thumb {
+    background: #6f8795;
+    border-radius: 999px;
+    border: 2px solid #dde6ec;
   }
 
   .table-scrollbar {
@@ -2922,46 +2992,3 @@ textarea:focus-visible {
 
 }
 
-/* PDFダウンロード時のみ付与するクラス。html2canvasは対象ノードを別iframeへ複製して描画するため
-   @media print は反映されない。印刷時と近い見た目にするための最小限のスタイルをここに用意する */
-body.pdf-export-mode main.container {
-  width: calc(100% / var(--print-fit-scale, 1));
-  transform: scale(var(--print-fit-scale, 1));
-  transform-origin: top left;
-}
-
-body.pdf-export-mode .card {
-  border: 1px solid #666;
-  border-radius: 0;
-  box-shadow: none;
-}
-
-body.pdf-export-mode .schedule-table {
-  width: 100% !important;
-  min-width: 0 !important;
-  table-layout: fixed;
-  font-size: 11px;
-}
-
-body.pdf-export-mode .schedule-table th,
-body.pdf-export-mode .schedule-table td {
-  border: 1px solid #666;
-}
-
-body.pdf-export-mode .schedule-table th {
-  background: #efefef !important;
-}
-
-body.pdf-export-mode .schedule-table th:first-child,
-body.pdf-export-mode .schedule-table td:first-child,
-body.pdf-export-mode .schedule-table th.name-col {
-  width: 60px;
-  min-width: 60px;
-  max-width: 60px;
-}
-
-body.pdf-export-mode #overallBusinessNoteList {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-}

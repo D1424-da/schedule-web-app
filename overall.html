@@ -7,7 +7,7 @@
     <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet" />
     <title>全体ページ | 週間予定表管理システム</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-    <link rel="stylesheet" href="style.css?v=20260523a" />
+    <link rel="stylesheet" href="style.css?v=20260704e" />
   </head>
   <body data-page="overall" class="auth-locked">
     <header class="topbar">
@@ -17,7 +17,6 @@
         <a href="personal.html" class="btn btn-secondary">個人入力ページへ</a>
         <a href="index.html" class="btn btn-ghost">入口へ戻る</a>
         <button id="printPageBtn" class="btn btn-secondary no-print" type="button">印刷</button>
-        <button id="downloadPdfBtn" class="btn btn-secondary no-print" type="button">PDFダウンロード</button>
       </div>
       <div class="auth-bar">
         <span id="currentUserLabel" class="current-user">ログイン: 未ログイン</span>
@@ -32,6 +31,7 @@
         <button id="enableNotificationsBtn" class="btn btn-secondary" type="button">通知を有効にする</button>
         <button id="toggleScheduleNotificationsBtn" class="btn btn-secondary" type="button">更新通知を無効にする</button>
         <button id="toggleRequestNotificationsBtn" class="btn btn-secondary" type="button">確認依頼通知を無効にする</button>
+        <p id="notificationHint" class="notification-hint hidden">まず「通知を有効にする」を押すと、更新通知・確認依頼通知が使えるようになります。</p>
       </div>
     </header>
 
@@ -309,11 +309,11 @@
     </dialog>
 
     <script src="firebase-config.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha384-Yv5O+t3uE3hunW8uyrbpPW3iw6/5/Y7HitWJBLgqfMoA36NogMmy+8wWZMpn3HWc" crossorigin="anonymous"></script>
+
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js" integrity="sha384-AQ3POAMqIhwS81FrUH95ekxqBZHeP5tG2JfEL3+7GuTtfRLWnrRh32UxwzM+//A9" crossorigin="anonymous"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js" integrity="sha384-TnlRYaR4JYz/lpaGuaiU61PjNberSA4vjLjtF+oRC/IkohkJqnWxw5EmDSOt1vA1" crossorigin="anonymous"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js" integrity="sha384-qn4Jh88HhJA8dplNQyGjOh9OGI4izVhrfj/qIFgaKcdgOE06pXqIKGlsCILZcLAC" crossorigin="anonymous"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js" integrity="sha384-XtSlZdmg0Ad5zf0AX4W9TGdm+dGjaNK4KG3lNFjfgbnxkCEuT9ugWXkLExgQTJ+6" crossorigin="anonymous"></script>
-    <script src="app.js"></script>
+    <script src="app.js?v=20260704d"></script>
   </body>
 </html>

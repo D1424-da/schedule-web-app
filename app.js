@@ -156,7 +156,6 @@ const refs = {
   notice: document.getElementById("notice"),
   currentUserLabel: document.getElementById("currentUserLabel"),
   printPageBtn: document.getElementById("printPageBtn"),
-  downloadPdfBtn: document.getElementById("downloadPdfBtn"),
   openLoginBtn: document.getElementById("openLoginBtn"),
   logoutBtn: document.getElementById("logoutBtn"),
   toggleSettingsBtn: document.getElementById("toggleSettingsBtn"),
@@ -215,6 +214,7 @@ const refs = {
   notificationStatus: document.getElementById("notificationStatus"),
   toggleNotificationToolsBtn: document.getElementById("toggleNotificationToolsBtn"),
   notificationToolsPanel: document.getElementById("notificationToolsPanel"),
+  notificationHint: document.getElementById("notificationHint"),
   syncAlert: document.getElementById("syncAlert"),
   requestInboxSection: document.getElementById("requestInboxSection"),
   requestInboxList: document.getElementById("requestInboxList"),
@@ -454,19 +454,6 @@ async function init() {
   }
 }
 
-// ============================================================
-// 印刷 / PDF書き出し (overall.html・admin.html対応)
-//
-// - 実際の紙印刷(Ctrl+P): style.css の `@media print` がそのまま効くため、
-//   ここでは1ページに収めるための拡大縮小(--print-fit-scale)だけを担う。
-// - PDFダウンロード: html2canvas は対象ノードを別iframeへ複製してから描画するため、
-//   `@media print` は(CSSOMを書き換えても)反映されない。そのため
-//     1. 表示切替は `.pdf-export-mode` クラス(style.css内に実体として定義)の付け外し
-//     2. 印刷対象外セクションの除外は ignoreElements の matches() 判定
-//     3. 1ページに収める調整はキャプチャ後のcanvas実寸に合わせたPDFページサイズ指定
-//   という、紙印刷とは別の手段で同等の見た目を再現している。
-// ============================================================
-
 const supportsPrintFitScale = isOverallPage || isAdminPage;
 
 function bindPrintFitEvents() {
@@ -478,11 +465,10 @@ function bindPrintFitEvents() {
   window.addEventListener("afterprint", resetPrintFitScale);
 }
 
-// 紙印刷時、A4横1ページに収まるようcontainerを縮小する(--print-fit-scaleはstyle.css側で参照)。
-// PDF書き出しではhtml2canvasの内部クローンにtransform:scaleが反映されないため使用しない
-// (1ページに収める調整はdownloadPdfBtnのPDFページサイズ指定側で行う)。
+// 紙印刷・PDF書き出し共通: A4横1ページに収まるようcontainerを縮小する
+// (--print-fit-scaleはstyle.css側でzoom/transformとして参照される)。
 function applyPrintFitScale(options = {}) {
-  const { marginMm = 8, minScale = 0.58 } = options;
+  const { marginMm = 8, minScale = 0.58, safetyFactor = 1 } = options;
   const body = document.body;
   const container = document.querySelector("main.container");
   if (!body || !container || !supportsPrintFitScale) {
@@ -502,7 +488,8 @@ function applyPrintFitScale(options = {}) {
 
   const widthScale = printableWidthPx / rect.width;
   const heightScale = printableHeightPx / rect.height;
-  const nextScale = Math.max(minScale, Math.min(1, widthScale, heightScale));
+  // safetyFactorはzoom反映後の端数誤差で1ページに収まりきらなくなるのを防ぐための余裕
+  const nextScale = Math.max(minScale, Math.min(1, widthScale, heightScale) * safetyFactor);
   body.style.setProperty("--print-fit-scale", String(nextScale));
 }
 
@@ -511,42 +498,6 @@ function resetPrintFitScale() {
     return;
   }
   document.body.style.removeProperty("--print-fit-scale");
-}
-
-const PDF_EXPORT_MODE_CLASS = "pdf-export-mode";
-
-// 週移動・管理設定・確認依頼など印刷対象外のセクションをPDFキャプチャから除外する。
-// style.css の `@media print` 側の非表示リストと役割は同じなので、対象セクションを
-// 追加/削除する際はあわせて更新すること。
-// html2canvasはノードを内部クローンしてからignoreElementsへ渡すため、元DOMへの参照比較ではなく
-// クローン後でも成立するmatches()によるセレクタ判定で行う。
-const PDF_EXPORT_HIDDEN_SELECTORS = [
-  ".controls",
-  "#progressSection",
-  "#adminSettingsSection",
-  "#adminRegisterSection",
-  "#adminRecoverySection",
-  "#requestInboxSection",
-  "#syncAlert",
-  "#notice",
-  "#adminOnlyNotice",
-  ".monthly-card",
-];
-
-function shouldIgnoreForPdfExport(element) {
-  if (typeof element.matches !== "function") {
-    return false;
-  }
-  return PDF_EXPORT_HIDDEN_SELECTORS.some((selector) => element.matches(selector));
-}
-
-async function withPrintLayoutActive(action) {
-  document.body.classList.add(PDF_EXPORT_MODE_CLASS);
-  try {
-    await action();
-  } finally {
-    document.body.classList.remove(PDF_EXPORT_MODE_CLASS);
-  }
 }
 
 function bindEvents() {
@@ -651,48 +602,6 @@ function bindEvents() {
     });
   }
 
-  if (refs.downloadPdfBtn) {
-    refs.downloadPdfBtn.addEventListener("click", async () => {
-      if (typeof window.html2pdf !== "function") {
-        setNotice("PDFライブラリの読込に失敗しました。ページを再読み込みしてください。");
-        return;
-      }
-
-      // document.bodyには印刷対象外のヘッダー等が含まれ、html2canvasの背景解析エラーの原因にもなるため
-      // 印刷時と同じ範囲(main.container)だけをPDF化する
-      const element = document.querySelector("main.container") || document.body;
-      const opt = {
-        margin: 0,
-        filename: "週間作業予定表.pdf",
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, ignoreElements: shouldIgnoreForPdfExport },
-        jsPDF: { unit: "px", format: "a4", orientation: "landscape" },
-      };
-
-      try {
-        await withPrintLayoutActive(async () => {
-          const worker = window.html2pdf().set(opt).from(element);
-          await worker.toCanvas();
-          const canvas = await worker.get("canvas");
-          // CSSのtransform:scaleはhtml2canvasのキャプチャサイズ計算に反映されないため、
-          // 実際にキャプチャできたcanvasの寸法に合わせて1ページぶんのPDFサイズを決め、
-          // 複数ページに分割されないようにする
-          await worker
-            .set({
-              jsPDF: {
-                unit: "px",
-                format: [canvas.width, canvas.height],
-                orientation: canvas.width >= canvas.height ? "landscape" : "portrait",
-              },
-            })
-            .save();
-        });
-      } catch (error) {
-        setNotice("PDFの作成に失敗しました。再度お試しください。");
-      }
-    });
-  }
-
   if (refs.toggleNotificationToolsBtn && refs.notificationToolsPanel) {
     refs.toggleNotificationToolsBtn.addEventListener("click", () => {
       const isHidden = refs.notificationToolsPanel.classList.toggle("hidden");
@@ -734,10 +643,9 @@ function bindEvents() {
         setNotice("先に端末通知を有効化してください。");
         return;
       }
-      setScheduleNotificationEnabled(!scheduleNotificationEnabled);
-      setNotice(scheduleNotificationEnabled
-        ? "更新通知を有効にしました。"
-        : "更新通知を無効にしました。");
+      const next = !scheduleNotificationEnabled;
+      setScheduleNotificationEnabled(next);
+      setNotice(next ? "更新通知をオンにしました。" : "更新通知をオフにしました。");
     });
   }
 
@@ -747,10 +655,9 @@ function bindEvents() {
         setNotice("先に端末通知を有効化してください。");
         return;
       }
-      setRequestNotificationEnabled(!requestNotificationEnabled);
-      setNotice(requestNotificationEnabled
-        ? "確認依頼通知を有効にしました。"
-        : "確認依頼通知を無効にしました。");
+      const next = !requestNotificationEnabled;
+      setRequestNotificationEnabled(next);
+      setNotice(next ? "確認依頼通知をオンにしました。" : "確認依頼通知をオフにしました。");
     });
   }
 
@@ -2274,6 +2181,7 @@ async function handleProgressListClick(event) {
         project.items = (project.items || []).filter((i) => i.id !== itemId);
       }
       renderProgressSection();
+      await renderMonthlyCalendar();
       await saveStateImmediately();
       setNotice("工種を削除しました。");
     } else if (action === "increment") {
@@ -2566,6 +2474,7 @@ async function renderMonthlyCalendar() {
     const targetName = getLoggedInScheduleTargetName();
     if (!targetName) {
       refs.monthlyScheduleTable.innerHTML = "<tbody><tr><td class=\"monthly-empty\">ログイン中ユーザーの工程表示対象が見つかりません。</td></tr></tbody>";
+      syncMonthlyScrollbar();
       return;
     }
 
@@ -2574,6 +2483,7 @@ async function renderMonthlyCalendar() {
       monthStart,
       targetName,
     });
+    syncMonthlyScrollbar();
     return;
   }
 
@@ -2790,13 +2700,45 @@ function renderOverallMonthlyGanttTable({ tableEl, monthStart, owners: ownersOve
   }
 
   if (owners.length === 0) {
-    const tr = document.createElement("tr");
-    const td = document.createElement("td");
-    td.className = "monthly-empty";
-    td.colSpan = monthDates.length + 1;
-    td.textContent = "工程データがありません。";
-    tr.appendChild(td);
-    tbody.appendChild(tr);
+    const holidayRow = document.createElement("tr");
+    const userCell = document.createElement("th");
+    userCell.className = "monthly-gantt-user-cell";
+    userCell.textContent = "";
+    holidayRow.appendChild(userCell);
+
+    for (const date of monthDates) {
+      const dateStr = toISODate(date);
+      const td = document.createElement("td");
+      td.className = "monthly-gantt-cell";
+      if (date.getDay() === 0 || date.getDay() === 6) {
+        td.classList.add("is-weekend");
+      }
+      const holidayName = String(getHolidayName(dateStr) || "").trim();
+      if (holidayName) {
+        td.classList.add("is-holiday");
+      }
+      const offLabel = getOverallCalendarDayOffLabel(date, dateStr);
+      if (offLabel) {
+        const wrap = document.createElement("div");
+        wrap.className = "monthly-gantt-segment-wrap";
+        const offEl = document.createElement("div");
+        offEl.className = "monthly-gantt-off-entry";
+        offEl.classList.add(holidayName ? "is-holiday" : "is-off");
+        offEl.textContent = holidayName || "休";
+        wrap.appendChild(offEl);
+        td.appendChild(wrap);
+      }
+      holidayRow.appendChild(td);
+    }
+    tbody.appendChild(holidayRow);
+
+    const msgRow = document.createElement("tr");
+    const msgTd = document.createElement("td");
+    msgTd.className = "monthly-empty";
+    msgTd.colSpan = monthDates.length + 1;
+    msgTd.textContent = "工程データがありません。";
+    msgRow.appendChild(msgTd);
+    tbody.appendChild(msgRow);
   }
 
   table.appendChild(thead);
@@ -5021,6 +4963,24 @@ function showSyncAlert(text) {
   }, 7000);
 }
 
+function setNotificationBtnState(btn, label, enabled, interactive) {
+  if (!interactive) {
+    // 端末通知が未許可の間は実際には動作しないため、「オン」と誤解させないよう
+    // オン/オフを名乗らず「未有効」と表示する
+    btn.textContent = `${label}（未有効）`;
+    btn.dataset.state = "pending";
+    btn.disabled = true;
+    return;
+  }
+  btn.textContent = enabled ? `${label}：オン` : `${label}：オフ`;
+  btn.dataset.state = enabled ? "on" : "off";
+  btn.disabled = false;
+}
+
+function setNotificationHintVisible(visible) {
+  refs.notificationHint?.classList.toggle("hidden", !visible);
+}
+
 function syncNotificationUi() {
   if (!refs.notificationStatus || !refs.enableNotificationsBtn || !refs.toggleScheduleNotificationsBtn || !refs.toggleRequestNotificationsBtn) {
     return;
@@ -5031,49 +4991,43 @@ function syncNotificationUi() {
     refs.enableNotificationsBtn.textContent = "通知未対応";
     refs.enableNotificationsBtn.disabled = true;
     refs.toggleScheduleNotificationsBtn.textContent = "更新通知: 未対応";
+    refs.toggleScheduleNotificationsBtn.dataset.state = "";
     refs.toggleRequestNotificationsBtn.textContent = "確認依頼通知: 未対応";
+    refs.toggleRequestNotificationsBtn.dataset.state = "";
     refs.toggleScheduleNotificationsBtn.disabled = true;
     refs.toggleRequestNotificationsBtn.disabled = true;
+    setNotificationHintVisible(false);
     return;
   }
 
   if (Notification.permission === "granted") {
-    refs.notificationStatus.textContent = "端末通知: 許可済み";
+    const scheduleState = scheduleNotificationEnabled ? "オン" : "オフ";
+    const requestState = requestNotificationEnabled ? "オン" : "オフ";
+    refs.notificationStatus.textContent = `更新: ${scheduleState} ／ 確認依頼: ${requestState}`;
     refs.enableNotificationsBtn.textContent = "端末通知を再確認";
     refs.enableNotificationsBtn.disabled = false;
-    refs.toggleScheduleNotificationsBtn.textContent = scheduleNotificationEnabled
-      ? "更新通知を無効にする"
-      : "更新通知を有効にする";
-    refs.toggleRequestNotificationsBtn.textContent = requestNotificationEnabled
-      ? "確認依頼通知を無効にする"
-      : "確認依頼通知を有効にする";
-    refs.toggleScheduleNotificationsBtn.disabled = false;
-    refs.toggleRequestNotificationsBtn.disabled = false;
+    setNotificationBtnState(refs.toggleScheduleNotificationsBtn, "更新通知", scheduleNotificationEnabled, true);
+    setNotificationBtnState(refs.toggleRequestNotificationsBtn, "確認依頼通知", requestNotificationEnabled, true);
+    setNotificationHintVisible(false);
     return;
   }
 
   if (Notification.permission === "denied") {
-    refs.notificationStatus.textContent = "端末通知: ブロックされています";
-    refs.enableNotificationsBtn.textContent = "通知設定を確認";
-    refs.enableNotificationsBtn.disabled = true;
-    refs.toggleScheduleNotificationsBtn.textContent = "更新通知を有効にする";
-    refs.toggleRequestNotificationsBtn.textContent = "確認依頼通知を有効にする";
-    refs.toggleScheduleNotificationsBtn.disabled = true;
-    refs.toggleRequestNotificationsBtn.disabled = true;
+    refs.notificationStatus.textContent = "端末通知: ブロック中（ブラウザ設定で解除してください）";
+    refs.enableNotificationsBtn.textContent = "解除方法を見る";
+    refs.enableNotificationsBtn.disabled = false;
+    setNotificationBtnState(refs.toggleScheduleNotificationsBtn, "更新通知", scheduleNotificationEnabled, false);
+    setNotificationBtnState(refs.toggleRequestNotificationsBtn, "確認依頼通知", requestNotificationEnabled, false);
+    setNotificationHintVisible(false);
     return;
   }
 
   refs.notificationStatus.textContent = "端末通知: 未設定";
   refs.enableNotificationsBtn.textContent = "通知を有効にする";
   refs.enableNotificationsBtn.disabled = false;
-  refs.toggleScheduleNotificationsBtn.textContent = scheduleNotificationEnabled
-    ? "更新通知を無効にする"
-    : "更新通知を有効にする";
-  refs.toggleRequestNotificationsBtn.textContent = requestNotificationEnabled
-    ? "確認依頼通知を無効にする"
-    : "確認依頼通知を有効にする";
-  refs.toggleScheduleNotificationsBtn.disabled = true;
-  refs.toggleRequestNotificationsBtn.disabled = true;
+  setNotificationBtnState(refs.toggleScheduleNotificationsBtn, "更新通知", scheduleNotificationEnabled, false);
+  setNotificationBtnState(refs.toggleRequestNotificationsBtn, "確認依頼通知", requestNotificationEnabled, false);
+  setNotificationHintVisible(true);
 }
 
 async function requestBrowserNotificationPermission() {
@@ -5086,6 +5040,14 @@ async function requestBrowserNotificationPermission() {
   if (Notification.permission === "granted") {
     syncNotificationUi();
     setNotice("端末通知は許可済みです。更新通知・確認依頼通知は個別ボタンで切り替えてください。");
+    return;
+  }
+
+  if (Notification.permission === "denied") {
+    // ブロック済みの場合、ブラウザは再度ダイアログを出さずに"denied"を即時返すため
+    // ここで案内を出す。解除にはブラウザ側のサイト設定操作が必要。
+    syncNotificationUi();
+    setNotice("端末通知がブロックされています。ブラウザのアドレスバー付近のサイト設定（鍵アイコンなど）から「通知」を許可に変更し、ページを再読み込みしてください。");
     return;
   }
 
