@@ -4681,15 +4681,10 @@ async function refreshAuthEmailAllowListIfNeeded(cloudData) {
 }
 
 function buildCloudPayload(announce = false) {
-  return {
+  const payload = {
     currentWeekStart: toISODate(state.currentWeekStart),
     staff: state.staff,
-    // Firestoreは全ログインユーザーが読めるため、平文パスワードは同期しない（ローカル保存のみ）
-    staffAccounts: (state.staffAccounts || []).map(({ password, ...rest }) => rest),
-    // Firestoreルール側でstaffAccounts未登録者のappData読み書きを拒否するための許可メール一覧
-    authEmails: buildAuthEmailAllowList(),
     manualEntries: state.manualEntries,
-    settings: state.settings,
     confirmationRequests: state.confirmationRequests,
     weeklyBusinessNotes: state.weeklyBusinessNotes,
     progressProjectsByUser: state.progressProjectsByUser,
@@ -4699,6 +4694,20 @@ function buildCloudPayload(announce = false) {
     notifyScope: announce ? "announce" : "silent",
     updatedAt: new Date().toISOString(),
   };
+
+  // staffAccounts/authEmails/settingsはFirestoreルール側で管理者以外の変更を拒否している。
+  // 非管理者の保存にも常に含めてしまうと、ローカルのキャッシュがサーバーの最新値と
+  // わずかにずれているだけ（他の管理者の変更が同期し切る前など）で、本来無関係な
+  // 自分の予定保存までまるごと権限エラーで拒否されてしまうため、管理者の保存時のみ含める
+  if (state.isAdmin) {
+    // Firestoreは全ログインユーザーが読めるため、平文パスワードは同期しない（ローカル保存のみ）
+    payload.staffAccounts = (state.staffAccounts || []).map(({ password, ...rest }) => rest);
+    // Firestoreルール側でstaffAccounts未登録者のappData読み書きを拒否するための許可メール一覧
+    payload.authEmails = buildAuthEmailAllowList();
+    payload.settings = state.settings;
+  }
+
+  return payload;
 }
 
 function syncManualEntryKeySnapshotFromState() {
@@ -5321,7 +5330,11 @@ async function handleAuthStateChanged(user) {
   }
   startCloudListener();
   if (requestNotificationEnabled && window.Notification && Notification.permission === "granted") {
-    await ensureBackgroundPushSubscription();
+    try {
+      await ensureBackgroundPushSubscription();
+    } catch (error) {
+      // Push登録に失敗してもログイン処理自体は継続する
+    }
   }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(buildLocalPayload()));
   if (currentUserAddedToStaff && hasMeaningfulScheduleData()) {
