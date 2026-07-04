@@ -223,6 +223,23 @@ body.auth-locked main {
   border: 2px solid #bdbdbd;
 }
 
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn:disabled:hover {
+  background: var(--primary);
+}
+
+/* 未許可・ブロック中はオン/オフの色を出さず「保留中」とわかる中立色にする */
+.notification-tools .btn:disabled {
+  background: #eceff1;
+  color: #455a64;
+  border: 2px dashed #90a4ae;
+  opacity: 1;
+}
+
 @media (prefers-color-scheme: dark) {
   .notification-tools .btn[data-state="on"] {
     background: #1b5e20;
@@ -233,6 +250,11 @@ body.auth-locked main {
     background: #424242;
     color: #bdbdbd;
     border-color: #555;
+  }
+  .notification-tools .btn:disabled {
+    background: #37474f;
+    color: #cfd8dc;
+    border-color: #78909c;
   }
 }
 

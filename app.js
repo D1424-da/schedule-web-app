@@ -4998,11 +4998,11 @@ function syncNotificationUi() {
   }
 
   if (Notification.permission === "denied") {
-    refs.notificationStatus.textContent = "端末通知: ブロック中";
-    refs.enableNotificationsBtn.textContent = "通知設定を確認";
-    refs.enableNotificationsBtn.disabled = true;
-    setNotificationBtnState(refs.toggleScheduleNotificationsBtn, "更新通知", false, false);
-    setNotificationBtnState(refs.toggleRequestNotificationsBtn, "確認依頼通知", false, false);
+    refs.notificationStatus.textContent = "端末通知: ブロック中（ブラウザ設定で解除してください）";
+    refs.enableNotificationsBtn.textContent = "解除方法を見る";
+    refs.enableNotificationsBtn.disabled = false;
+    setNotificationBtnState(refs.toggleScheduleNotificationsBtn, "更新通知", scheduleNotificationEnabled, false);
+    setNotificationBtnState(refs.toggleRequestNotificationsBtn, "確認依頼通知", requestNotificationEnabled, false);
     return;
   }
 
@@ -5023,6 +5023,14 @@ async function requestBrowserNotificationPermission() {
   if (Notification.permission === "granted") {
     syncNotificationUi();
     setNotice("端末通知は許可済みです。更新通知・確認依頼通知は個別ボタンで切り替えてください。");
+    return;
+  }
+
+  if (Notification.permission === "denied") {
+    // ブロック済みの場合、ブラウザは再度ダイアログを出さずに"denied"を即時返すため
+    // ここで案内を出す。解除にはブラウザ側のサイト設定操作が必要。
+    syncNotificationUi();
+    setNotice("端末通知がブロックされています。ブラウザのアドレスバー付近のサイト設定（鍵アイコンなど）から「通知」を許可に変更し、ページを再読み込みしてください。");
     return;
   }
 
