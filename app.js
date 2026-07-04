@@ -214,6 +214,7 @@ const refs = {
   notificationStatus: document.getElementById("notificationStatus"),
   toggleNotificationToolsBtn: document.getElementById("toggleNotificationToolsBtn"),
   notificationToolsPanel: document.getElementById("notificationToolsPanel"),
+  notificationHint: document.getElementById("notificationHint"),
   syncAlert: document.getElementById("syncAlert"),
   requestInboxSection: document.getElementById("requestInboxSection"),
   requestInboxList: document.getElementById("requestInboxList"),
@@ -4963,9 +4964,21 @@ function showSyncAlert(text) {
 }
 
 function setNotificationBtnState(btn, label, enabled, interactive) {
+  if (!interactive) {
+    // 端末通知が未許可の間は実際には動作しないため、「オン」と誤解させないよう
+    // オン/オフを名乗らず「未有効」と表示する
+    btn.textContent = `${label}（未有効）`;
+    btn.dataset.state = "pending";
+    btn.disabled = true;
+    return;
+  }
   btn.textContent = enabled ? `${label}：オン` : `${label}：オフ`;
   btn.dataset.state = enabled ? "on" : "off";
-  btn.disabled = !interactive;
+  btn.disabled = false;
+}
+
+function setNotificationHintVisible(visible) {
+  refs.notificationHint?.classList.toggle("hidden", !visible);
 }
 
 function syncNotificationUi() {
@@ -4983,6 +4996,7 @@ function syncNotificationUi() {
     refs.toggleRequestNotificationsBtn.dataset.state = "";
     refs.toggleScheduleNotificationsBtn.disabled = true;
     refs.toggleRequestNotificationsBtn.disabled = true;
+    setNotificationHintVisible(false);
     return;
   }
 
@@ -4994,6 +5008,7 @@ function syncNotificationUi() {
     refs.enableNotificationsBtn.disabled = false;
     setNotificationBtnState(refs.toggleScheduleNotificationsBtn, "更新通知", scheduleNotificationEnabled, true);
     setNotificationBtnState(refs.toggleRequestNotificationsBtn, "確認依頼通知", requestNotificationEnabled, true);
+    setNotificationHintVisible(false);
     return;
   }
 
@@ -5003,6 +5018,7 @@ function syncNotificationUi() {
     refs.enableNotificationsBtn.disabled = false;
     setNotificationBtnState(refs.toggleScheduleNotificationsBtn, "更新通知", scheduleNotificationEnabled, false);
     setNotificationBtnState(refs.toggleRequestNotificationsBtn, "確認依頼通知", requestNotificationEnabled, false);
+    setNotificationHintVisible(false);
     return;
   }
 
@@ -5011,6 +5027,7 @@ function syncNotificationUi() {
   refs.enableNotificationsBtn.disabled = false;
   setNotificationBtnState(refs.toggleScheduleNotificationsBtn, "更新通知", scheduleNotificationEnabled, false);
   setNotificationBtnState(refs.toggleRequestNotificationsBtn, "確認依頼通知", requestNotificationEnabled, false);
+  setNotificationHintVisible(true);
 }
 
 async function requestBrowserNotificationPermission() {

@@ -203,6 +203,13 @@ body.auth-locked main {
   padding: 8px 12px 0;
 }
 
+.notification-hint {
+  width: 100%;
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
 .notification-status {
   font-size: 14px;
   color: var(--muted);
