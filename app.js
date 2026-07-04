@@ -4636,7 +4636,10 @@ function buildAuthEmailAllowList() {
   const emails = new Set();
   for (const account of state.staffAccounts || []) {
     for (const email of buildAuthEmailCandidates(account.id)) {
-      emails.add(email);
+      // Firebase Authenticationはメールアドレスを内部的に小文字化して保持するため、
+      // base64エンコードで生成した大文字混じりの候補もここで小文字化しておかないと
+      // Firestoreルール側の完全一致チェックが常に失敗してしまう
+      emails.add(email.toLowerCase());
     }
   }
   return [...emails];

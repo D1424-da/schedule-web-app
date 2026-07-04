@@ -23,9 +23,11 @@ service cloud.firestore {
     // （公開APIキーの性質上、これはFirebase側の仕様でアプリコードでは止められない）ため、
     // 実際のデータアクセス制御はこのFirestoreルール側で行う。
     function isRegisteredStaffEmail() {
+      // Firebase Authenticationはメールアドレスを小文字化して保持するため、
+      // authEmails側も必ず小文字で保存する前提で比較する
       return signedIn()
         && exists(/databases/$(database)/documents/appData/weeklySchedule)
-        && request.auth.token.email in get(/databases/$(database)/documents/appData/weeklySchedule).data.authEmails;
+        && request.auth.token.email.lower() in get(/databases/$(database)/documents/appData/weeklySchedule).data.authEmails;
     }
 
     function isRegisteredStaff() {
