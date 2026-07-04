@@ -478,11 +478,10 @@ function bindPrintFitEvents() {
   window.addEventListener("afterprint", resetPrintFitScale);
 }
 
-// 紙印刷時、A4横1ページに収まるようcontainerを縮小する(--print-fit-scaleはstyle.css側で参照)。
-// PDF書き出しではhtml2canvasの内部クローンにtransform:scaleが反映されないため使用しない
-// (1ページに収める調整はdownloadPdfBtnのPDFページサイズ指定側で行う)。
+// 紙印刷・PDF書き出し共通: A4横1ページに収まるようcontainerを縮小する
+// (--print-fit-scaleはstyle.css側でzoom/transformとして参照される)。
 function applyPrintFitScale(options = {}) {
-  const { marginMm = 8, minScale = 0.58 } = options;
+  const { marginMm = 8, minScale = 0.58, safetyFactor = 1 } = options;
   const body = document.body;
   const container = document.querySelector("main.container");
   if (!body || !container || !supportsPrintFitScale) {
@@ -502,7 +501,8 @@ function applyPrintFitScale(options = {}) {
 
   const widthScale = printableWidthPx / rect.width;
   const heightScale = printableHeightPx / rect.height;
-  const nextScale = Math.max(minScale, Math.min(1, widthScale, heightScale));
+  // safetyFactorはzoom反映後の端数誤差で1ページに収まりきらなくなるのを防ぐための余裕
+  const nextScale = Math.max(minScale, Math.min(1, widthScale, heightScale) * safetyFactor);
   body.style.setProperty("--print-fit-scale", String(nextScale));
 }
 
@@ -542,9 +542,17 @@ function shouldIgnoreForPdfExport(element) {
 
 async function withPrintLayoutActive(action) {
   document.body.classList.add(PDF_EXPORT_MODE_CLASS);
+  if (supportsPrintFitScale) {
+    // zoomはtransformと異なり実レイアウトを縮小するため、html2canvasのキャプチャにも正しく反映される
+    applyPrintFitScale({ marginMm: 6, minScale: 0.1, safetyFactor: 0.94 });
+  }
+
   try {
     await action();
   } finally {
+    if (supportsPrintFitScale) {
+      resetPrintFitScale();
+    }
     document.body.classList.remove(PDF_EXPORT_MODE_CLASS);
   }
 }
@@ -662,31 +670,15 @@ function bindEvents() {
       // 印刷時と同じ範囲(main.container)だけをPDF化する
       const element = document.querySelector("main.container") || document.body;
       const opt = {
-        margin: 0,
+        margin: 0.5,
         filename: "週間作業予定表.pdf",
         image: { type: "jpeg", quality: 0.98 },
         html2canvas: { scale: 2, ignoreElements: shouldIgnoreForPdfExport },
-        jsPDF: { unit: "px", format: "a4", orientation: "landscape" },
+        jsPDF: { unit: "cm", format: "a4", orientation: "landscape" },
       };
 
       try {
-        await withPrintLayoutActive(async () => {
-          const worker = window.html2pdf().set(opt).from(element);
-          await worker.toCanvas();
-          const canvas = await worker.get("canvas");
-          // CSSのtransform:scaleはhtml2canvasのキャプチャサイズ計算に反映されないため、
-          // 実際にキャプチャできたcanvasの寸法に合わせて1ページぶんのPDFサイズを決め、
-          // 複数ページに分割されないようにする
-          await worker
-            .set({
-              jsPDF: {
-                unit: "px",
-                format: [canvas.width, canvas.height],
-                orientation: canvas.width >= canvas.height ? "landscape" : "portrait",
-              },
-            })
-            .save();
-        });
+        await withPrintLayoutActive(() => window.html2pdf().set(opt).from(element).save());
       } catch (error) {
         setNotice("PDFの作成に失敗しました。再度お試しください。");
       }

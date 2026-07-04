@@ -22,8 +22,13 @@
   box-sizing: border-box;
 }
 
+html {
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
+  overflow-x: hidden;
   font-family: "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
   background:
     radial-gradient(circle at 12% 15%, #fff9ef 0%, transparent 42%),
@@ -2925,9 +2930,9 @@ textarea:focus-visible {
 /* PDFダウンロード時のみ付与するクラス。html2canvasは対象ノードを別iframeへ複製して描画するため
    @media print は反映されない。印刷時と近い見た目にするための最小限のスタイルをここに用意する */
 body.pdf-export-mode main.container {
-  width: calc(100% / var(--print-fit-scale, 1));
-  transform: scale(var(--print-fit-scale, 1));
-  transform-origin: top left;
+  /* transform:scaleはhtml2canvasのキャプチャ寸法計算に反映されないため、
+     実レイアウトが縮小されるzoomを使ってA4 1枚に収める */
+  zoom: var(--print-fit-scale, 1);
 }
 
 body.pdf-export-mode .card {
