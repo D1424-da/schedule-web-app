@@ -2741,21 +2741,26 @@ textarea:focus-visible {
     display: none !important;
   }
 
-  body[data-page="overall"] .print-only {
+  body[data-page="overall"] .print-only,
+  body[data-page="admin"] .print-only {
     display: block;
   }
 
-  body[data-page="overall"] .container > * {
+  body[data-page="overall"] .container > *,
+  body[data-page="admin"] .container > * {
     display: none;
   }
 
   body[data-page="overall"] #printHeaderSection,
   body[data-page="overall"] #overallWeeklySection,
-  body[data-page="overall"] #overallBusinessNoteSection {
+  body[data-page="overall"] #overallBusinessNoteSection,
+  body[data-page="admin"] #printHeaderSection,
+  body[data-page="admin"] #adminWeeklySection {
     display: block;
   }
 
-  body[data-page="overall"] .container {
+  body[data-page="overall"] .container,
+  body[data-page="admin"] .container {
     width: 100%;
     margin: 0;
     gap: 3mm;
@@ -2764,13 +2769,15 @@ textarea:focus-visible {
     width: calc(100% / var(--print-fit-scale));
   }
 
-  body[data-page="overall"] #printHeaderSection {
+  body[data-page="overall"] #printHeaderSection,
+  body[data-page="admin"] #printHeaderSection {
     border: none;
     padding: 0;
     margin: 0 0 1.5mm;
   }
 
-  body[data-page="overall"] .card {
+  body[data-page="overall"] .card,
+  body[data-page="admin"] .card {
     border: 1px solid #666;
     border-radius: 0;
     box-shadow: none;
@@ -2779,37 +2786,44 @@ textarea:focus-visible {
     break-inside: avoid;
   }
 
-  body[data-page="overall"] .controls {
+  body[data-page="overall"] .controls,
+  body[data-page="admin"] .controls {
     padding: 0;
     border: none;
     box-shadow: none;
   }
 
-  body[data-page="overall"] #weekLabel {
+  body[data-page="overall"] #weekLabel,
+  body[data-page="admin"] #weekLabel {
     font-size: 12pt;
     font-weight: 700;
     margin: 0 0 1mm;
   }
 
-  body[data-page="overall"] #printDateRange {
+  body[data-page="overall"] #printDateRange,
+  body[data-page="admin"] #printDateRange {
     font-size: 12pt;
     font-weight: 700;
     margin: 0;
   }
 
-  body[data-page="overall"] .settings-header {
+  body[data-page="overall"] .settings-header,
+  body[data-page="admin"] .settings-header {
     margin-bottom: 1.5mm;
   }
 
-  body[data-page="overall"] .settings-header h2 {
+  body[data-page="overall"] .settings-header h2,
+  body[data-page="admin"] .settings-header h2 {
     font-size: 11pt;
   }
 
-  body[data-page="overall"] .table-wrap {
+  body[data-page="overall"] .table-wrap,
+  body[data-page="admin"] .table-wrap {
     overflow: visible !important;
   }
 
-  body[data-page="overall"] .schedule-table {
+  body[data-page="overall"] .schedule-table,
+  body[data-page="admin"] .schedule-table {
     width: 100% !important;
     min-width: 0 !important;
     table-layout: fixed;
@@ -2817,37 +2831,46 @@ textarea:focus-visible {
   }
 
   body[data-page="overall"] .schedule-table th,
-  body[data-page="overall"] .schedule-table td {
+  body[data-page="overall"] .schedule-table td,
+  body[data-page="admin"] .schedule-table th,
+  body[data-page="admin"] .schedule-table td {
     border: 1px solid #666;
     padding: 1mm;
   }
 
-  body[data-page="overall"] .schedule-table th {
+  body[data-page="overall"] .schedule-table th,
+  body[data-page="admin"] .schedule-table th {
     font-size: 8pt;
     background: #efefef !important;
   }
 
   body[data-page="overall"] .schedule-table th:first-child,
   body[data-page="overall"] .schedule-table td:first-child,
-  body[data-page="overall"] .schedule-table th.name-col {
+  body[data-page="overall"] .schedule-table th.name-col,
+  body[data-page="admin"] .schedule-table th:first-child,
+  body[data-page="admin"] .schedule-table td:first-child,
+  body[data-page="admin"] .schedule-table th.name-col {
     width: 15mm;
     min-width: 15mm;
     max-width: 15mm;
   }
 
-  body[data-page="overall"] .schedule-table td {
+  body[data-page="overall"] .schedule-table td,
+  body[data-page="admin"] .schedule-table td {
     height: 16mm;
     min-width: 0;
     padding: 0;
   }
 
-  body[data-page="overall"] .cell-btn {
+  body[data-page="overall"] .cell-btn,
+  body[data-page="admin"] .cell-btn {
     font-size: 7.5pt;
     padding: 1mm;
     background: transparent !important;
   }
 
-  body[data-page="overall"] .cell-status {
+  body[data-page="overall"] .cell-status,
+  body[data-page="admin"] .cell-status {
     margin-bottom: 0.5mm;
     font-size: 7.5pt;
     font-weight: 700;
@@ -2856,7 +2879,11 @@ textarea:focus-visible {
   body[data-page="overall"] .cell-work,
   body[data-page="overall"] .cell-place,
   body[data-page="overall"] .day-label,
-  body[data-page="overall"] .day-holiday {
+  body[data-page="overall"] .day-holiday,
+  body[data-page="admin"] .cell-work,
+  body[data-page="admin"] .cell-place,
+  body[data-page="admin"] .day-label,
+  body[data-page="admin"] .day-holiday {
     font-size: 7pt;
   }
 
@@ -2893,4 +2920,48 @@ textarea:focus-visible {
     overflow: hidden;
   }
 
+}
+
+/* PDFダウンロード時のみ付与するクラス。html2canvasは対象ノードを別iframeへ複製して描画するため
+   @media print は反映されない。印刷時と近い見た目にするための最小限のスタイルをここに用意する */
+body.pdf-export-mode main.container {
+  width: calc(100% / var(--print-fit-scale, 1));
+  transform: scale(var(--print-fit-scale, 1));
+  transform-origin: top left;
+}
+
+body.pdf-export-mode .card {
+  border: 1px solid #666;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+body.pdf-export-mode .schedule-table {
+  width: 100% !important;
+  min-width: 0 !important;
+  table-layout: fixed;
+  font-size: 11px;
+}
+
+body.pdf-export-mode .schedule-table th,
+body.pdf-export-mode .schedule-table td {
+  border: 1px solid #666;
+}
+
+body.pdf-export-mode .schedule-table th {
+  background: #efefef !important;
+}
+
+body.pdf-export-mode .schedule-table th:first-child,
+body.pdf-export-mode .schedule-table td:first-child,
+body.pdf-export-mode .schedule-table th.name-col {
+  width: 60px;
+  min-width: 60px;
+  max-width: 60px;
+}
+
+body.pdf-export-mode #overallBusinessNoteList {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
 }

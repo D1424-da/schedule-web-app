@@ -454,8 +454,10 @@ async function init() {
   }
 }
 
+const supportsPrintFitScale = isOverallPage || isAdminPage;
+
 function bindPrintFitEvents() {
-  if (!isOverallPage || typeof window === "undefined") {
+  if (!supportsPrintFitScale || typeof window === "undefined") {
     return;
   }
 
@@ -466,7 +468,7 @@ function bindPrintFitEvents() {
 function applyOverallPrintFitScale() {
   const body = document.body;
   const container = document.querySelector("main.container");
-  if (!body || !container || !isOverallPage) {
+  if (!body || !container || !supportsPrintFitScale) {
     return;
   }
 
@@ -488,10 +490,54 @@ function applyOverallPrintFitScale() {
 }
 
 function resetOverallPrintFitScale() {
-  if (!isOverallPage || !document.body) {
+  if (!supportsPrintFitScale || !document.body) {
     return;
   }
   document.body.style.removeProperty("--print-fit-scale");
+}
+
+// html2canvas は対象ノードを別iframeへ複製してから描画するため、@media print のCSSは
+// (実行時にCSSOMを書き換えても)反映されない。そのため見た目の切替はスタイルシート上に
+// 実体として存在する「.pdf-export-mode」クラスの付け外しで行う。
+const PDF_EXPORT_MODE_CLASS = "pdf-export-mode";
+
+// 週移動・管理設定・確認依頼など印刷対象外のセクションをPDFキャプチャから除外する。
+// html2canvasはノードを内部クローンしてからignoreElementsへ渡すため、元DOMへの参照比較ではなく
+// クローン後でも成立するmatches()によるセレクタ判定で行う。
+const PDF_EXPORT_HIDDEN_SELECTORS = [
+  ".controls",
+  "#progressSection",
+  "#adminSettingsSection",
+  "#adminRegisterSection",
+  "#adminRecoverySection",
+  "#requestInboxSection",
+  "#syncAlert",
+  "#notice",
+  "#adminOnlyNotice",
+  ".monthly-card",
+];
+
+function shouldIgnoreForPdfExport(element) {
+  if (typeof element.matches !== "function") {
+    return false;
+  }
+  return PDF_EXPORT_HIDDEN_SELECTORS.some((selector) => element.matches(selector));
+}
+
+async function withPrintLayoutActive(action) {
+  document.body.classList.add(PDF_EXPORT_MODE_CLASS);
+  if (supportsPrintFitScale) {
+    applyOverallPrintFitScale();
+  }
+
+  try {
+    await action();
+  } finally {
+    if (supportsPrintFitScale) {
+      resetOverallPrintFitScale();
+    }
+    document.body.classList.remove(PDF_EXPORT_MODE_CLASS);
+  }
 }
 
 function bindEvents() {
@@ -597,22 +643,28 @@ function bindEvents() {
   }
 
   if (refs.downloadPdfBtn) {
-    refs.downloadPdfBtn.addEventListener("click", () => {
+    refs.downloadPdfBtn.addEventListener("click", async () => {
       if (typeof window.html2pdf !== "function") {
         setNotice("PDFライブラリの読込に失敗しました。ページを再読み込みしてください。");
         return;
       }
 
-      const element = document.body;
+      // document.bodyには印刷対象外のヘッダー等が含まれ、html2canvasの背景解析エラーの原因にもなるため
+      // 印刷時と同じ範囲(main.container)だけをPDF化する
+      const element = document.querySelector("main.container") || document.body;
       const opt = {
         margin: 0.5,
         filename: "週間作業予定表.pdf",
         image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2 },
+        html2canvas: { scale: 2, ignoreElements: shouldIgnoreForPdfExport },
         jsPDF: { unit: "cm", format: "a4", orientation: "landscape" },
       };
 
-      window.html2pdf().set(opt).from(element).save();
+      try {
+        await withPrintLayoutActive(() => window.html2pdf().set(opt).from(element).save());
+      } catch (error) {
+        setNotice("PDFの作成に失敗しました。再度お試しください。");
+      }
     });
   }
 
@@ -5018,8 +5070,13 @@ async function requestBrowserNotificationPermission() {
   if (permission === "granted") {
     setScheduleNotificationEnabled(true);
     setRequestNotificationEnabled(true);
-    await ensureBackgroundPushSubscription();
-    setNotice("端末通知を有効にしました。他の利用者の更新時に通知します。確認依頼はPush通知でも受信できます。");
+    try {
+      await ensureBackgroundPushSubscription();
+      setNotice("端末通知を有効にしました。他の利用者の更新時に通知します。確認依頼はPush通知でも受信できます。");
+    } catch (error) {
+      // 画面を開いている間の通知(schedule/request)は有効化済みのため、Push登録失敗のみを案内する
+      setNotice("端末通知を有効にしました（画面を開いている間のみ）。バックグラウンドPushの登録には失敗しました。");
+    }
     return;
   }
 

@@ -52,12 +52,13 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // Web Push用トークン登録
+    // Web Push用トークン登録: 本人のトークンのみ読み書き可能（他利用者のトークン閲覧・改ざんを防止）
+    // 送信側のCloud FunctionsはAdmin SDK経由でこのルールをバイパスして参照する
     match /pushTokens/{tokenId} {
-      allow read: if signedIn();
-      allow create: if signedIn();
-      allow update: if signedIn();
-      allow delete: if signedIn();
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+      allow update: if signedIn() && resource.data.uid == request.auth.uid && request.resource.data.uid == request.auth.uid;
+      allow delete: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
     }
 
     // 明示的に未定義パスは拒否

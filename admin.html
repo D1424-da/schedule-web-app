@@ -34,6 +34,10 @@
       </div>
     </header>
     <main class="container">
+      <section id="printHeaderSection" class="print-only" aria-label="印刷ヘッダー">
+        <div id="printDateRange" class="week-label"></div>
+      </section>
+
       <p id="adminOnlyNotice" class="admin-only-notice hidden" aria-live="polite">
         このページは管理者専用です。個人/全体ページでログイン後に遷移してください。
       </p>
@@ -48,7 +52,7 @@
         <div id="weekLabel" class="week-label"></div>
       </section>
 
-      <section class="card" aria-label="週間予定表">
+      <section id="adminWeeklySection" class="card" aria-label="週間予定表">
         <div class="table-wrap">
           <table id="scheduleTable" class="schedule-table"></table>
         </div>
