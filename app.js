@@ -4628,12 +4628,24 @@ function buildLocalPayload() {
   };
 }
 
+function buildAuthEmailAllowList() {
+  const emails = new Set();
+  for (const account of state.staffAccounts || []) {
+    for (const email of buildAuthEmailCandidates(account.id)) {
+      emails.add(email);
+    }
+  }
+  return [...emails];
+}
+
 function buildCloudPayload(announce = false) {
   return {
     currentWeekStart: toISODate(state.currentWeekStart),
     staff: state.staff,
     // Firestoreは全ログインユーザーが読めるため、平文パスワードは同期しない（ローカル保存のみ）
     staffAccounts: (state.staffAccounts || []).map(({ password, ...rest }) => rest),
+    // Firestoreルール側でstaffAccounts未登録者のappData読み書きを拒否するための許可メール一覧
+    authEmails: buildAuthEmailAllowList(),
     manualEntries: state.manualEntries,
     settings: state.settings,
     confirmationRequests: state.confirmationRequests,
@@ -5270,7 +5282,12 @@ async function handleAuthStateChanged(user) {
     await ensureBackgroundPushSubscription();
   }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(buildLocalPayload()));
-  if (currentUserAddedToStaff && hasMeaningfulScheduleData()) {
+  if (
+    (currentUserAddedToStaff && hasMeaningfulScheduleData())
+    // Firestoreルールが参照するauthEmails許可リストを、管理者ログイン毎に
+    // 現在のstaffAccountsから再生成して最新化しておく（登録者追加/削除の反映漏れ防止）
+    || state.isAdmin
+  ) {
     saveState();
   }
   const signedInLabel = state.currentUser || state.currentUserId || "利用者";
