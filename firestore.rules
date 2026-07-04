@@ -17,6 +17,21 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
+    // appData/weeklyScheduleのauthEmails（管理者がstaffAccountsに登録した利用者のみが持つ
+    // Authメール一覧）に自分のメールが含まれているかを確認する。
+    // Firebase Authenticationの新規アカウント作成自体はクライアントSDKから誰でも呼び出せてしまう
+    // （公開APIキーの性質上、これはFirebase側の仕様でアプリコードでは止められない）ため、
+    // 実際のデータアクセス制御はこのFirestoreルール側で行う。
+    function isRegisteredStaffEmail() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/appData/weeklySchedule)
+        && request.auth.token.email in get(/databases/$(database)/documents/appData/weeklySchedule).data.authEmails;
+    }
+
+    function isRegisteredStaff() {
+      return isAdmin() || isRegisteredStaffEmail();
+    }
+
     // ユーザープロファイル: 本人か管理者のみ書き込み可
     match /users/{uid} {
       allow read: if signedIn();
@@ -35,19 +50,20 @@ service cloud.firestore {
 
     // 全体設定（休日ルールなど）
     match /settings/{docId} {
-      allow read: if signedIn();
-      allow write: if signedIn();
+      allow read: if isRegisteredStaff();
+      allow write: if isRegisteredStaff();
     }
 
     // 互換用: 現在の単一ドキュメント構成
-    // 全利用者が自分の予定などを書き込めるよう作成・更新自体は認証済みユーザーに許可しつつ、
-    // 利用者アカウント一覧(staffAccounts)と休日設定(settings)は管理者のみ変更できるようフィールド単位で制限する
+    // 全利用者が自分の予定などを書き込めるよう作成・更新自体はstaffAccounts登録済みの利用者に限定しつつ、
+    // 利用者アカウント一覧(staffAccounts)・許可メール一覧(authEmails)・休日設定(settings)は
+    // 管理者のみ変更できるようフィールド単位で制限する
     match /appData/{docId} {
-      allow read: if signedIn();
-      allow create: if signedIn();
-      allow update: if signedIn() && (
+      allow read: if isRegisteredStaff();
+      allow create: if isRegisteredStaff();
+      allow update: if isRegisteredStaff() && (
         isAdmin() ||
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(["staffAccounts", "settings"])
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(["staffAccounts", "settings", "authEmails"])
       );
       allow delete: if isAdmin();
     }
@@ -56,9 +72,14 @@ service cloud.firestore {
     // 送信側のCloud FunctionsはAdmin SDK経由でこのルールをバイパスして参照する
     match /pushTokens/{tokenId} {
       allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
-      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
-      allow update: if signedIn() && resource.data.uid == request.auth.uid && request.resource.data.uid == request.auth.uid;
+      allow create: if isRegisteredStaff() && request.resource.data.uid == request.auth.uid;
+      allow update: if isRegisteredStaff() && resource.data.uid == request.auth.uid && request.resource.data.uid == request.auth.uid;
       allow delete: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+    }
+
+    // 自動バックアップ（2週間分保持）: 管理者のみ読み書き可能
+    match /backups/{backupId} {
+      allow read, write: if isAdmin();
     }
 
     // 明示的に未定義パスは拒否
